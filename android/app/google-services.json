@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "805940957579",
+    "project_id": "fir-login-module-fcb05",
+    "storage_bucket": "fir-login-module-fcb05.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:805940957579:android:d37e8e6cd1980f29cbdf8e",
+        "android_client_info": {
+          "package_name": "com.example.attendance_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwHInnyWiTXTJVS7YEcO9z-s3Kt-BcDS8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:805940957579:android:4a9dd46c6bd8e3dfcbdf8e",
+        "android_client_info": {
+          "package_name": "com.example.firebase_login_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwHInnyWiTXTJVS7YEcO9z-s3Kt-BcDS8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:805940957579:android:14aed028de192330cbdf8e",
+        "android_client_info": {
+          "package_name": "com.example.zabira_academy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwHInnyWiTXTJVS7YEcO9z-s3Kt-BcDS8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
