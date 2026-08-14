@@ -41,10 +41,11 @@ flutter:
   uses-material-design: true
 
   assets:
+    # ── Branding ───────────────────────────────────────────────────────────────
+    - assets/images/branding/
+
     # ── Home — Hero Banners ────────────────────────────────────────────────────
-    - assets/images/home/hero/kids_portal_banner.png
-    - assets/images/home/hero/zabira_store_banner.png
-    - assets/images/home/hero/quality_courses_banner.png
+    - assets/images/home/hero/
 
     # ── Home — Course Thumbnails ───────────────────────────────────────────────
     - assets/images/home/courses/quran_tajweed.png
@@ -52,17 +53,18 @@ flutter:
     - assets/images/home/courses/namaz_dua.png
     - assets/images/home/courses/muslim_life.png
 
-    # ── Home — Promotional Banner ──────────────────────────────────────────────
-    - assets/images/home/promotional/promotional_banner.png
-
     # ── Home — Latest Launches ─────────────────────────────────────────────────
     - assets/images/home/latest_launches/
 
-    # ── Home — Daily Supplement ────────────────────────────────────────────────
+    # ── Home — Daily Supplement & Banner ───────────────────────────────────────
     - assets/images/home/daily_supplement/
 
-    # ── Home — Quick Access Icons ──────────────────────────────────────────────
-    - assets/images/home/icons/
+    # ── Home — Category Icons (Zabira Academy custom PNGs) ────────────────────
+    - assets/images/home/categories/
+
+    # ── Home — Zabira Store Products ──────────────────────────────────────────
+    - assets/images/home/store/
 
     # ── Home — Footer / Bottom Nav Logo ───────────────────────────────────────
     - assets/images/home/footer/academy_footer_logo.png
+

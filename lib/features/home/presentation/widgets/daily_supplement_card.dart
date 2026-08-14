@@ -6,16 +6,14 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../data/models/daily_supplement_model.dart';
 
-/// Daily Supplement compact audio player card.
+/// Slim and compact Daily Nasheed / Daily Audio Player Card.
 ///
-/// Replaces the old Continue Learning card. Shows the current day's
-/// supplemental Islamic content (nasheed, qirat, dua, reminder, etc.).
-///
-/// Layout:
-///   [Islamic Art Panel] | [Content Info + Progress] | [Play/Pause Button]
-///
-/// State: local [_playing] bool toggles play/pause icon.
-/// No audio backend — architecture is ready for future media integration.
+/// Matches the slim horizontal audio bar in the reference:
+/// - Sleek card height with minimal vertical padding
+/// - Compact 42×42px cover thumbnail
+/// - Compact typography (DAILY NASHEED • Allah Knows • 03:42)
+/// - Thin, responsive gold audio waveform
+/// - Compact 36×36px dark navy play button with gold border
 class DailySupplementCard extends StatefulWidget {
   const DailySupplementCard({super.key, required this.supplement});
 
@@ -25,12 +23,36 @@ class DailySupplementCard extends StatefulWidget {
   State<DailySupplementCard> createState() => _DailySupplementCardState();
 }
 
-class _DailySupplementCardState extends State<DailySupplementCard> {
+class _DailySupplementCardState extends State<DailySupplementCard>
+    with SingleTickerProviderStateMixin {
   bool _playing = false;
+  late final AnimationController _waveController;
+
+  @override
+  void initState() {
+    super.initState();
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+  }
+
+  @override
+  void dispose() {
+    _waveController.dispose();
+    super.dispose();
+  }
 
   void _togglePlay() {
     HapticFeedback.lightImpact();
-    setState(() => _playing = !_playing);
+    setState(() {
+      _playing = !_playing;
+      if (_playing) {
+        _waveController.repeat(reverse: true);
+      } else {
+        _waveController.stop();
+      }
+    });
   }
 
   @override
@@ -38,137 +60,96 @@ class _DailySupplementCardState extends State<DailySupplementCard> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Container(
-        height: 104,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: AppColors.surfaceWhite,
-          borderRadius: BorderRadius.circular(AppRadius.xl),
-          border: Border.all(color: AppColors.borderLight),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.borderLight.withAlpha(200),
+            width: 1.0,
+          ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.navyDark.withAlpha(10),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
+              color: AppColors.navyDark.withAlpha(7),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // ── Art Panel (left) ─────────────────────────────────────────
-            _ArtPanel(artType: widget.supplement.artType),
+            // ── 1. Compact Cover Image ─────────────────────────────────────
+            _CoverThumbnail(imagePath: 'assets/images/home/daily_supplement/daily_supplement_cover.png'),
 
-            // ── Content Info (center) ─────────────────────────────────────
+            const SizedBox(width: 10),
+
+            // ── 2. Text Column ─────────────────────────────────────────────
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Section label (gold, small)
-                    Text(
-                      widget.supplement.sectionLabel,
-                      style: GoogleFonts.outfit(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.gold,
-                        letterSpacing: 0.5,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // "DAILY NASHEED"
+                  Text(
+                    widget.supplement.sectionLabel.toUpperCase(),
+                    style: GoogleFonts.outfit(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.gold,
+                      letterSpacing: 0.5,
                     ),
-                    const SizedBox(height: 2),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 1),
 
-                    // Content title (navy, Poppins semibold)
-                    Text(
-                      widget.supplement.contentTitle,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.navyDark,
-                        height: 1.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  // "Allah Knows"
+                  Text(
+                    widget.supplement.contentTitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14.0,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.navyDark,
+                      height: 1.15,
                     ),
-                    const SizedBox(height: 2),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 1),
 
-                    // Duration
-                    Text(
-                      widget.supplement.duration,
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                      ),
+                  // "03:42"
+                  Text(
+                    widget.supplement.duration,
+                    style: GoogleFonts.outfit(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF8FA0BB),
                     ),
-                    const SizedBox(height: 6),
-
-                    // Progress bar + percentage
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
-                            child: LinearProgressIndicator(
-                              value: widget.supplement.progress,
-                              backgroundColor: AppColors.borderMedium,
-                              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
-                              minHeight: 4,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 7),
-                        Text(
-                          widget.supplement.progressLabel,
-                          style: GoogleFonts.outfit(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
 
-            // ── Play / Pause Button (right) ───────────────────────────────
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: GestureDetector(
-                  onTap: _togglePlay,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _playing ? AppColors.navyDark : AppColors.gold,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.gold.withAlpha(_playing ? 35 : 85),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 160),
-                      child: Icon(
-                        _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        key: ValueKey(_playing),
-                        color: _playing ? AppColors.gold : AppColors.navyDark,
-                        size: 22,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            const SizedBox(width: 6),
+
+            // ── 3. Gold Audio Waveform ─────────────────────────────────────
+            AnimatedBuilder(
+              animation: _waveController,
+              builder: (context, _) {
+                return _WaveformWidget(
+                  playing: _playing,
+                  animationValue: _waveController.value,
+                );
+              },
+            ),
+
+            const SizedBox(width: 10),
+
+            // ── 4. Compact Play / Pause Button ─────────────────────────────
+            _PlayButton(
+              playing: _playing,
+              onTap: _togglePlay,
             ),
           ],
         ),
@@ -179,36 +160,41 @@ class _DailySupplementCardState extends State<DailySupplementCard> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Left-side 110px illustration panel rendering the Daily Supplement banner image asset.
-class _ArtPanel extends StatelessWidget {
-  const _ArtPanel({required this.artType});
-  final DailySupplementArtType artType;
-
-  static const String _bannerPath =
-      'assets/images/home/daily_supplement/daily_supplement_banner.png';
+/// Square rounded cover thumbnail image (compact 42×42px).
+class _CoverThumbnail extends StatelessWidget {
+  const _CoverThumbnail({required this.imagePath});
+  final String imagePath;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: const BorderRadius.horizontal(left: Radius.circular(AppRadius.xl)),
-      child: SizedBox(
-        width: 110,
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: AppColors.navyDark,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(16),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
         child: Image.asset(
-          _bannerPath,
+          imagePath,
           fit: BoxFit.cover,
-          alignment: Alignment.centerLeft,
-          errorBuilder: (context, error, stackTrace) {
+          errorBuilder: (context, error, _) {
             return Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF060F20), Color(0xFF0B1C38)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+              color: AppColors.navyDark,
+              child: const Center(
+                child: Icon(
+                  Icons.music_note_rounded,
+                  color: AppColors.gold,
+                  size: 20,
                 ),
-              ),
-              child: CustomPaint(
-                painter: _SupplementArtPainter(artType),
-                child: const SizedBox.expand(),
               ),
             );
           },
@@ -220,153 +206,149 @@ class _ArtPanel extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Paints a premium Islamic geometric motif inside the Daily Supplement art panel.
-///
-/// All art variants use gold geometry on the deep navy gradient background.
-class _SupplementArtPainter extends CustomPainter {
-  const _SupplementArtPainter(this.artType);
-  final DailySupplementArtType artType;
+/// Slim gold audio waveform visualization.
+class _WaveformWidget extends StatelessWidget {
+  const _WaveformWidget({
+    required this.playing,
+    required this.animationValue,
+  });
+
+  final bool playing;
+  final double animationValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 60,
+      height: 22,
+      child: CustomPaint(
+        painter: _WaveformPainter(
+          playing: playing,
+          anim: animationValue,
+        ),
+      ),
+    );
+  }
+}
+
+class _WaveformPainter extends CustomPainter {
+  const _WaveformPainter({
+    required this.playing,
+    required this.anim,
+  });
+
+  final bool playing;
+  final double anim;
+
+  static const List<double> _baseHeights = [
+    0.15, 0.25, 0.20, 0.40, 0.30, 0.65, 0.50, 0.90,
+    0.70, 1.00, 0.80, 0.95, 0.60, 0.85, 0.45, 0.70,
+    0.35, 0.50, 0.25, 0.35, 0.15,
+  ];
 
   @override
   void paint(Canvas canvas, Size size) {
-    switch (artType) {
-      case DailySupplementArtType.nasheed:
-        _paintNasheed(canvas, size);
-      case DailySupplementArtType.qirat:
-        _paintQirat(canvas, size);
-      case DailySupplementArtType.quranRecitation:
-        _paintQirat(canvas, size);
-      case DailySupplementArtType.islamicReminder:
-        _paintNasheed(canvas, size);
-    }
-  }
-
-  // ── Nasheed: Layered 8-pointed Islamic star with crescent ────────────────
-  void _paintNasheed(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final cx = w * 0.44;
-    final cy = h * 0.51;
-    final r = w * 0.29;
-
-    // Outer halo glow
-    canvas.drawCircle(Offset(cx, cy), r * 1.72,
-        Paint()..color = AppColors.gold.withAlpha(13)..style = PaintingStyle.fill);
-
-    // Outer star (very faint, large)
-    _draw8Star(canvas, Offset(cx, cy), r * 1.18,
-        Paint()..color = AppColors.gold.withAlpha(22)..style = PaintingStyle.fill);
-
-    // Main star (filled, moderate alpha)
-    _draw8Star(canvas, Offset(cx, cy), r,
-        Paint()..color = AppColors.gold.withAlpha(158)..style = PaintingStyle.fill);
-
-    // Main star stroke outline
-    _draw8Star(
-        canvas,
-        Offset(cx, cy),
-        r,
-        Paint()
-          ..color = AppColors.gold
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = w * 0.020
-          ..strokeJoin = StrokeJoin.round);
-
-    // Inner dark cutout (creates depth / window-through-star effect)
-    _draw8Star(canvas, Offset(cx, cy), r * 0.42,
-        Paint()..color = const Color(0xFF060F20)..style = PaintingStyle.fill);
-
-    // Inner tiny star (gold gem)
-    _draw8Star(canvas, Offset(cx, cy), r * 0.17,
-        Paint()..color = AppColors.gold.withAlpha(210)..style = PaintingStyle.fill);
-
-    // Ring of 8 small dot accents
-    for (int i = 0; i < 8; i++) {
-      final angle = (i * math.pi / 4) - math.pi / 8;
-      final dx = cx + r * 1.46 * math.cos(angle);
-      final dy = cy + r * 1.46 * math.sin(angle);
-      canvas.drawCircle(Offset(dx, dy), w * 0.022,
-          Paint()..color = AppColors.gold.withAlpha(108)..style = PaintingStyle.fill);
-    }
-
-    // Crescent (top right corner)
-    canvas.drawCircle(Offset(w * 0.82, h * 0.21), w * 0.095,
-        Paint()..color = AppColors.gold..style = PaintingStyle.fill);
-    canvas.drawCircle(Offset(w * 0.88, h * 0.18), w * 0.076,
-        Paint()..color = const Color(0xFF060F20)..style = PaintingStyle.fill);
-  }
-
-  // ── Qirat: Open Quran pages with spine and crescent ─────────────────────
-  void _paintQirat(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final cx = w / 2;
-    final cy = h * 0.50;
-
-    final goldStroke = Paint()
+    final paint = Paint()
       ..color = AppColors.gold
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * 0.022
-      ..strokeCap = StrokeCap.round;
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 1.4;
 
-    // Left page
-    final leftPage = Path()
-      ..moveTo(cx, cy - h * 0.26)
-      ..lineTo(cx, cy + h * 0.20)
-      ..lineTo(cx - w * 0.38, cy + h * 0.14)
-      ..lineTo(cx - w * 0.36, cy - h * 0.28)
-      ..close();
-    canvas.drawPath(leftPage, Paint()..color = AppColors.gold.withAlpha(46)..style = PaintingStyle.fill);
-    canvas.drawPath(leftPage, goldStroke);
+    final barCount = _baseHeights.length;
+    final spacing = size.width / (barCount - 1);
+    final centerY = size.height / 2;
+    final maxHalfHeight = size.height * 0.46;
 
-    // Right page
-    final rightPage = Path()
-      ..moveTo(cx, cy - h * 0.26)
-      ..lineTo(cx, cy + h * 0.20)
-      ..lineTo(cx + w * 0.38, cy + h * 0.14)
-      ..lineTo(cx + w * 0.36, cy - h * 0.28)
-      ..close();
-    canvas.drawPath(rightPage, Paint()..color = AppColors.gold.withAlpha(28)..style = PaintingStyle.fill);
-    canvas.drawPath(rightPage, goldStroke);
+    for (int i = 0; i < barCount; i++) {
+      final x = i * spacing;
+      double hFactor = _baseHeights[i];
 
-    // Spine
-    canvas.drawLine(
-        Offset(cx, cy - h * 0.26),
-        Offset(cx, cy + h * 0.20),
-        Paint()..color = AppColors.gold..style = PaintingStyle.stroke..strokeWidth = w * 0.028..strokeCap = StrokeCap.round);
+      if (playing) {
+        final phase = (i * 0.4) + (anim * 2 * math.pi);
+        final osc = 0.25 * math.sin(phase);
+        hFactor = (hFactor + osc).clamp(0.15, 1.0);
+      }
 
-    // Text lines on left page
-    for (int i = 0; i < 3; i++) {
+      final halfH = maxHalfHeight * hFactor;
       canvas.drawLine(
-        Offset(cx - w * 0.28, cy - h * 0.10 + i * h * 0.10),
-        Offset(cx - w * 0.08, cy - h * 0.10 + i * h * 0.10),
-        Paint()..color = AppColors.gold.withAlpha(90)..style = PaintingStyle.stroke..strokeWidth = 1.2,
+        Offset(x, centerY - halfH),
+        Offset(x, centerY + halfH),
+        paint,
       );
     }
-
-    // Crescent (top left)
-    canvas.drawCircle(Offset(w * 0.18, h * 0.19), w * 0.085,
-        Paint()..color = AppColors.gold..style = PaintingStyle.fill);
-    canvas.drawCircle(Offset(w * 0.24, h * 0.17), w * 0.068,
-        Paint()..color = const Color(0xFF060F20)..style = PaintingStyle.fill);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-
-  void _draw8Star(Canvas canvas, Offset center, double r, Paint paint) {
-    final path = Path();
-    for (int i = 0; i < 8; i++) {
-      final outer = (i * math.pi / 4) - math.pi / 2;
-      final inner = outer + math.pi / 8;
-      final op = Offset(center.dx + r * math.cos(outer), center.dy + r * math.sin(outer));
-      final ip = Offset(center.dx + r * 0.42 * math.cos(inner), center.dy + r * 0.42 * math.sin(inner));
-      i == 0 ? path.moveTo(op.dx, op.dy) : path.lineTo(op.dx, op.dy);
-      path.lineTo(ip.dx, ip.dy);
-    }
-    path.close();
-    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _SupplementArtPainter old) => old.artType != artType;
+  bool shouldRepaint(covariant _WaveformPainter oldDelegate) {
+    return oldDelegate.playing != playing || oldDelegate.anim != anim;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Circular dark navy play/pause button (compact 36×36px) with gold border.
+class _PlayButton extends StatefulWidget {
+  const _PlayButton({
+    required this.playing,
+    required this.onTap,
+  });
+
+  final bool playing;
+  final VoidCallback onTap;
+
+  @override
+  State<_PlayButton> createState() => _PlayButtonState();
+}
+
+class _PlayButtonState extends State<_PlayButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: widget.playing ? 'Pause Nasheed' : 'Play Nasheed',
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: _pressed ? 0.90 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF081D3A),
+              border: Border.all(
+                color: AppColors.gold,
+                width: 1.3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF081D3A).withAlpha(30),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 140),
+                child: Icon(
+                  widget.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  key: ValueKey(widget.playing),
+                  color: AppColors.gold,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

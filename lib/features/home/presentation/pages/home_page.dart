@@ -9,27 +9,26 @@ import '../../../../features/auth/auth_controller.dart';
 import '../../data/models/latest_launch_model.dart';
 import '../../data/repositories/home_mock_repository.dart';
 import '../widgets/home_header.dart';
-import '../widgets/greeting_section.dart';
 import '../widgets/hero_carousel.dart';
 import '../widgets/quick_access_grid.dart';
 import '../widgets/section_header.dart';
 import '../widgets/daily_supplement_card.dart';
+import '../widgets/daily_supplement_banner.dart';
 import '../widgets/latest_launch_card.dart';
-import '../widgets/promotional_banner.dart';
 import '../widgets/home_bottom_nav.dart';
+import '../widgets/from_zabira_store_section.dart';
 
-/// Zabira Academy — Premium Native Mobile Home Page
+/// Zabira Academy — Home Page
 ///
-/// Home Page Section Order:
-///   Header → Greeting → Hero Carousel → Categories → Daily Supplement
-///   → Latest Launches → Promotional Banner → Bottom Navigation
-///
-/// Auth state:
-///   • Logged out : Shows neutral greeting ("Assalamu Alaikum" / "Discover, learn and grow.")
-///   • Logged in  : Displays personalized greeting with user's actual name.
-///
-/// "Continue Learning" has been replaced by "Daily Supplement" — a compact
-/// audio player card for today's featured Islamic content (no auth required).
+/// Vertical section order (matches reference image):
+///   Header (fixed)
+///   ↓ Hero Carousel (4 banners, auto-slide, pagination dots)
+///   ↓ Category Grid (8 icons, 4×2)
+///   ↓ Daily Nasheed Player (compact player card)
+///   ↓ Daily Supplement Promotional Banner (daily_supplement_banner.png)
+///   ↓ Latest Launches (5 square cards, horizontal scroll)
+///   ↓ From Zabira Store (3 product cards)
+///   Bottom Navigation (fixed)
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -40,31 +39,23 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedNavIndex = 0;
 
-  // Placeholder navigation callbacks for hero banners
-  void _onKidsPortalTap() {
-    // TODO: Navigate to Kids Portal destination page
-    debugPrint('Hero Banner Tapped: Kids Portal');
-  }
+  // ── Hero banner tap callbacks ─────────────────────────────────────────────
+  void _onCoursesTap()    => debugPrint('Hero: Courses tapped');
+  void _onKidsPortalTap() => debugPrint('Hero: Kids Portal tapped');
+  void _onStoreTap()      => debugPrint('Hero: Store tapped');
+  void _onHero4Tap()      => debugPrint('Hero: Banner 4 tapped');
 
-  void _onStoreTap() {
-    // TODO: Navigate to Zabira Store destination page
-    debugPrint('Hero Banner Tapped: Zabira Store');
-  }
-
-  void _onCoursesTap() {
-    // TODO: Navigate to Quality Courses destination page
-    debugPrint('Hero Banner Tapped: Quality Courses');
-  }
-
-  // Static content loaded once — API-ready via HomeMockRepository
+  // ── Static data (API-ready) ───────────────────────────────────────────────
   late final _banners = HomeMockRepository.getHeroBanners(
+    onCoursesTap:    _onCoursesTap,
     onKidsPortalTap: _onKidsPortalTap,
-    onStoreTap: _onStoreTap,
-    onCoursesTap: _onCoursesTap,
+    onStoreTap:      _onStoreTap,
+    onHero4Tap:      _onHero4Tap,
   );
-  final _quickItems      = HomeMockRepository.getQuickAccessItems();
+  final _categories      = HomeMockRepository.getQuickAccessItems();
   final _dailySupplement = HomeMockRepository.getDailySupplementInfo();
   final _latestLaunches  = HomeMockRepository.getLatestLaunches();
+  final _storeProducts   = HomeMockRepository.getStoreProducts();
 
   @override
   Widget build(BuildContext context) {
@@ -75,68 +66,71 @@ class _HomePageState extends State<HomePage> {
       ),
     );
 
-    // Read auth state from AuthController
     final auth = context.watch<AuthController>();
-    final isAuthenticated = auth.isAuthenticated;
-    final user = auth.user;
-    final userName = isAuthenticated && user != null
-        ? (user.displayName.isNotEmpty ? user.displayName : user.email.split('@').first)
-        : null;
 
     return Scaffold(
       backgroundColor: AppColors.surfaceLight,
       body: Column(
         children: [
-          // ── Header Bar ───────────────────────────────────────────────────
+          // ── Fixed Header ──────────────────────────────────────────────────
           SafeArea(
             bottom: false,
             child: HomeHeader(
-              isAuthenticated: isAuthenticated,
+              isAuthenticated: auth.isAuthenticated,
               notificationCount: 3,
               onSignIn: () => context.push(AppRoutes.login),
+              onProfileTap: () {
+                if (auth.isAuthenticated) {
+                  // Ready for future Profile / Dashboard screen
+                  debugPrint('Profile tapped: user is authenticated');
+                } else {
+                  context.push(AppRoutes.login);
+                }
+              },
             ),
           ),
 
-          // ── Scrollable Content ───────────────────────────────────────────
+          // ── Scrollable Content ────────────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: AppSpacing.xs),
-
-                  // 1. Greeting Section
-                  GreetingSection(userName: userName),
-
                   const SizedBox(height: AppSpacing.sm),
 
-                  // 2. Hero Carousel
+                  // 1. Hero Carousel — 4 banners
                   HeroCarousel(banners: _banners),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  // 3. Categories (Quick Access Grid)
-                  QuickAccessGrid(items: _quickItems),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  // 4. Daily Supplement
-                  SectionHeader(title: 'Daily Supplement'),
-                  const SizedBox(height: AppSpacing.sm),
-                  DailySupplementCard(supplement: _dailySupplement),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  // 5. Latest Launches (with subtle bottom-fade transition)
-                  SectionHeader(title: 'Latest Launches', onSeeAll: () {}),
-                  const SizedBox(height: AppSpacing.sm),
-                  _LatestLaunchesSection(launches: _latestLaunches),
 
                   const SizedBox(height: AppSpacing.md),
 
-                  // 6. Promotional Banner — image-only, no text above
-                  const PromotionalBanner(),
+                  // 2. Category Grid — 8 icons (4×2)
+                  QuickAccessGrid(items: _categories),
+
+                  const SizedBox(height: AppSpacing.md),
+
+                  // 3. Daily Supplement / Nasheed — compact player card
+                  DailySupplementCard(supplement: _dailySupplement),
+
+                  const SizedBox(height: AppSpacing.md),
+
+                  // 4. Daily Supplement Promotional Banner (daily_supplement_banner.png)
+                  const DailySupplementBanner(),
+
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // 5. Latest Launches — compact square image cards
+                  SectionHeader(
+                    title: 'Latest Launches',
+                    onSeeAll: () {},
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _LatestLaunchesRow(launches: _latestLaunches),
+
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // 6. From Zabira Store — 3 product cards
+                  FromZabiraStoreSection(products: _storeProducts),
 
                   // Bottom breathing room above nav bar
                   const SizedBox(height: AppSpacing.xl),
@@ -145,10 +139,10 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
 
-          // ── Dark Navy Bottom Navigation Bar ─────────────────────────────
+          // ── Fixed Bottom Navigation ───────────────────────────────────────
           HomeBottomNav(
             selectedIndex: _selectedNavIndex,
-            onItemTapped: (index) => setState(() => _selectedNavIndex = index),
+            onItemTapped: (i) => setState(() => _selectedNavIndex = i),
           ),
         ],
       ),
@@ -158,50 +152,7 @@ class _HomePageState extends State<HomePage> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Latest Launches horizontal scroll row with a subtle bottom-edge fade
-/// that eases the transition toward the bottom navigation.
-class _LatestLaunchesSection extends StatelessWidget {
-  const _LatestLaunchesSection({required this.launches});
-
-  final List<LatestLaunchModel> launches;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // ── Cards row ──────────────────────────────────────────────────────
-        _LatestLaunchesRow(launches: launches),
-
-        // ── Subtle bottom fade overlay — background only, does NOT blur
-        //    text or images. Creates a smooth transition toward the nav bar.
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 32,
-          child: IgnorePointer(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppColors.surfaceLight.withAlpha(0),
-                    AppColors.surfaceLight.withAlpha(180),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Horizontally scrolling Latest Launches row with uniform spacing.
+/// Horizontally scrolling Latest Launches row — compact square cards.
 class _LatestLaunchesRow extends StatelessWidget {
   const _LatestLaunchesRow({required this.launches});
 
@@ -209,18 +160,24 @@ class _LatestLaunchesRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const cardSize = 88.0;
+
     return SizedBox(
-      height: 204,
+      height: cardSize,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         itemCount: launches.length,
         itemBuilder: (context, index) {
           return Padding(
             padding: EdgeInsets.only(
-              right: index < launches.length - 1 ? AppSpacing.md : 0,
+              right: index < launches.length - 1 ? 10.0 : 0,
             ),
-            child: LatestLaunchCard(launch: launches[index]),
+            child: LatestLaunchCard(
+              launch: launches[index],
+              size: cardSize,
+            ),
           );
         },
       ),

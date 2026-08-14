@@ -2,17 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 
-/// Premium flat-top bottom navigation bar for Zabira Academy.
+/// Bottom navigation bar — 5 tabs: Home | Library | [Kids Center] | Store | Dashboard.
 ///
-/// 5 tabs: Home | My Learning | [Academy Logo] | Bookmarks | Profile
-///
-/// Design notes:
-/// • The nav bar background is a flat dark-navy rectangle — NO notch/crescent
-///   cut-out, so the area around the center logo stays the same navy colour.
-/// • The center logo floats ~10px above the bar via a negative Positioned offset.
-/// • academy_footer_logo.png has ~304px of transparent padding on each side.
-///   We compensate with OverflowBox + ClipOval so the rendered circle shows
-///   only the actual circular artwork at the correct visual size.
+/// The center Kids button uses the academy_footer_logo.png asset and
+/// floats slightly above the bar surface.
 class HomeBottomNav extends StatelessWidget {
   const HomeBottomNav({
     super.key,
@@ -23,33 +16,21 @@ class HomeBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int>? onItemTapped;
 
-  // ── Layout constants ────────────────────────────────────────────────────────
-  static const double _barHeight = 64.0;
+  // ── Layout constants ──────────────────────────────────────────────────────
+  static const double _barHeight       = 64.0;
+  static const double _visibleDiameter = 58.0;
+  static const double _imageScale      = 1268.0 / 656.0; // ≈ 1.93
+  static const double _clipSize        = _visibleDiameter;
+  static const double _floatAbove      = 12.0;
+  static const double _centerGap       = _clipSize + 20.0;
 
-  // Visual diameter we want the artwork to appear at (the circle of gold+navy).
-  static const double _visibleDiameter = 60.0;
-
-  // The PNG is 1268 px wide; the visible artwork spans 656 px.
-  // Ratio = 1268 / 656 ≈ 1.934 — we need to scale the image up by this factor
-  // so that the transparent edges are pushed outside the ClipOval boundary.
-  static const double _imageScale = 1268.0 / 656.0; // ≈ 1.93
-
-  // The ClipOval container size we give to Flutter equals the visible artwork
-  // diameter; the image is rendered larger inside it and clipped.
-  static const double _clipSize = _visibleDiameter;
-
-  // How much the logo floats above the bar top edge.
-  static const double _floatAbove = 10.0;
-
-  // Center spacer width keeps the two flanking tabs from overlapping the logo.
-  static const double _centerGap = _clipSize + 16.0;
-
+  // Tabs — index 2 is the invisible center spacer
   static const _items = [
-    _NavItem(icon: Icons.home_rounded,           label: 'Home'),
-    _NavItem(icon: Icons.menu_book_rounded,       label: 'My Learning'),
-    _NavItem(icon: null,                          label: ''), // center spacer
-    _NavItem(icon: Icons.bookmark_border_rounded, label: 'Bookmarks'),
-    _NavItem(icon: Icons.person_outline_rounded,  label: 'Profile'),
+    _NavItem(icon: Icons.home_rounded,          label: 'Home'),
+    _NavItem(icon: Icons.menu_book_outlined,    label: 'Library'),
+    _NavItem(icon: null,                        label: ''), // center spacer
+    _NavItem(icon: Icons.shopping_bag_outlined, label: 'Store'),
+    _NavItem(icon: Icons.person_outline_rounded,label: 'Dashboard'),
   ];
 
   @override
@@ -60,19 +41,14 @@ class HomeBottomNav extends StatelessWidget {
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
       children: [
-        // ── Flat Dark-Navy Bar (NO notch) ────────────────────────────────────
-        // Using a plain Container means the area behind and around the logo
-        // stays consistently navy — no white crescent, no cut-out.
+        // ── Dark navy bar ─────────────────────────────────────────────────
         Container(
           width: double.infinity,
           height: _barHeight + bottomPad,
           decoration: const BoxDecoration(
-            color: Color(0xFF07152B), // deep navy
+            color: Color(0xFF081D3A),
             border: Border(
-              top: BorderSide(
-                color: Color(0x22C9A84C), // subtle gold top line
-                width: 0.8,
-              ),
+              top: BorderSide(color: Color(0x30C9A84C), width: 0.8),
             ),
           ),
           child: SafeArea(
@@ -92,13 +68,13 @@ class HomeBottomNav extends StatelessWidget {
           ),
         ),
 
-        // ── Center Academy Logo — floats above the bar ───────────────────────
+        // ── Floating center Kids button ────────────────────────────────────
         Positioned(
           top: -_floatAbove,
           child: GestureDetector(
             onTap: () => onItemTapped?.call(2),
             behavior: HitTestBehavior.opaque,
-            child: _AcademyLogo(
+            child: _CenterLogo(
               clipSize: _clipSize,
               imageScale: _imageScale,
             ),
@@ -129,6 +105,17 @@ class HomeBottomNav extends StatelessWidget {
               color: color,
             ),
           ),
+          // Active indicator dot
+          const SizedBox(height: 3),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: isActive ? 4 : 0,
+            height: isActive ? 4 : 0,
+            decoration: const BoxDecoration(
+              color: AppColors.gold,
+              shape: BoxShape.circle,
+            ),
+          ),
         ],
       ),
     );
@@ -137,14 +124,9 @@ class HomeBottomNav extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Renders the academy_footer_logo.png cropped to its visible circular
-/// artwork by scaling the image up inside a ClipOval, discarding the
-/// transparent padding that surrounds the actual art.
-class _AcademyLogo extends StatelessWidget {
-  const _AcademyLogo({
-    required this.clipSize,
-    required this.imageScale,
-  });
+/// Circular floating Kids center button with the academy logo asset.
+class _CenterLogo extends StatelessWidget {
+  const _CenterLogo({required this.clipSize, required this.imageScale});
 
   final double clipSize;
   final double imageScale;
@@ -158,19 +140,18 @@ class _AcademyLogo extends StatelessWidget {
       height: clipSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        // Single tight shadow — no blur halo, no glow spread
+        color: const Color(0xFF081D3A),
+        border: Border.all(color: AppColors.gold.withAlpha(180), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(70),
-            blurRadius: 6,
+            color: Colors.black.withAlpha(60),
+            blurRadius: 8,
             offset: const Offset(0, 3),
           ),
         ],
       ),
       child: ClipOval(
         child: OverflowBox(
-          // Allow the image to render larger than the clip container so the
-          // transparent padding gets pushed outside the circular clip boundary.
           maxWidth: scaledSize,
           maxHeight: scaledSize,
           child: Image.asset(
@@ -179,20 +160,10 @@ class _AcademyLogo extends StatelessWidget {
             height: scaledSize,
             fit: BoxFit.contain,
             filterQuality: FilterQuality.high,
-            errorBuilder: (context, error, stack) => Container(
-              width: clipSize,
-              height: clipSize,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFF07152B),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.auto_stories_rounded,
-                  color: AppColors.gold,
-                  size: 26,
-                ),
-              ),
+            errorBuilder: (context, error, _) => const Icon(
+              Icons.auto_stories_rounded,
+              color: AppColors.gold,
+              size: 26,
             ),
           ),
         ),
