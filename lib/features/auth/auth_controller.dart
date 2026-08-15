@@ -80,6 +80,7 @@ class AuthController extends ChangeNotifier {
     required String password,
     String portal = 'student',
   }) async {
+    if (_status == AuthStatus.loading) return false;
     _setLoading();
     try {
       final user = await _auth.signInWithApi(
@@ -93,13 +94,9 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
+      _user = null;
       _setError(e.toString());
       return false;
-    } finally {
-      if (_status == AuthStatus.loading) {
-        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
-        notifyListeners();
-      }
     }
   }
 
@@ -110,6 +107,7 @@ class AuthController extends ChangeNotifier {
 
   // ─── Google Sign In (Official Zabira API) ─────────────────────────────────
   Future<bool> signInWithGoogle({String portal = 'student'}) async {
+    if (_status == AuthStatus.loading) return false;
     _setLoading();
     try {
       final user = await _auth.signInWithGoogle(portal: portal);
@@ -119,13 +117,9 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
+      _user = null;
       _setError(e.toString());
       return false;
-    } finally {
-      if (_status == AuthStatus.loading) {
-        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
-        notifyListeners();
-      }
     }
   }
 
@@ -143,6 +137,7 @@ class AuthController extends ChangeNotifier {
     String? city,
     bool acceptTerms = true,
   }) async {
+    if (_status == AuthStatus.loading) return false;
     _setLoading();
     try {
       await _auth.registerWithApi(
@@ -163,24 +158,22 @@ class AuthController extends ChangeNotifier {
         _user = _auth.currentUser;
         _status = AuthStatus.authenticated;
       } else {
+        _user = null;
         _status = AuthStatus.unauthenticated;
       }
       _errorMessage = null;
       notifyListeners();
       return true;
     } catch (e) {
+      _user = null;
       _setError(e.toString());
       return false;
-    } finally {
-      if (_status == AuthStatus.loading) {
-        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
-        notifyListeners();
-      }
     }
   }
 
   // ─── Forgot Password ──────────────────────────────────────────────────────
   Future<bool> sendPasswordReset(String email) async {
+    if (_status == AuthStatus.loading) return false;
     _setLoading();
     try {
       await _auth.sendPasswordResetEmail(email);
@@ -191,30 +184,22 @@ class AuthController extends ChangeNotifier {
     } catch (e) {
       _setError(e.toString());
       return false;
-    } finally {
-      if (_status == AuthStatus.loading) {
-        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
-        notifyListeners();
-      }
     }
   }
 
   // ─── Validate Reset Token ─────────────────────────────────────────────────
   Future<bool> validateResetToken(String token) async {
+    if (_status == AuthStatus.loading) return false;
     _setLoading();
     try {
       final isValid = await _auth.validateResetToken(token);
       _errorMessage = null;
+      _status = AuthStatus.unauthenticated;
       notifyListeners();
       return isValid;
     } catch (e) {
       _setError(e.toString());
       return false;
-    } finally {
-      if (_status == AuthStatus.loading) {
-        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
-        notifyListeners();
-      }
     }
   }
 
@@ -224,6 +209,7 @@ class AuthController extends ChangeNotifier {
     required String password,
     required String confirmPassword,
   }) async {
+    if (_status == AuthStatus.loading) return false;
     _setLoading();
     try {
       await _auth.resetPassword(
@@ -238,11 +224,6 @@ class AuthController extends ChangeNotifier {
     } catch (e) {
       _setError(e.toString());
       return false;
-    } finally {
-      if (_status == AuthStatus.loading) {
-        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
-        notifyListeners();
-      }
     }
   }
 

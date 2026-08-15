@@ -46,19 +46,17 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
 
     try {
       final course = await _repository.getCourseDetails(widget.courseId);
-      if (mounted) {
-        setState(() {
-          _course = course;
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _course = course;
+        _isLoading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Could not load course details. Please try again.';
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+        _isLoading = false;
+      });
     }
   }
 
@@ -103,29 +101,62 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
       return;
     }
 
-    // Perform enrollment
-    final success = await enrollment.enrollInCourse(
-      courseId: widget.courseId,
-      token: auth.currentToken,
-    );
+    final effectivePrice = _course?.paymentOptions.isNotEmpty == true &&
+            _selectedPaymentPlanIndex < (_course?.paymentOptions.length ?? 0)
+        ? _course!.paymentOptions[_selectedPaymentPlanIndex].finalPrice
+        : (_course?.effectivePrice ?? 0.0);
+    final isFree = effectivePrice <= 0 || _course?.isFree == true;
 
-    if (!mounted) return;
+    if (isFree) {
+      // Direct enrollment for free courses
+      final success = await enrollment.enrollInCourse(
+        courseId: widget.courseId,
+        token: auth.currentToken,
+      );
 
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enrolled successfully! You can now start learning.'),
-          backgroundColor: AppColors.success,
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(enrollment.errorMessage ?? 'Enrollment failed. Please try again.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Enrolled successfully! You can now start learning.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(enrollment.errorMessage ?? 'Enrollment failed. Please try again.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
     }
+
+    // Paid course: Initiate native Secure Checkout
+    final plan = _course?.paymentOptions.isNotEmpty == true &&
+            _selectedPaymentPlanIndex < (_course?.paymentOptions.length ?? 0)
+        ? _course!.paymentOptions[_selectedPaymentPlanIndex]
+        : null;
+
+    context.push(
+      '/checkout',
+      extra: {
+        'orderId': widget.courseId,
+        'productType': 'course',
+        'title': _course?.title ?? 'Course Enrollment',
+        'amount': effectivePrice,
+        'instructor': _course?.instructorName,
+        'category': _course?.categoryName,
+        'level': _course?.level,
+        'language': _course?.language,
+        'duration': _course?.duration,
+        'mode': _course?.courseType,
+        'planLabel': plan?.label,
+        'courseId': widget.courseId,
+      },
+    );
   }
 
   @override

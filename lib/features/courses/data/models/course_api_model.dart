@@ -207,9 +207,15 @@ class CourseApiModel {
   /// Resolved full hero banner URL
   String? get fullHeroBannerUrl => ApiConfig.resolveImageUrl(heroBanner);
 
+  /// Effective price considering discount
+  double get effectivePrice => (discountPrice != null && discountPrice! > 0) ? discountPrice! : price;
+
+  /// Whether the course is free
+  bool get isFree => effectivePrice <= 0;
+
   /// Formatted effective price (e.g. "₹999")
   String get formattedPrice {
-    final effective = discountPrice != null && discountPrice! > 0 ? discountPrice! : price;
+    final effective = effectivePrice;
     return '₹${effective.toInt()}';
   }
 

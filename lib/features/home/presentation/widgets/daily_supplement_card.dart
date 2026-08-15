@@ -80,7 +80,10 @@ class _DailySupplementCardState extends State<DailySupplementCard>
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // ── 1. Compact Cover Image ─────────────────────────────────────
-            _CoverThumbnail(imagePath: 'assets/images/home/daily_supplement/daily_supplement_cover.png'),
+            _CoverThumbnail(
+              imageUrl: widget.supplement.imageUrl,
+              imagePath: 'assets/images/home/daily_supplement/daily_supplement_cover.png',
+            ),
 
             const SizedBox(width: 10),
 
@@ -162,7 +165,8 @@ class _DailySupplementCardState extends State<DailySupplementCard>
 
 /// Square rounded cover thumbnail image (compact 42×42px).
 class _CoverThumbnail extends StatelessWidget {
-  const _CoverThumbnail({required this.imagePath});
+  const _CoverThumbnail({this.imageUrl, required this.imagePath});
+  final String? imageUrl;
   final String imagePath;
 
   @override
@@ -183,22 +187,37 @@ class _CoverThumbnail extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
-        child: Image.asset(
-          imagePath,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, _) {
-            return Container(
-              color: AppColors.navyDark,
-              child: const Center(
-                child: Icon(
-                  Icons.music_note_rounded,
-                  color: AppColors.gold,
-                  size: 20,
+        child: imageUrl != null && imageUrl!.isNotEmpty
+            ? Image.network(
+                imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Image.asset(
+                  imagePath,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: AppColors.navyDark,
+                    child: const Center(
+                      child: Icon(Icons.music_note_rounded, color: AppColors.gold, size: 20),
+                    ),
+                  ),
                 ),
+              )
+            : Image.asset(
+                imagePath,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, _) {
+                  return Container(
+                    color: AppColors.navyDark,
+                    child: const Center(
+                      child: Icon(
+                        Icons.music_note_rounded,
+                        color: AppColors.gold,
+                        size: 20,
+                      ),
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
       ),
     );
   }

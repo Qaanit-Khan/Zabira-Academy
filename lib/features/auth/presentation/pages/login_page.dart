@@ -41,13 +41,12 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _handleSignIn() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-
     final auth = context.read<AuthController>();
     if (auth.isLoading) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final success = await auth.signIn(
-      email: _emailController.text,
+      email: _emailController.text.trim(),
       password: _passwordController.text,
     );
 
@@ -58,10 +57,10 @@ class _LoginPageState extends State<LoginPage> {
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
       } else {
-        context.go(AppRoutes.home);
+        context.go(AppRoutes.studentDash);
       }
-    } else {
-      context.showErrorSnackBar(auth.errorMessage ?? 'Invalid email or password.');
+    } else if (auth.errorMessage != null) {
+      context.showErrorSnackBar(auth.errorMessage!);
     }
   }
 
@@ -78,10 +77,13 @@ class _LoginPageState extends State<LoginPage> {
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
       } else {
-        context.go(AppRoutes.home);
+        context.go(AppRoutes.studentDash);
       }
-    } else {
-      context.showErrorSnackBar(auth.errorMessage ?? 'Google sign in failed.');
+    } else if (auth.errorMessage != null) {
+      final msg = auth.errorMessage!;
+      if (!msg.toLowerCase().contains('cancelled')) {
+        context.showErrorSnackBar(msg);
+      }
     }
   }
 

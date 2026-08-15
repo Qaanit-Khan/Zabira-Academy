@@ -72,10 +72,12 @@ class StoreProductModel {
     return list;
   }
 
+  /// Effective price considering sale discount
+  double get effectivePrice => (salePrice != null && salePrice! > 0) ? salePrice! : price;
+
   /// Formatted current price for UI display (e.g. "₹69" or "₹1.50")
   String get formattedPrice {
-    final effective = salePrice != null && salePrice! > 0 ? salePrice! : price;
-    return _formatCurrency(effective);
+    return _formatCurrency(effectivePrice);
   }
 
   /// Formatted original price (if on sale)

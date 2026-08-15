@@ -27,26 +27,28 @@ class AuthRepository {
   Future<UserModel?> initSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _cachedToken = prefs.getString(_tokenKey);
+      final token = prefs.getString(_tokenKey);
       final userJson = prefs.getString(_userKey);
-      if (userJson != null && userJson.isNotEmpty) {
-        final data = jsonDecode(userJson) as Map<String, dynamic>;
-        _cachedUser = UserModel.fromJson(data);
 
-        // Fetch fresh profile from API in background if token exists
-        if (_cachedToken != null && _cachedToken!.isNotEmpty) {
-          _fetchFreshProfileSilently(_cachedToken!);
-        }
+      if (token != null && token.isNotEmpty && userJson != null && userJson.isNotEmpty) {
+        final data = jsonDecode(userJson) as Map<String, dynamic>;
+        final user = UserModel.fromJson(data);
+        _cachedToken = token;
+        _cachedUser = user;
+
+        // Verify token in background — if invalid/expired (401), invalidate session
+        _validateSessionSilently(token);
 
         return _cachedUser;
       }
     } catch (_) {
-      // Ignore corrupted session storage
+      // Clear corrupted session storage
+      await signOut();
     }
     return null;
   }
 
-  Future<void> _fetchFreshProfileSilently(String token) async {
+  Future<void> _validateSessionSilently(String token) async {
     try {
       final response = await _apiService.getProfile(token: token);
       final data = response['data'] ?? response['user'] ?? response;
@@ -56,8 +58,13 @@ class AuthRepository {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_userKey, jsonEncode(updatedUser.toJson()));
       }
+    } on AuthApiException catch (e) {
+      if (e.statusCode == 401) {
+        // Token is no longer valid on backend — clear session
+        await signOut();
+      }
     } catch (_) {
-      // Background profile refresh failure ignored
+      // Network failure on background check: keep local session
     }
   }
 
@@ -73,6 +80,11 @@ class AuthRepository {
       portal: portal,
     );
 
+    if (response['success'] == false) {
+      final msg = response['message']?.toString() ?? 'Invalid email or password.';
+      throw AuthApiException(message: msg, statusCode: 401);
+    }
+
     // Extract token from various standard response keys
     String? token;
     final data = response['data'];
@@ -84,7 +96,7 @@ class AuthRepository {
       token = response['token']?.toString();
     }
 
-    _cachedToken = token ?? 'session_active';
+    final effectiveToken = token ?? 'session_active';
 
     // Construct User Model from API data
     Map<String, dynamic> userMap = {};
@@ -98,18 +110,19 @@ class AuthRepository {
       userMap = response['user'] as Map<String, dynamic>;
     }
 
-    if (!userMap.containsKey('email')) userMap['email'] = email;
-    if (!userMap.containsKey('role')) userMap['role'] = portal;
+    if (!userMap.containsKey('email')) userMap['email'] = email.trim();
+    if (!userMap.containsKey('role')) userMap['role'] = portal.trim();
 
     final user = UserModel.fromJson(userMap);
+
+    // Commit only after successful parsing
+    _cachedToken = effectiveToken;
     _cachedUser = user;
 
     // Persist session securely
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (token != null) {
-        await prefs.setString(_tokenKey, token);
-      }
+      await prefs.setString(_tokenKey, effectiveToken);
       await prefs.setString(_userKey, jsonEncode(user.toJson()));
     } catch (_) {}
 

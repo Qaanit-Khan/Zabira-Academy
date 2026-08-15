@@ -19,6 +19,8 @@ class DailySupplementModel {
     required this.duration,
     required this.progress,
     required this.artType,
+    this.imageUrl,
+    this.audioUrl,
   });
 
   /// Section label shown at the top of the card e.g. "Daily Nasheed"
@@ -38,6 +40,12 @@ class DailySupplementModel {
 
   /// Drives the custom Islamic illustration rendered in the left art panel.
   final DailySupplementArtType artType;
+
+  /// Optional remote image cover URL from API
+  final String? imageUrl;
+
+  /// Optional remote audio stream URL from API
+  final String? audioUrl;
 
   /// Formatted percentage string e.g. "42%"
   String get progressLabel => '${(progress * 100).round()}%';

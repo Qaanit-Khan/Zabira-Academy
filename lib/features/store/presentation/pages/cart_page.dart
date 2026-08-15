@@ -11,6 +11,7 @@ import '../../../../shared/loaders/zabira_loader.dart';
 import '../../../../shared/widgets/zabira_network_image.dart';
 import '../../data/models/cart_item_model.dart';
 import '../controllers/cart_controller.dart';
+import '../../../payment/presentation/widgets/payment_gateway_dialog.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -29,8 +30,10 @@ class _CartPageState extends State<CartPage> {
     });
   }
 
-  void _handleCheckout() {
+  Future<void> _handleCheckout() async {
     final auth = context.read<AuthController>();
+    final cart = context.read<CartController>();
+
     if (!auth.isAuthenticated) {
       auth.setPendingReturnTo(AppRoutes.cart);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -40,40 +43,37 @@ class _CartPageState extends State<CartPage> {
       return;
     }
 
-    // Checkout dialog / modal
-    showDialog(
+    if (cart.isEmpty) return;
+
+    final isPaid = await PaymentGatewayDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Checkout Order',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: AppColors.navyDark),
-        ),
-        content: Text(
-          'Proceed to secure checkout for total ₹${context.read<CartController>().total.toStringAsFixed(0)}?',
-          style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.navyDark,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Order processing initiated!')),
-              );
-            },
-            child: const Text('Confirm & Pay'),
-          ),
-        ],
-      ),
+      orderId: DateTime.now().millisecondsSinceEpoch % 100000,
+      productType: 'cart',
+      title: 'Zabira Store Order (${cart.itemCount} items)',
+      amount: cart.total,
     );
+
+    if (!mounted) return;
+
+    if (isPaid) {
+      await cart.clearCart(auth.currentToken);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Order placed successfully! Thank you for shopping with Zabira Academy.'),
+          backgroundColor: AppColors.success,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      context.go(AppRoutes.home);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payment cancelled. Your cart remains saved.'),
+          backgroundColor: AppColors.textSecondary,
+        ),
+      );
+    }
   }
 
   @override

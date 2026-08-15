@@ -14,12 +14,19 @@ import '../features/courses/presentation/pages/my_courses_page.dart';
 import '../features/events/presentation/pages/event_details_page.dart';
 import '../features/events/presentation/pages/events_page.dart';
 import '../features/home/presentation/pages/home_page.dart';
+import '../features/kids/data/models/kids_models.dart';
+import '../features/kids/presentation/pages/kids_game_page.dart';
+import '../features/kids/presentation/pages/kids_portal_page.dart';
+import '../features/kids/presentation/pages/kids_quiz_page.dart';
 import '../features/library/presentation/pages/library_item_details_page.dart';
 import '../features/library/presentation/pages/library_page.dart';
 import '../features/media/presentation/pages/media_details_page.dart';
 import '../features/media/presentation/pages/media_page.dart';
 import '../features/nasheed/presentation/pages/nasheed_page.dart';
 import '../features/parent/presentation/pages/parent_dashboard_page.dart';
+import '../features/payment/presentation/pages/checkout_page.dart';
+import '../features/payment/presentation/pages/my_orders_page.dart';
+import '../features/payment/presentation/pages/payment_success_page.dart';
 import '../features/store/presentation/pages/cart_page.dart';
 import '../features/store/presentation/pages/store_page.dart';
 import '../features/store/presentation/pages/store_product_details_page.dart';
@@ -53,6 +60,10 @@ abstract final class AppRoutes {
   static const String libraryDetails = '/library/:id';
   static const String events = '/events';
   static const String eventDetails = '/events/:id';
+  static const String kids = '/kids';
+  static const String checkout = '/checkout';
+  static const String paymentSuccess = '/payment-success';
+  static const String myOrders = '/my-orders';
 }
 
 /// Zabira Academy Router
@@ -87,6 +98,11 @@ GoRouter buildRouter(BuildContext context) {
           loc.startsWith('/library/') ||
           loc == AppRoutes.events ||
           loc.startsWith('/events/') ||
+          loc == AppRoutes.kids ||
+          loc.startsWith('/kids/') ||
+          loc == AppRoutes.checkout ||
+          loc == AppRoutes.paymentSuccess ||
+          loc == AppRoutes.myOrders ||
           loc == AppRoutes.resetPassword;
 
       if (isPublicPage) return null;
@@ -109,7 +125,7 @@ GoRouter buildRouter(BuildContext context) {
       }
 
       if (isAuth && isOnAuthPage) {
-        // Authenticated user trying to access auth pages -> redirect to intended home or role dashboard
+        // Authenticated user trying to access auth pages -> redirect to intended role dashboard
         final returnTo = auth.consumePendingReturnTo();
         if (returnTo != null && returnTo.isNotEmpty) {
           return returnTo;
@@ -171,6 +187,59 @@ GoRouter buildRouter(BuildContext context) {
           return EventDetailsPage(eventId: id);
         },
       ),
+      GoRoute(path: AppRoutes.kids, builder: (context, state) => const KidsPortalPage()),
+      GoRoute(
+        path: '/kids/quiz/:id',
+        builder: (context, state) {
+          final idParam = state.pathParameters['id'];
+          final id = int.tryParse(idParam ?? '') ?? 0;
+          final quiz = state.extra is KidsQuizItem ? state.extra as KidsQuizItem : null;
+          return KidsQuizPage(quizId: id, quiz: quiz);
+        },
+      ),
+      GoRoute(
+        path: '/kids/game/:id',
+        builder: (context, state) {
+          final idParam = state.pathParameters['id'];
+          final id = int.tryParse(idParam ?? '') ?? 0;
+          final game = state.extra is KidsGameItem ? state.extra as KidsGameItem : null;
+          return KidsGamePage(gameId: id, game: game);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.checkout,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return CheckoutPage(
+            orderId: int.tryParse(extra['orderId']?.toString() ?? '0') ?? 0,
+            productType: extra['productType']?.toString() ?? 'course',
+            title: extra['title']?.toString() ?? 'Course Enrollment',
+            amount: double.tryParse(extra['amount']?.toString() ?? '0') ?? 0.0,
+            instructor: extra['instructor']?.toString(),
+            category: extra['category']?.toString(),
+            level: extra['level']?.toString(),
+            language: extra['language']?.toString(),
+            duration: extra['duration']?.toString(),
+            mode: extra['mode']?.toString(),
+            planLabel: extra['planLabel']?.toString(),
+            courseId: int.tryParse(extra['courseId']?.toString() ?? ''),
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.paymentSuccess,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return PaymentSuccessPage(
+            orderId: int.tryParse(extra['orderId']?.toString() ?? '0') ?? 0,
+            paymentId: extra['paymentId']?.toString() ?? 'pay_verified',
+            title: extra['title']?.toString() ?? 'Course Enrollment',
+            amount: double.tryParse(extra['amount']?.toString() ?? '0') ?? 0.0,
+            productType: extra['productType']?.toString() ?? 'course',
+          );
+        },
+      ),
+      GoRoute(path: AppRoutes.myOrders, builder: (context, state) => const MyOrdersPage()),
       GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => const AuthPage(initialTab: 0),
@@ -208,6 +277,6 @@ String _dashboardForRole(UserRole? role) {
   return switch (role) {
     UserRole.parent => AppRoutes.parentDash,
     UserRole.teacher => AppRoutes.teacherDash,
-    _ => AppRoutes.home,
+    _ => AppRoutes.studentDash,
   };
 }

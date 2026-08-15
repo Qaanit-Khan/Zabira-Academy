@@ -10,6 +10,7 @@ import '../../../../features/auth/auth_controller.dart';
 import '../../data/models/store_product_model.dart';
 import '../../data/repositories/store_repository.dart';
 import '../controllers/cart_controller.dart';
+import '../../../payment/presentation/widgets/payment_gateway_dialog.dart';
 
 /// Zabira Academy — Store Product Details Page
 class StoreProductDetailsPage extends StatefulWidget {
@@ -550,50 +551,105 @@ class _StoreProductDetailsPageState extends State<StoreProductDetailsPage> {
               ),
             ],
           ),
-          const SizedBox(width: AppSpacing.lg),
+          const SizedBox(width: AppSpacing.md),
+
+          // Add to Cart Button
+          IconButton(
+            tooltip: 'Add to Cart',
+            icon: const Icon(Icons.add_shopping_cart_rounded, color: AppColors.navyDark),
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFFF1F5F9),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.all(12),
+            ),
+            onPressed: p.inStock
+                ? () async {
+                    HapticFeedback.selectionClick();
+                    final auth = context.read<AuthController>();
+                    final cart = context.read<CartController>();
+                    final messenger = ScaffoldMessenger.of(context);
+
+                    final success = await cart.addItem(
+                      itemData: {
+                        'product_id': p.id,
+                        'store_product_id': p.id,
+                        'quantity': _quantity.toString(),
+                        'product_type': 'store',
+                      },
+                      token: auth.currentToken,
+                    );
+
+                    if (!mounted) return;
+
+                    if (success) {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text('Added $_quantity × ${p.name} to Cart'),
+                          backgroundColor: AppColors.navyDark,
+                          duration: const Duration(seconds: 3),
+                          action: SnackBarAction(
+                            label: 'View Cart',
+                            textColor: AppColors.gold,
+                            onPressed: () {
+                              if (mounted) context.push(AppRoutes.cart);
+                            },
+                          ),
+                        ),
+                      );
+                    } else {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(cart.errorMessage ?? 'Could not add to cart.'),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                    }
+                  }
+                : null,
+          ),
+          const SizedBox(width: 8),
+
+          // Buy Now Button
           Expanded(
             child: ElevatedButton(
               onPressed: p.inStock
                   ? () async {
                       HapticFeedback.mediumImpact();
                       final auth = context.read<AuthController>();
-                      final cart = context.read<CartController>();
-                      final messenger = ScaffoldMessenger.of(context);
 
-                      final success = await cart.addItem(
-                        itemData: {
-                          'product_id': p.id,
-                          'store_product_id': p.id,
-                          'quantity': _quantity.toString(),
-                          'product_type': 'store',
-                        },
-                        token: auth.currentToken,
+                      if (!auth.isAuthenticated) {
+                        auth.setPendingReturnTo('/store/${p.id}');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please sign in to complete your purchase.')),
+                        );
+                        context.push(AppRoutes.login);
+                        return;
+                      }
+
+                      final totalAmt = p.effectivePrice * _quantity;
+                      final isPaid = await PaymentGatewayDialog.show(
+                        context: context,
+                        orderId: p.id,
+                        productType: 'store',
+                        title: '$_quantity × ${p.name}',
+                        amount: totalAmt,
                       );
 
                       if (!mounted) return;
 
-                      if (success) {
-                        messenger.showSnackBar(
+                      if (isPaid) {
+                        ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Added $_quantity × ${p.name} to Cart'),
-                            backgroundColor: AppColors.navyDark,
-                            duration: const Duration(seconds: 3),
-                            action: SnackBarAction(
-                              label: 'View Cart',
-                              textColor: AppColors.gold,
-                              onPressed: () {
-                                if (mounted) {
-                                  context.push(AppRoutes.cart);
-                                }
-                              },
-                            ),
+                            content: Text('Order confirmed! Thank you for purchasing ${p.name}.'),
+                            backgroundColor: AppColors.success,
+                            duration: const Duration(seconds: 4),
                           ),
                         );
                       } else {
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(cart.errorMessage ?? 'Could not add to cart.'),
-                            backgroundColor: AppColors.error,
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Payment cancelled.'),
+                            backgroundColor: AppColors.textSecondary,
                           ),
                         );
                       }
@@ -610,7 +666,7 @@ class _StoreProductDetailsPageState extends State<StoreProductDetailsPage> {
                 elevation: 0,
               ),
               child: Text(
-                p.inStock ? 'Add to Cart' : 'Out of Stock',
+                p.inStock ? 'Buy Now' : 'Out of Stock',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,

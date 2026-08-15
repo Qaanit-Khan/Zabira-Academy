@@ -348,13 +348,41 @@ class _SignInFormState extends State<_SignInForm> {
   }
 
   Future<void> _handleSignIn() async {
+    if (widget.auth.isLoading) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final success = await widget.auth.signIn(
-      email:    _emailController.text,
+      email:    _emailController.text.trim(),
       password: _passwordController.text,
     );
-    if (!success && mounted) {
-      context.showErrorSnackBar(widget.auth.errorMessage ?? 'Sign in failed.');
+    if (!mounted) return;
+    if (success) {
+      final returnTo = widget.auth.consumePendingReturnTo();
+      if (returnTo != null && returnTo.isNotEmpty) {
+        context.go(returnTo);
+      } else {
+        context.go(AppRoutes.studentDash);
+      }
+    } else if (widget.auth.errorMessage != null) {
+      context.showErrorSnackBar(widget.auth.errorMessage!);
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    if (widget.auth.isLoading) return;
+    final success = await widget.auth.signInWithGoogle(portal: 'student');
+    if (!mounted) return;
+    if (success) {
+      final returnTo = widget.auth.consumePendingReturnTo();
+      if (returnTo != null && returnTo.isNotEmpty) {
+        context.go(returnTo);
+      } else {
+        context.go(AppRoutes.studentDash);
+      }
+    } else if (widget.auth.errorMessage != null) {
+      final msg = widget.auth.errorMessage!;
+      if (!msg.toLowerCase().contains('cancelled')) {
+        context.showErrorSnackBar(msg);
+      }
     }
   }
 
@@ -445,7 +473,8 @@ class _SignInFormState extends State<_SignInForm> {
 
         SocialButton(
           label: 'Continue with Google',
-          onPressed: () => context.showInfoSnackBar('Google Sign-In coming soon.'),
+          isLoading: widget.auth.isLoading,
+          onPressed: _handleGoogleSignIn,
         ),
         const SizedBox(height: AppSpacing.x2l),
 
@@ -588,7 +617,27 @@ class _RegisterFormState extends State<_RegisterForm> {
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    if (widget.auth.isLoading) return;
+    final success = await widget.auth.signInWithGoogle(portal: 'student');
+    if (!mounted) return;
+    if (success) {
+      final returnTo = widget.auth.consumePendingReturnTo();
+      if (returnTo != null && returnTo.isNotEmpty) {
+        context.go(returnTo);
+      } else {
+        context.go(AppRoutes.home);
+      }
+    } else if (widget.auth.errorMessage != null) {
+      final msg = widget.auth.errorMessage!;
+      if (!msg.toLowerCase().contains('cancelled')) {
+        context.showErrorSnackBar(msg);
+      }
+    }
+  }
+
   Future<void> _handleRegister() async {
+    if (widget.auth.isLoading) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (!_acceptTerms) {
       context.showErrorSnackBar('Please accept the Terms & Conditions to proceed.');
@@ -616,7 +665,7 @@ class _RegisterFormState extends State<_RegisterForm> {
         if (returnTo != null && returnTo.isNotEmpty) {
           context.go(returnTo);
         } else {
-          context.go(AppRoutes.home);
+          context.go(AppRoutes.studentDash);
         }
       } else {
         context.showSuccessSnackBar('Account created successfully! Please sign in.');
@@ -643,7 +692,8 @@ class _RegisterFormState extends State<_RegisterForm> {
 
         SocialButton(
           label: 'Continue with Google',
-          onPressed: () => context.showInfoSnackBar('Google Sign-Up coming soon.'),
+          isLoading: widget.auth.isLoading,
+          onPressed: _handleGoogleSignIn,
         ),
         const SizedBox(height: AppSpacing.lg),
         const _OrDivider(),

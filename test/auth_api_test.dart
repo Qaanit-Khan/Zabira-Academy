@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:zabira_academy/features/auth/auth_controller.dart';
 import 'package:zabira_academy/features/auth/data/auth_repository.dart';
 import 'package:zabira_academy/features/auth/data/services/auth_api_service.dart';
 
@@ -185,6 +186,106 @@ void main() {
       final restoredUser = await restoredRepo.initSession();
       expect(restoredUser?.displayName, equals('Active Student'));
       expect(restoredRepo.isSignedIn, isTrue);
+    });
+
+    test('signOut clears token and user storage', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {'token': 'tok123', 'user': {'name': 'Tester', 'email': 't@z.com'}}
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = AuthRepository(apiService: AuthApiService(client: mockClient));
+      await repo.signInWithApi(email: 't@z.com', password: 'p');
+      expect(repo.isSignedIn, isTrue);
+
+      await repo.signOut();
+      expect(repo.isSignedIn, isFalse);
+      expect(repo.currentToken, isNull);
+      expect(repo.currentUser, isNull);
+    });
+  });
+
+  group('AuthController Tests', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('Valid login transitions state to authenticated with no false errors', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'message': 'Welcome',
+            'data': {
+              'token': 'real_jwt_token',
+              'user': {
+                'id': 5,
+                'email': 'valid@zabira.com',
+                'name': 'Real Student Name',
+                'role': 'student',
+              }
+            }
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = AuthRepository(apiService: AuthApiService(client: mockClient));
+      final controller = AuthController(authRepository: repo);
+
+      final result = await controller.signIn(
+        email: 'valid@zabira.com',
+        password: 'correct_password',
+      );
+
+      expect(result, isTrue);
+      expect(controller.isAuthenticated, isTrue);
+      expect(controller.errorMessage, isNull);
+      expect(controller.user?.displayName, equals('Real Student Name'));
+    });
+
+    test('Invalid login transitions state to error and stays unauthenticated', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'success': false,
+            'message': 'Invalid email or password.',
+          }),
+          401,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final repo = AuthRepository(apiService: AuthApiService(client: mockClient));
+      final controller = AuthController(authRepository: repo);
+
+      final result = await controller.signIn(
+        email: 'bad@zabira.com',
+        password: 'bad_password',
+      );
+
+      expect(result, isFalse);
+      expect(controller.isAuthenticated, isFalse);
+      expect(controller.errorMessage, contains('Invalid email or password.'));
+    });
+
+    test('Return-to path is stored and consumed properly', () {
+      final repo = AuthRepository(apiService: AuthApiService());
+      final controller = AuthController(authRepository: repo);
+
+      controller.setPendingReturnTo('/courses/12');
+      expect(controller.pendingReturnTo, equals('/courses/12'));
+
+      final consumed = controller.consumePendingReturnTo();
+      expect(consumed, equals('/courses/12'));
+      expect(controller.pendingReturnTo, isNull);
     });
   });
 }

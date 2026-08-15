@@ -2,129 +2,132 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/api_config.dart';
+import '../../../home/data/models/daily_supplement_model.dart';
+
 import '../models/nasheed_category_model.dart';
 import '../models/nasheed_item_model.dart';
 
+/// Zabira Academy — Nasheed API Service
 class NasheedApiService {
   NasheedApiService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
 
-  static const Map<String, String> _headers = {
-    'Accept': 'application/json',
-    'User-Agent': 'ZabiraAcademy-App/1.0',
-  };
-
-  Future<Map<String, dynamic>> _getWithFallback(String path, {Map<String, String>? queryParams}) async {
-    final primaryUri = Uri.parse('${ApiConfig.baseUrl}$path').replace(queryParameters: queryParams);
-    debugPrint('[NASHEED API] GET $primaryUri');
-
-    try {
-      final response = await _client.get(primaryUri, headers: _headers).timeout(const Duration(seconds: 12));
-      debugPrint('[NASHEED API] HTTP ${response.statusCode} | URL: $primaryUri');
-
-      if (response.statusCode == 200) {
-        return _parseJson(response.body, primaryUri.toString());
-      }
-
-      if (response.statusCode == 404 && !path.endsWith('.php')) {
-        final fallbackUri = Uri.parse('${ApiConfig.baseUrl}$path.php').replace(queryParameters: queryParams);
-        debugPrint('[NASHEED API RETRY] GET $fallbackUri');
-
-        final fallbackResponse = await _client.get(fallbackUri, headers: _headers).timeout(const Duration(seconds: 12));
-        debugPrint('[NASHEED API] HTTP ${fallbackResponse.statusCode} | URL: $fallbackUri');
-
-        if (fallbackResponse.statusCode == 200) {
-          return _parseJson(fallbackResponse.body, fallbackUri.toString());
-        }
-      }
-
-      throw Exception('Nasheed request failed (HTTP ${response.statusCode})');
-    } catch (e) {
-      debugPrint('[NASHEED API EXCEPTION] GET $primaryUri -> $e');
-      rethrow;
-    }
-  }
-
-  Map<String, dynamic> _parseJson(String body, String url) {
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map<String, dynamic>) {
-        return decoded;
-      }
-      throw FormatException('Expected JSON object, got ${decoded.runtimeType}');
-    } catch (e) {
-      debugPrint('[NASHEED API PARSE ERROR] URL: $url | Error: $e');
-      rethrow;
-    }
-  }
-
-  /// `GET /nasheed/public_categories`
   Future<List<NasheedCategoryModel>> getCategories() async {
-    final json = await _getWithFallback(ApiConfig.nasheedCategories);
-    final data = json['data'];
-    if (data != null && data is Map<String, dynamic> && data['items'] is List) {
-      return (data['items'] as List)
-          .map((e) => NasheedCategoryModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    final candidates = [
+      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_categories'),
+      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_categories.php'),
+      Uri.parse('${ApiConfig.baseUrl}/media/public_categories'),
+      Uri.parse('${ApiConfig.baseUrl}/media/public_categories.php'),
+    ];
+
+    for (final uri in candidates) {
+      try {
+        final response = await _client.get(
+          uri,
+          headers: {'Accept': 'application/json', 'User-Agent': 'ZabiraAcademy-Flutter/1.0'},
+        ).timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200) {
+          final decoded = jsonDecode(response.body);
+          final list = decoded['data'] ?? decoded['categories'] ?? decoded;
+          if (list is List) {
+            return list
+                .map((item) => NasheedCategoryModel.fromJson(item as Map<String, dynamic>))
+                .toList();
+          }
+        }
+      } catch (_) {}
     }
-    return [];
+    return const [];
   }
 
-  /// `GET /nasheed/public_list`
-  Future<List<NasheedItemModel>> getNasheedList({
-    int page = 1,
-    int limit = 20,
-    int? categoryId,
-    String? category,
-    String? search,
-    String? featured,
-    String? type,
-    String? sort,
-    String? dir,
-  }) async {
-    final queryParams = <String, String>{
-      'page': page.toString(),
-      'limit': limit.toString(),
-    };
-    if (categoryId != null && categoryId > 0) {
-      queryParams['category_id'] = categoryId.toString();
-    }
-    if (category != null && category.isNotEmpty) {
-      queryParams['category'] = category;
-    }
-    if (search != null && search.trim().isNotEmpty) {
-      queryParams['search'] = search.trim();
-    }
-    if (featured != null) queryParams['featured'] = featured;
-    if (type != null) queryParams['type'] = type;
-    if (sort != null) queryParams['sort'] = sort;
-    if (dir != null) queryParams['dir'] = dir;
+  Future<List<NasheedItemModel>> getNasheedList({int? categoryId, String? search}) async {
+    final query = <String, String>{};
+    if (categoryId != null) query['category_id'] = categoryId.toString();
+    if (search != null && search.isNotEmpty) query['search'] = search;
 
-    final json = await _getWithFallback(ApiConfig.nasheedList, queryParams: queryParams);
-    final data = json['data'];
-    if (data != null && data is Map<String, dynamic> && data['items'] is List) {
-      return (data['items'] as List)
-          .map((e) => NasheedItemModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    final candidates = [
+      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list').replace(queryParameters: query.isEmpty ? null : query),
+      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list.php').replace(queryParameters: query.isEmpty ? null : query),
+      Uri.parse('${ApiConfig.baseUrl}/media/public_list').replace(queryParameters: query.isEmpty ? null : query),
+      Uri.parse('${ApiConfig.baseUrl}/media/public_list.php').replace(queryParameters: query.isEmpty ? null : query),
+    ];
+
+    for (final uri in candidates) {
+      try {
+        final response = await _client.get(
+          uri,
+          headers: {'Accept': 'application/json', 'User-Agent': 'ZabiraAcademy-Flutter/1.0'},
+        ).timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200) {
+          final decoded = jsonDecode(response.body);
+          final list = decoded['data'] ?? decoded['items'] ?? decoded['nasheeds'] ?? decoded;
+          if (list is List) {
+            return list
+                .map((item) => NasheedItemModel.fromJson(item as Map<String, dynamic>))
+                .toList();
+          }
+        }
+      } catch (_) {}
     }
-    return [];
+    return const [];
   }
 
-  /// `GET /nasheed/public_details`
-  Future<NasheedItemModel?> getNasheedDetails({int? id, String? slug}) async {
-    final queryParams = <String, String>{};
-    if (id != null && id > 0) queryParams['id'] = id.toString();
-    if (slug != null && slug.isNotEmpty) queryParams['slug'] = slug;
+  Future<DailySupplementModel> getDailyNasheed() async {
+    final candidates = [
+      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list?limit=1'),
+      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list.php?limit=1'),
+      Uri.parse('${ApiConfig.baseUrl}/media/public_list?limit=1'),
+      Uri.parse('${ApiConfig.baseUrl}/media/public_list.php?limit=1'),
+    ];
 
-    final json = await _getWithFallback(ApiConfig.nasheedDetails, queryParams: queryParams);
-    final data = json['data'];
-    if (data != null && data is Map<String, dynamic>) {
-      if (data['item'] != null && data['item'] is Map<String, dynamic>) {
-        return NasheedItemModel.fromJson(data['item'] as Map<String, dynamic>);
+    for (final uri in candidates) {
+      try {
+        debugPrint('[NASHEED API] GET $uri');
+        final response = await _client.get(
+          uri,
+          headers: {'Accept': 'application/json', 'User-Agent': 'ZabiraAcademy-Flutter/1.0'},
+        ).timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200) {
+          final decoded = jsonDecode(response.body);
+          final list = decoded['data'] ?? decoded['items'] ?? decoded['nasheeds'] ?? decoded;
+
+          if (list is List && list.isNotEmpty) {
+            final item = list.first as Map<String, dynamic>;
+            final title = item['title']?.toString() ?? item['name']?.toString() ?? 'Daily Nasheed';
+            final artist = item['artist']?.toString() ?? item['reciter']?.toString() ?? 'Zabira Audio';
+            final rawDuration = item['duration']?.toString() ?? item['duration_formatted']?.toString() ?? '04:12';
+            final cover = item['cover_image']?.toString() ?? item['thumbnail']?.toString() ?? item['image']?.toString();
+            final audio = item['audio_url']?.toString() ?? item['file_url']?.toString() ?? item['stream_url']?.toString();
+
+            return DailySupplementModel(
+              sectionLabel: 'DAILY NASHEED',
+              contentTitle: title,
+              contentType: artist,
+              duration: rawDuration,
+              progress: 0.35,
+              artType: DailySupplementArtType.nasheed,
+              imageUrl: ApiConfig.resolveImageUrl(cover),
+              audioUrl: audio,
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('[NASHEED API EXCEPTION] $uri -> $e');
       }
-      return NasheedItemModel.fromJson(data);
     }
-    return null;
+
+    // Graceful fallback to default local curated track if offline or empty
+    return const DailySupplementModel(
+      sectionLabel: 'DAILY NASHEED',
+      contentTitle: 'Allah Knows',
+      contentType: 'Zabira Vocals',
+      duration: '03:42',
+      progress: 0.42,
+      artType: DailySupplementArtType.nasheed,
+    );
   }
 }
