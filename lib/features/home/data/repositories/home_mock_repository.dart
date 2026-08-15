@@ -160,23 +160,28 @@ class HomeMockRepository {
 
   static List<StoreProductModel> getStoreProducts() => const [
         StoreProductModel(
-          id: 'quran-code',
+          id: 101,
           name: 'The Quran Code',
-          category: 'Hardcover Book',
-          price: '₹899',
-          imagePath: 'assets/images/home/store/quran_code.png',
+          slug: 'the-quran-code',
+          categoryName: 'Hardcover Book',
+          price: 899,
+          localAssetFallback: 'assets/images/home/store/quran_code.png',
         ),
         StoreProductModel(
-          id: 'janamaz',
-          name: 'Prayer Mat',
-          category: 'Zabira Edition',
-          price: '₹1,299',
+          id: 102,
+          name: 'Quran Reciter',
+          slug: 'quran-reciter',
+          categoryName: 'Zabira Edition',
+          price: 1999,
+          localAssetFallback: 'assets/images/home/store/quran_reciter.png',
         ),
         StoreProductModel(
-          id: 'notebook',
+          id: 103,
           name: 'Zabira Notebook',
-          category: 'Premium Quality',
-          price: '₹299',
+          slug: 'zabira-notebook',
+          categoryName: 'Premium Quality',
+          price: 299,
+          localAssetFallback: 'assets/images/home/store/zabira_notebook.png',
         ),
       ];
 }

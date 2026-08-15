@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/quick_access_model.dart';
@@ -31,7 +32,22 @@ class _QuickAccessItemState extends State<QuickAccessItem>
 
   void _onTapUp(TapUpDetails _) {
     setState(() => _pressed = false);
-    // TODO: Navigate to ${widget.item.route} when page is ready.
+    final route = widget.item.route;
+    if (route == '/courses' ||
+        route == '/store' ||
+        route == '/media' ||
+        route == '/nasheed' ||
+        route == '/library' ||
+        route == '/events') {
+      context.push(route);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Opening ${widget.item.label}...'),
+          duration: const Duration(milliseconds: 800),
+        ),
+      );
+    }
   }
 
   void _onTapCancel() => setState(() => _pressed = false);

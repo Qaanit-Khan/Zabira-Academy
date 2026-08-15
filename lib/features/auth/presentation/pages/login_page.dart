@@ -44,13 +44,44 @@ class _LoginPageState extends State<LoginPage> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final auth = context.read<AuthController>();
+    if (auth.isLoading) return;
+
     final success = await auth.signIn(
       email: _emailController.text,
       password: _passwordController.text,
     );
 
-    if (!success && mounted) {
-      context.showErrorSnackBar(auth.errorMessage ?? 'Sign in failed.');
+    if (!mounted) return;
+
+    if (success) {
+      final returnTo = auth.consumePendingReturnTo();
+      if (returnTo != null && returnTo.isNotEmpty) {
+        context.go(returnTo);
+      } else {
+        context.go(AppRoutes.home);
+      }
+    } else {
+      context.showErrorSnackBar(auth.errorMessage ?? 'Invalid email or password.');
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    final auth = context.read<AuthController>();
+    if (auth.isLoading) return;
+
+    final success = await auth.signInWithGoogle(portal: 'student');
+
+    if (!mounted) return;
+
+    if (success) {
+      final returnTo = auth.consumePendingReturnTo();
+      if (returnTo != null && returnTo.isNotEmpty) {
+        context.go(returnTo);
+      } else {
+        context.go(AppRoutes.home);
+      }
+    } else {
+      context.showErrorSnackBar(auth.errorMessage ?? 'Google sign in failed.');
     }
   }
 
@@ -228,8 +259,8 @@ class _LoginPageState extends State<LoginPage> {
                               // Google Sign In Button
                               SocialButton(
                                 label: 'Continue with Google',
-                                onPressed: () =>
-                                    context.showInfoSnackBar('Google Sign-In coming soon.'),
+                                isLoading: auth.isLoading,
+                                onPressed: _handleGoogleSignIn,
                               ),
                               const SizedBox(height: AppSpacing.x2l),
 

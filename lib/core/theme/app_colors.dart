@@ -46,6 +46,9 @@ abstract final class AppColors {
   /// Muted / subtitle text — placeholders, helper text, inactive tabs
   static const Color textSecondary = Color(0xFF6B7A99);
 
+  /// Tertiary muted text — timestamps, subtle counters
+  static const Color textTertiary = Color(0xFF8FA0BB);
+
   /// White text (on dark/navy backgrounds)
   static const Color textWhite = Color(0xFFFFFFFF);
 

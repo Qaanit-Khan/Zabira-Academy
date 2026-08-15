@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 
-/// Bottom navigation bar — 5 tabs: Home | Library | [Kids Center] | Store | Dashboard.
+/// Apple-Style Floating Dock Bottom Navigation.
 ///
-/// The center Kids button uses the academy_footer_logo.png asset and
-/// floats slightly above the bar surface.
+/// Layout:
+///   [Home] | [Learn] | [CENTER LOGO] | [Library] | [Profile]
+///
+/// Design Features:
+/// - Floating white rounded-pill dock with soft ambient shadow
+/// - Slim and compact (~54px height) floating above bottom edge
+/// - Center item: Dark Navy circular button, NO gold outer ring, slightly elevated
+/// - 5 evenly distributed positions with mathematically centered logo
+/// - Active Home: dark navy/gold accent with active gold indicator dot underneath
+/// - Inactive items: muted slate/navy (#8FA0BB)
 class HomeBottomNav extends StatelessWidget {
   const HomeBottomNav({
     super.key,
@@ -16,107 +25,127 @@ class HomeBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int>? onItemTapped;
 
-  // ── Layout constants ──────────────────────────────────────────────────────
-  static const double _barHeight       = 64.0;
-  static const double _visibleDiameter = 58.0;
-  static const double _imageScale      = 1268.0 / 656.0; // ≈ 1.93
-  static const double _clipSize        = _visibleDiameter;
-  static const double _floatAbove      = 12.0;
-  static const double _centerGap       = _clipSize + 20.0;
+  // ── Layout Constants ──────────────────────────────────────────────────────
+  static const double _dockHeight     = 54.0;
+  static const double _centerBtnSize  = 52.0;
+  static const double _floatAbove     = 10.0;
+  static const double _centerGap      = 56.0;
 
-  // Tabs — index 2 is the invisible center spacer
   static const _items = [
-    _NavItem(icon: Icons.home_rounded,          label: 'Home'),
-    _NavItem(icon: Icons.menu_book_outlined,    label: 'Library'),
-    _NavItem(icon: null,                        label: ''), // center spacer
-    _NavItem(icon: Icons.shopping_bag_outlined, label: 'Store'),
-    _NavItem(icon: Icons.person_outline_rounded,label: 'Dashboard'),
+    _NavItem(icon: Icons.home_rounded,           label: 'Home'),
+    _NavItem(icon: Icons.auto_stories_outlined,  label: 'Learn'),
+    _NavItem(icon: null,                         label: ''), // Center spacer
+    _NavItem(icon: Icons.menu_book_outlined,     label: 'Library'),
+    _NavItem(icon: Icons.person_outline_rounded, label: 'Profile'),
   ];
 
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.topCenter,
-      children: [
-        // ── Dark navy bar ─────────────────────────────────────────────────
-        Container(
-          width: double.infinity,
-          height: _barHeight + bottomPad,
-          decoration: const BoxDecoration(
-            color: Color(0xFF081D3A),
-            border: Border(
-              top: BorderSide(color: Color(0x30C9A84C), width: 0.8),
-            ),
-          ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: _barHeight,
-              child: Row(
-                children: [
-                  Expanded(child: _buildTab(0)),
-                  Expanded(child: _buildTab(1)),
-                  SizedBox(width: _centerGap), // gap for center logo
-                  Expanded(child: _buildTab(3)),
-                  Expanded(child: _buildTab(4)),
-                ],
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        0,
+        16,
+        bottomPad > 0 ? bottomPad + 4 : 14,
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.topCenter,
+        children: [
+          // ── 1. Floating Apple-Style White Dock Pill ───────────────────────
+          Container(
+            width: double.infinity,
+            height: _dockHeight,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceWhite,
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(
+                color: AppColors.borderLight.withAlpha(220),
+                width: 1.0,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.navyDark.withAlpha(14),
+                  blurRadius: 20,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(child: _buildTab(0)),
+                Expanded(child: _buildTab(1)),
+                const SizedBox(width: _centerGap), // Center spacer
+                Expanded(child: _buildTab(3)),
+                Expanded(child: _buildTab(4)),
+              ],
             ),
           ),
-        ),
 
-        // ── Floating center Kids button ────────────────────────────────────
-        Positioned(
-          top: -_floatAbove,
-          child: GestureDetector(
-            onTap: () => onItemTapped?.call(2),
-            behavior: HitTestBehavior.opaque,
-            child: _CenterLogo(
-              clipSize: _clipSize,
-              imageScale: _imageScale,
+          // ── 2. Floating Center Elevated Button (No Gold Ring) ────────────
+          Positioned(
+            top: -_floatAbove,
+            child: _CenterLogoButton(
+              size: _centerBtnSize,
+              onTap: () {
+                HapticFeedback.lightImpact();
+                onItemTapped?.call(2);
+              },
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildTab(int index) {
     final item     = _items[index];
     final isActive = index == selectedIndex;
-    final color    = isActive ? AppColors.gold : const Color(0xFF8FA0BB);
+    final color    = isActive ? AppColors.navyDark : const Color(0xFF8FA0BB);
+    final dotColor = isActive ? AppColors.gold : Colors.transparent;
 
-    return GestureDetector(
-      onTap: () => onItemTapped?.call(index),
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(item.icon, size: 22, color: color),
-          const SizedBox(height: 3),
-          Text(
-            item.label,
-            style: GoogleFonts.outfit(
-              fontSize: 10,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              color: color,
+    return Semantics(
+      button: true,
+      label: item.label,
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onItemTapped?.call(index);
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              item.icon,
+              size: 20,
+              color: isActive ? AppColors.navyDark : const Color(0xFF8FA0BB),
             ),
-          ),
-          // Active indicator dot
-          const SizedBox(height: 3),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: isActive ? 4 : 0,
-            height: isActive ? 4 : 0,
-            decoration: const BoxDecoration(
-              color: AppColors.gold,
-              shape: BoxShape.circle,
+            const SizedBox(height: 2),
+            Text(
+              item.label,
+              style: GoogleFonts.outfit(
+                fontSize: 9.5,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: color,
+                height: 1.1,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 2),
+            // Active Gold Indicator Dot
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: isActive ? 4 : 0,
+              height: isActive ? 4 : 0,
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -124,46 +153,69 @@ class HomeBottomNav extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Circular floating Kids center button with the academy logo asset.
-class _CenterLogo extends StatelessWidget {
-  const _CenterLogo({required this.clipSize, required this.imageScale});
+/// Circular floating Center Button with NO gold outer ring.
+class _CenterLogoButton extends StatefulWidget {
+  const _CenterLogoButton({
+    required this.size,
+    required this.onTap,
+  });
 
-  final double clipSize;
-  final double imageScale;
+  final double size;
+  final VoidCallback onTap;
+
+  @override
+  State<_CenterLogoButton> createState() => _CenterLogoButtonState();
+}
+
+class _CenterLogoButtonState extends State<_CenterLogoButton> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
-    final double scaledSize = clipSize * imageScale;
-
-    return Container(
-      width: clipSize,
-      height: clipSize,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: const Color(0xFF081D3A),
-        border: Border.all(color: AppColors.gold.withAlpha(180), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(60),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ClipOval(
-        child: OverflowBox(
-          maxWidth: scaledSize,
-          maxHeight: scaledSize,
-          child: Image.asset(
-            'assets/images/home/footer/academy_footer_logo.png',
-            width: scaledSize,
-            height: scaledSize,
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.high,
-            errorBuilder: (context, error, _) => const Icon(
-              Icons.auto_stories_rounded,
-              color: AppColors.gold,
-              size: 26,
+    return Semantics(
+      button: true,
+      label: 'Kids Portal',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: _pressed ? 0.92 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF081D3A),
+              // NO gold outer ring / border as requested
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF081D3A).withAlpha(40),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/home/footer/academy_footer_logo.png',
+                width: widget.size,
+                height: widget.size,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
+                errorBuilder: (context, error, _) => const Center(
+                  child: Icon(
+                    Icons.auto_stories_rounded,
+                    color: AppColors.gold,
+                    size: 24,
+                  ),
+                ),
+              ),
             ),
           ),
         ),

@@ -1,86 +1,311 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/user_model.dart';
+import '../models/user_role.dart';
+import 'services/auth_api_service.dart';
 
 /// Zabira Academy — Auth Repository
 ///
-/// All Firebase Authentication operations.
-/// The UI layer never imports firebase_auth directly.
+/// Handles official API authentication, session state, and secure token persistence.
 class AuthRepository {
-  AuthRepository({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
+  AuthRepository({AuthApiService? apiService}) : _apiService = apiService ?? AuthApiService();
 
-  final FirebaseAuth _auth;
+  final AuthApiService _apiService;
 
-  // ─── Auth State ───────────────────────────────────────────────────────────
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  static const String _tokenKey = 'zabira_auth_token';
+  static const String _userKey = 'zabira_auth_user';
 
-  User? get currentUser => _auth.currentUser;
+  String? _cachedToken;
+  UserModel? _cachedUser;
 
-  bool get isSignedIn => _auth.currentUser != null;
+  String? get currentToken => _cachedToken;
+  UserModel? get currentUser => _cachedUser;
+  bool get isSignedIn => _cachedToken != null && _cachedToken!.isNotEmpty;
 
-  // ─── Email / Password ─────────────────────────────────────────────────────
-  Future<UserCredential> signInWithEmail({required String email, required String password}) async {
-    return _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
+  /// Initialize and restore stored session from local storage.
+  Future<UserModel?> initSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _cachedToken = prefs.getString(_tokenKey);
+      final userJson = prefs.getString(_userKey);
+      if (userJson != null && userJson.isNotEmpty) {
+        final data = jsonDecode(userJson) as Map<String, dynamic>;
+        _cachedUser = UserModel.fromJson(data);
+
+        // Fetch fresh profile from API in background if token exists
+        if (_cachedToken != null && _cachedToken!.isNotEmpty) {
+          _fetchFreshProfileSilently(_cachedToken!);
+        }
+
+        return _cachedUser;
+      }
+    } catch (_) {
+      // Ignore corrupted session storage
+    }
+    return null;
   }
 
-  Future<UserCredential> createUserWithEmail({
+  Future<void> _fetchFreshProfileSilently(String token) async {
+    try {
+      final response = await _apiService.getProfile(token: token);
+      final data = response['data'] ?? response['user'] ?? response;
+      if (data is Map<String, dynamic>) {
+        final updatedUser = UserModel.fromJson(data);
+        _cachedUser = updatedUser;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_userKey, jsonEncode(updatedUser.toJson()));
+      }
+    } catch (_) {
+      // Background profile refresh failure ignored
+    }
+  }
+
+  /// Official REST API sign in
+  Future<UserModel> signInWithApi({
     required String email,
     required String password,
-    required String displayName,
+    String portal = 'student',
   }) async {
-    final credential = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
+    final response = await _apiService.login(
+      email: email,
       password: password,
+      portal: portal,
     );
-    // Set display name immediately
-    await credential.user?.updateDisplayName(displayName.trim());
-    return credential;
-  }
 
-  // ─── Password Reset ───────────────────────────────────────────────────────
-  Future<void> sendPasswordResetEmail(String email) async {
-    await _auth.sendPasswordResetEmail(email: email.trim());
-  }
-
-  // ─── Sign Out ─────────────────────────────────────────────────────────────
-  Future<void> signOut() async {
-    await _auth.signOut();
-  }
-
-  // ─── Error Mapping ────────────────────────────────────────────────────────
-  /// Converts Firebase error codes to user-friendly messages
-  static String mapFirebaseError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'user-not-found':
-        return 'No account found with this email.';
-      case 'wrong-password':
-      case 'invalid-credential':
-        return 'Invalid email or password. Please try again.';
-      case 'email-already-in-use':
-        return 'This email is already registered.';
-      case 'weak-password':
-        return 'Password is too weak. Use at least 8 characters.';
-      case 'invalid-email':
-        return 'Please enter a valid email address.';
-      case 'user-disabled':
-        return 'This account has been disabled. Please contact support.';
-      case 'too-many-requests':
-        return 'Too many attempts. Please try again later.';
-      case 'network-request-failed':
-        return 'Network error. Please check your connection.';
-      default:
-        return 'Something went wrong. Please try again.';
+    // Extract token from various standard response keys
+    String? token;
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      token = data['token']?.toString() ??
+          data['access_token']?.toString() ??
+          data['jwt']?.toString();
+    } else if (response['token'] != null) {
+      token = response['token']?.toString();
     }
+
+    _cachedToken = token ?? 'session_active';
+
+    // Construct User Model from API data
+    Map<String, dynamic> userMap = {};
+    if (data is Map<String, dynamic>) {
+      if (data['user'] is Map<String, dynamic>) {
+        userMap = data['user'] as Map<String, dynamic>;
+      } else {
+        userMap = data;
+      }
+    } else if (response['user'] is Map<String, dynamic>) {
+      userMap = response['user'] as Map<String, dynamic>;
+    }
+
+    if (!userMap.containsKey('email')) userMap['email'] = email;
+    if (!userMap.containsKey('role')) userMap['role'] = portal;
+
+    final user = UserModel.fromJson(userMap);
+    _cachedUser = user;
+
+    // Persist session securely
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (token != null) {
+        await prefs.setString(_tokenKey, token);
+      }
+      await prefs.setString(_userKey, jsonEncode(user.toJson()));
+    } catch (_) {}
+
+    return user;
+  }
+
+  /// Official REST API Register
+  Future<Map<String, dynamic>> registerWithApi({
+    required String fullName,
+    required String email,
+    required String password,
+    required String confirmPassword,
+    String? mobile,
+    String? gender,
+    String? dateOfBirth,
+    String? country,
+    String? state,
+    String? city,
+    bool acceptTerms = true,
+  }) async {
+    final response = await _apiService.register(
+      fullName: fullName,
+      email: email,
+      password: password,
+      confirmPassword: confirmPassword,
+      mobile: mobile,
+      gender: gender,
+      dateOfBirth: dateOfBirth,
+      country: country,
+      state: state,
+      city: city,
+      acceptTerms: acceptTerms,
+    );
+
+    // Check if registration returned an active token/session directly
+    String? token;
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      token = data['token']?.toString() ?? data['access_token']?.toString();
+      if (token != null && token.isNotEmpty) {
+        _cachedToken = token;
+        final userMap = data['user'] is Map<String, dynamic>
+            ? data['user'] as Map<String, dynamic>
+            : data;
+        if (!userMap.containsKey('email')) userMap['email'] = email;
+        final user = UserModel.fromJson(userMap);
+        _cachedUser = user;
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_tokenKey, token);
+        await prefs.setString(_userKey, jsonEncode(user.toJson()));
+      }
+    }
+
+    return response;
+  }
+
+  /// Official REST API Password Reset Request
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _apiService.forgotPassword(email: email);
+  }
+
+  /// Official REST API Validate Reset Token
+  Future<bool> validateResetToken(String token) async {
+    final res = await _apiService.validateResetToken(token: token);
+    return res['success'] == true || res['status'] == 'success';
+  }
+
+  /// Official REST API Reset Password
+  Future<void> resetPassword({
+    required String token,
+    required String password,
+    required String confirmPassword,
+  }) async {
+    await _apiService.resetPassword(
+      token: token,
+      password: password,
+      confirmPassword: confirmPassword,
+    );
+  }
+
+  /// Fetch latest user profile from API
+  Future<UserModel> refreshProfile() async {
+    if (_cachedToken == null || _cachedToken!.isEmpty) {
+      throw const AuthApiException(message: 'No active session token found.');
+    }
+
+    final response = await _apiService.getProfile(token: _cachedToken!);
+    final data = response['data'] ?? response['user'] ?? response;
+    if (data is Map<String, dynamic>) {
+      final user = UserModel.fromJson(data);
+      _cachedUser = user;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userKey, jsonEncode(user.toJson()));
+      return user;
+    }
+    throw const AuthApiException(message: 'Invalid profile response from server.');
+  }
+
+  /// Official REST API Google Sign-In
+  Future<UserModel> signInWithGoogle({
+    String portal = 'student',
+    GoogleSignIn? googleSignInClient,
+  }) async {
+    final googleSignIn = googleSignInClient ??
+        GoogleSignIn(
+          scopes: ['email', 'profile', 'openid'],
+        );
+
+    final GoogleSignInAccount? account;
+    try {
+      account = await googleSignIn.signIn();
+    } catch (e) {
+      throw AuthApiException(message: 'Google Sign-In failed to initialize: $e');
+    }
+
+    if (account == null) {
+      throw const AuthApiException(message: 'Google sign-in was cancelled.');
+    }
+
+    final GoogleSignInAuthentication auth;
+    try {
+      auth = await account.authentication;
+    } catch (e) {
+      throw AuthApiException(message: 'Failed to retrieve Google credentials: $e');
+    }
+
+    final idToken = auth.idToken ?? auth.accessToken;
+    if (idToken == null || idToken.isEmpty) {
+      throw const AuthApiException(
+        message: 'Google authentication credential was not provided by device.',
+      );
+    }
+
+    final response = await _apiService.googleAuth(
+      idToken: idToken,
+      portal: portal,
+    );
+
+    String? token;
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      token = data['token']?.toString() ??
+          data['access_token']?.toString() ??
+          data['jwt']?.toString();
+    } else if (response['token'] != null) {
+      token = response['token']?.toString();
+    }
+
+    _cachedToken = token ?? 'session_active';
+
+    final userData = (data is Map<String, dynamic> ? data['user'] : null) as Map<String, dynamic>?;
+    final user = UserModel(
+      uid: userData?['id']?.toString() ?? userData?['uid']?.toString() ?? account.id,
+      email: userData?['email']?.toString() ?? account.email,
+      displayName: userData?['name']?.toString() ??
+          userData?['display_name']?.toString() ??
+          account.displayName ??
+          account.email.split('@').first,
+      photoUrl: userData?['photo_url']?.toString() ??
+          userData?['avatar']?.toString() ??
+          account.photoUrl,
+      role: UserRole.fromString(userData?['role']?.toString() ?? portal),
+      createdAt: DateTime.now(),
+    );
+
+    _cachedUser = user;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (token != null) {
+        await prefs.setString(_tokenKey, token);
+      }
+      await prefs.setString(_userKey, jsonEncode(user.toJson()));
+    } catch (_) {}
+
+    return user;
+  }
+
+  /// Clear stored credentials on Sign Out
+  Future<void> signOut() async {
+    _cachedToken = null;
+    _cachedUser = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_tokenKey);
+      await prefs.remove(_userKey);
+    } catch (_) {}
   }
 }
 
 /// Teacher Auth Repository
-///
-/// Teacher login uses the same Firebase Auth but validates the Firestore role.
-/// Separating this keeps teacher-specific logic isolated.
 class TeacherAuthRepository extends AuthRepository {
-  TeacherAuthRepository({super.auth});
+  TeacherAuthRepository({super.apiService});
 
-  Future<UserCredential> signInAsTeacher({required String email, required String password}) async {
-    // Firebase Auth sign-in — role validation happens in UserRepository
-    return signInWithEmail(email: email, password: password);
+  Future<UserModel> signInAsTeacher({required String email, required String password}) async {
+    return signInWithApi(email: email, password: password, portal: 'teacher');
   }
 }

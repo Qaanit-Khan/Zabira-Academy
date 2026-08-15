@@ -6,6 +6,7 @@ import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../../store/presentation/controllers/cart_controller.dart';
 import '../../data/models/latest_launch_model.dart';
 import '../../data/repositories/home_mock_repository.dart';
 import '../widgets/home_header.dart';
@@ -40,9 +41,11 @@ class _HomePageState extends State<HomePage> {
   int _selectedNavIndex = 0;
 
   // ── Hero banner tap callbacks ─────────────────────────────────────────────
-  void _onCoursesTap()    => debugPrint('Hero: Courses tapped');
-  void _onKidsPortalTap() => debugPrint('Hero: Kids Portal tapped');
-  void _onStoreTap()      => debugPrint('Hero: Store tapped');
+  void _onCoursesTap()    => context.push(AppRoutes.courses);
+  void _onKidsPortalTap() => ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Opening Kids Portal...'), duration: Duration(seconds: 1)),
+      );
+  void _onStoreTap()      => context.push(AppRoutes.store);
   void _onHero4Tap()      => debugPrint('Hero: Banner 4 tapped');
 
   // ── Static data (API-ready) ───────────────────────────────────────────────
@@ -55,7 +58,6 @@ class _HomePageState extends State<HomePage> {
   final _categories      = HomeMockRepository.getQuickAccessItems();
   final _dailySupplement = HomeMockRepository.getDailySupplementInfo();
   final _latestLaunches  = HomeMockRepository.getLatestLaunches();
-  final _storeProducts   = HomeMockRepository.getStoreProducts();
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +69,7 @@ class _HomePageState extends State<HomePage> {
     );
 
     final auth = context.watch<AuthController>();
+    final cart = context.watch<CartController>();
 
     return Scaffold(
       backgroundColor: AppColors.surfaceLight,
@@ -78,11 +81,13 @@ class _HomePageState extends State<HomePage> {
             child: HomeHeader(
               isAuthenticated: auth.isAuthenticated,
               notificationCount: 3,
+              cartCount: cart.itemCount,
+              userInitial: auth.user?.displayName.isNotEmpty == true ? auth.user!.displayName[0] : null,
               onSignIn: () => context.push(AppRoutes.login),
+              onCartTap: () => context.push(AppRoutes.cart),
               onProfileTap: () {
                 if (auth.isAuthenticated) {
-                  // Ready for future Profile / Dashboard screen
-                  debugPrint('Profile tapped: user is authenticated');
+                  context.push(AppRoutes.profile);
                 } else {
                   context.push(AppRoutes.login);
                 }
@@ -90,7 +95,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
 
-          // ── Scrollable Content ────────────────────────────────────────────
+          // ── Scrollable Content ────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -129,8 +134,8 @@ class _HomePageState extends State<HomePage> {
 
                   const SizedBox(height: AppSpacing.lg),
 
-                  // 6. From Zabira Store — 3 product cards
-                  FromZabiraStoreSection(products: _storeProducts),
+                  // 6. From Zabira Store — dynamic live products from official API
+                  const FromZabiraStoreSection(),
 
                   // Bottom breathing room above nav bar
                   const SizedBox(height: AppSpacing.xl),
@@ -142,7 +147,25 @@ class _HomePageState extends State<HomePage> {
           // ── Fixed Bottom Navigation ───────────────────────────────────────
           HomeBottomNav(
             selectedIndex: _selectedNavIndex,
-            onItemTapped: (i) => setState(() => _selectedNavIndex = i),
+            onItemTapped: (i) {
+              if (i == 0) {
+                setState(() => _selectedNavIndex = 0);
+              } else if (i == 1) {
+                context.push(AppRoutes.courses);
+              } else if (i == 2) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Opening Kids Portal...'), duration: Duration(seconds: 1)),
+                );
+              } else if (i == 3) {
+                context.push(AppRoutes.library);
+              } else if (i == 4) {
+                if (auth.isAuthenticated) {
+                  context.push(AppRoutes.profile);
+                } else {
+                  context.push(AppRoutes.login);
+                }
+              }
+            },
           ),
         ],
       ),

@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'app/app.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/data/auth_repository.dart';
-import 'features/auth/data/user_repository.dart';
+import 'features/courses/presentation/controllers/enrollment_controller.dart';
+import 'features/store/presentation/controllers/cart_controller.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -37,14 +38,18 @@ Future<void> main() async {
 
   // ── Repositories ──────────────────────────────────────────────────────────
   final authRepository = AuthRepository();
-  final userRepository = UserRepository();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-          create: (_) =>
-              AuthController(authRepository: authRepository, userRepository: userRepository),
+          create: (_) => AuthController(authRepository: authRepository),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => CartController(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => EnrollmentController(),
         ),
       ],
       child: const ZabiraApp(),

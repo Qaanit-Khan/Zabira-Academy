@@ -12,7 +12,6 @@ import '../../../../shared/buttons/social_button.dart';
 import '../../../../shared/inputs/zabira_text_field.dart';
 import '../../../../shared/widgets/zabira_logo.dart';
 import '../../auth_controller.dart';
-import '../../models/user_role.dart';
 import '../widgets/auth_tab_switcher.dart';
 
 /// Zabira Academy — Create Account Screen
@@ -43,7 +42,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
   String _selectedGender = 'Male';
   bool _acceptTerms = false;
-  final UserRole _selectedRole = UserRole.student;
 
   @override
   void dispose() {
@@ -98,18 +96,41 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
+    final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim();
 
     final auth = context.read<AuthController>();
+    if (auth.isLoading) return;
+
     final success = await auth.register(
-      email: _emailController.text,
+      fullName: fullName,
+      email: _emailController.text.trim(),
       password: _passwordController.text,
-      displayName: fullName,
-      role: _selectedRole,
+      confirmPassword: _confirmPasswordController.text,
+      mobile: _mobileController.text.trim(),
+      gender: _selectedGender,
+      dateOfBirth: _dobController.text.trim(),
+      country: _countryController.text.trim(),
+      state: _stateController.text.trim(),
+      city: _cityController.text.trim(),
+      acceptTerms: _acceptTerms,
     );
 
-    if (!success && mounted) {
-      context.showErrorSnackBar(auth.errorMessage ?? 'Registration failed.');
+    if (!mounted) return;
+
+    if (success) {
+      if (auth.isAuthenticated) {
+        final returnTo = auth.consumePendingReturnTo();
+        if (returnTo != null && returnTo.isNotEmpty) {
+          context.go(returnTo);
+        } else {
+          context.go(AppRoutes.home);
+        }
+      } else {
+        context.showSuccessSnackBar('Account created successfully! Please sign in.');
+        context.go(AppRoutes.login);
+      }
+    } else {
+      context.showErrorSnackBar(auth.errorMessage ?? 'Registration failed. Please check your details.');
     }
   }
 

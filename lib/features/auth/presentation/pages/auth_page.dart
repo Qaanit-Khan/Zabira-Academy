@@ -12,7 +12,6 @@ import '../../../../shared/buttons/social_button.dart';
 import '../../../../shared/inputs/zabira_text_field.dart';
 import '../../../../shared/widgets/zabira_logo.dart';
 import '../../auth_controller.dart';
-import '../../models/user_role.dart';
 import '../widgets/auth_tab_switcher.dart';
 import '../widgets/feature_card.dart';
 
@@ -546,7 +545,6 @@ class _RegisterFormState extends State<_RegisterForm> {
 
   String   _selectedGender = 'Male';
   bool     _acceptTerms    = false;
-  final UserRole _selectedRole = UserRole.student;
 
   @override
   void dispose() {
@@ -597,14 +595,34 @@ class _RegisterFormState extends State<_RegisterForm> {
       return;
     }
     final fullName =
-        '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
+        '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim();
     final success = await widget.auth.register(
-      email:       _emailController.text,
-      password:    _passwordController.text,
-      displayName: fullName,
-      role:        _selectedRole,
+      fullName: fullName,
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      confirmPassword: _confirmPasswordController.text,
+      mobile: _mobileController.text.trim(),
+      gender: _selectedGender,
+      dateOfBirth: _dobController.text.trim(),
+      country: _countryController.text.trim(),
+      state: _stateController.text.trim(),
+      city: _cityController.text.trim(),
+      acceptTerms: _acceptTerms,
     );
-    if (!success && mounted) {
+    if (!mounted) return;
+    if (success) {
+      if (widget.auth.isAuthenticated) {
+        final returnTo = widget.auth.consumePendingReturnTo();
+        if (returnTo != null && returnTo.isNotEmpty) {
+          context.go(returnTo);
+        } else {
+          context.go(AppRoutes.home);
+        }
+      } else {
+        context.showSuccessSnackBar('Account created successfully! Please sign in.');
+        widget.onSwitchToSignIn();
+      }
+    } else {
       context.showErrorSnackBar(widget.auth.errorMessage ?? 'Registration failed.');
     }
   }

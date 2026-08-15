@@ -1,16 +1,13 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'data/auth_repository.dart';
-import 'data/user_repository.dart';
 import 'models/user_model.dart';
-import 'models/user_role.dart';
 
 /// Zabira Academy — Auth State
 enum AuthStatus {
   /// Initial / unknown — checking auth state
   initial,
 
-  /// Firebase says user is authenticated + profile loaded
+  /// User is authenticated + profile loaded
   authenticated,
 
   /// Not signed in
@@ -26,138 +23,159 @@ enum AuthStatus {
 /// Zabira Academy — Auth Controller
 ///
 /// Manages authentication state using ChangeNotifier (Provider).
-/// Connects AuthRepository (Firebase) and UserRepository (Firestore).
-/// Never exposes Firebase types to the UI layer.
+/// Connects AuthRepository (Zabira API & secure token persistence).
 class AuthController extends ChangeNotifier {
-  AuthController({required AuthRepository authRepository, required UserRepository userRepository})
-    : _auth = authRepository,
-      _userRepo = userRepository {
+  AuthController({required AuthRepository authRepository})
+      : _auth = authRepository {
     _init();
   }
 
   final AuthRepository _auth;
-  final UserRepository _userRepo;
 
   // ─── State ────────────────────────────────────────────────────────────────
   AuthStatus _status = AuthStatus.initial;
   UserModel? _user;
   String? _errorMessage;
+  String? _pendingReturnTo;
 
   AuthStatus get status => _status;
   UserModel? get user => _user;
   String? get errorMessage => _errorMessage;
-  bool get isAuthenticated => _status == AuthStatus.authenticated;
+  String? get currentToken => _auth.currentToken;
+  bool get isAuthenticated => _status == AuthStatus.authenticated && _user != null;
   bool get isLoading => _status == AuthStatus.loading;
+  String? get pendingReturnTo => _pendingReturnTo;
 
-  // ─── Init ─────────────────────────────────────────────────────────────────
-  void _init() {
-    _status = _auth.currentUser == null ? AuthStatus.unauthenticated : AuthStatus.initial;
-    _auth.authStateChanges.listen(_onAuthStateChanged);
+  void setPendingReturnTo(String? route) {
+    _pendingReturnTo = route;
   }
 
-  Future<void> _onAuthStateChanged(User? firebaseUser) async {
-    if (firebaseUser == null) {
-      _status = AuthStatus.unauthenticated;
-      _user = null;
-      notifyListeners();
-      return;
-    }
+  String? consumePendingReturnTo() {
+    final route = _pendingReturnTo;
+    _pendingReturnTo = null;
+    return route;
+  }
 
-    // User is signed in — load their profile
+  // ─── Init ─────────────────────────────────────────────────────────────────
+  Future<void> _init() async {
     try {
-      final userModel = await _userRepo.getUser(firebaseUser.uid);
-      if (userModel == null) {
-        // Profile doesn't exist — sign out
-        await _auth.signOut();
-        return;
+      final restoredUser = await _auth.initSession();
+      if (restoredUser != null) {
+        _user = restoredUser;
+        _status = AuthStatus.authenticated;
+      } else {
+        _user = null;
+        _status = AuthStatus.unauthenticated;
       }
-      _user = userModel;
-      _status = AuthStatus.authenticated;
     } catch (_) {
-      _status = AuthStatus.unauthenticated;
       _user = null;
+      _status = AuthStatus.unauthenticated;
     }
     notifyListeners();
   }
 
-  // ─── Sign In ──────────────────────────────────────────────────────────────
-  Future<bool> signIn({required String email, required String password}) async {
-    _setLoading();
-    try {
-      await _auth.signInWithEmail(email: email, password: password);
-      // _onAuthStateChanged will update state
-      return true;
-    } on FirebaseAuthException catch (e) {
-      _setError(AuthRepository.mapFirebaseError(e));
-      return false;
-    } catch (_) {
-      _setError('Something went wrong. Please try again.');
-      return false;
-    }
-  }
-
-  // ─── Teacher Sign In ──────────────────────────────────────────────────────
-  Future<bool> signInAsTeacher({required String email, required String password}) async {
-    _setLoading();
-    try {
-      final credential = await _auth.signInWithEmail(email: email, password: password);
-      final uid = credential.user?.uid;
-      if (uid == null) {
-        _setError('Authentication failed.');
-        return false;
-      }
-
-      // Validate teacher role
-      final isTeacher = await _userRepo.validateRole(uid, UserRole.teacher);
-      if (!isTeacher) {
-        await _auth.signOut();
-        _setError('This account is not a teacher account. Please use the standard login.');
-        return false;
-      }
-      return true;
-    } on FirebaseAuthException catch (e) {
-      _setError(AuthRepository.mapFirebaseError(e));
-      return false;
-    } catch (_) {
-      _setError('Something went wrong. Please try again.');
-      return false;
-    }
-  }
-
-  // ─── Register ─────────────────────────────────────────────────────────────
-  Future<bool> register({
+  // ─── Sign In (Official Zabira API) ────────────────────────────────────────
+  Future<bool> signIn({
     required String email,
     required String password,
-    required String displayName,
-    required UserRole role,
+    String portal = 'student',
   }) async {
     _setLoading();
     try {
-      final credential = await _auth.createUserWithEmail(
+      final user = await _auth.signInWithApi(
         email: email,
         password: password,
-        displayName: displayName,
+        portal: portal,
       );
-
-      if (credential.user == null) {
-        _setError('Registration failed. Please try again.');
-        return false;
-      }
-
-      // Create Firestore profile
-      await _userRepo.createUser(
-        firebaseUser: credential.user!,
-        role: role,
-        displayName: displayName,
-      );
-
+      _user = user;
+      _status = AuthStatus.authenticated;
+      _errorMessage = null;
+      notifyListeners();
       return true;
-    } on FirebaseAuthException catch (e) {
-      _setError(AuthRepository.mapFirebaseError(e));
+    } catch (e) {
+      _setError(e.toString());
       return false;
-    } catch (_) {
-      _setError('Something went wrong. Please try again.');
+    } finally {
+      if (_status == AuthStatus.loading) {
+        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+        notifyListeners();
+      }
+    }
+  }
+
+  // ─── Teacher Sign In (Official Zabira API) ────────────────────────────────
+  Future<bool> signInAsTeacher({required String email, required String password}) async {
+    return signIn(email: email, password: password, portal: 'teacher');
+  }
+
+  // ─── Google Sign In (Official Zabira API) ─────────────────────────────────
+  Future<bool> signInWithGoogle({String portal = 'student'}) async {
+    _setLoading();
+    try {
+      final user = await _auth.signInWithGoogle(portal: portal);
+      _user = user;
+      _status = AuthStatus.authenticated;
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError(e.toString());
       return false;
+    } finally {
+      if (_status == AuthStatus.loading) {
+        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+        notifyListeners();
+      }
+    }
+  }
+
+  // ─── Register (Official Zabira API) ───────────────────────────────────────
+  Future<bool> register({
+    required String fullName,
+    required String email,
+    required String password,
+    required String confirmPassword,
+    String? mobile,
+    String? gender,
+    String? dateOfBirth,
+    String? country,
+    String? state,
+    String? city,
+    bool acceptTerms = true,
+  }) async {
+    _setLoading();
+    try {
+      await _auth.registerWithApi(
+        fullName: fullName,
+        email: email,
+        password: password,
+        confirmPassword: confirmPassword,
+        mobile: mobile,
+        gender: gender,
+        dateOfBirth: dateOfBirth,
+        country: country,
+        state: state,
+        city: city,
+        acceptTerms: acceptTerms,
+      );
+
+      if (_auth.isSignedIn) {
+        _user = _auth.currentUser;
+        _status = AuthStatus.authenticated;
+      } else {
+        _status = AuthStatus.unauthenticated;
+      }
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      if (_status == AuthStatus.loading) {
+        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+        notifyListeners();
+      }
     }
   }
 
@@ -170,22 +188,85 @@ class AuthController extends ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
       return true;
-    } on FirebaseAuthException catch (e) {
-      _setError(AuthRepository.mapFirebaseError(e));
+    } catch (e) {
+      _setError(e.toString());
       return false;
-    } catch (_) {
-      _setError('Something went wrong. Please try again.');
-      return false;
+    } finally {
+      if (_status == AuthStatus.loading) {
+        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+        notifyListeners();
+      }
     }
+  }
+
+  // ─── Validate Reset Token ─────────────────────────────────────────────────
+  Future<bool> validateResetToken(String token) async {
+    _setLoading();
+    try {
+      final isValid = await _auth.validateResetToken(token);
+      _errorMessage = null;
+      notifyListeners();
+      return isValid;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      if (_status == AuthStatus.loading) {
+        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+        notifyListeners();
+      }
+    }
+  }
+
+  // ─── Reset Password ───────────────────────────────────────────────────────
+  Future<bool> resetPassword({
+    required String token,
+    required String password,
+    required String confirmPassword,
+  }) async {
+    _setLoading();
+    try {
+      await _auth.resetPassword(
+        token: token,
+        password: password,
+        confirmPassword: confirmPassword,
+      );
+      _status = AuthStatus.unauthenticated;
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      if (_status == AuthStatus.loading) {
+        _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+        notifyListeners();
+      }
+    }
+  }
+
+  // ─── Refresh Profile ──────────────────────────────────────────────────────
+  Future<void> refreshProfile() async {
+    if (!isAuthenticated) return;
+    try {
+      final user = await _auth.refreshProfile();
+      _user = user;
+      notifyListeners();
+    } catch (_) {}
   }
 
   // ─── Sign Out ─────────────────────────────────────────────────────────────
   Future<void> signOut() async {
     await _auth.signOut();
-    // _onAuthStateChanged handles state reset
+    _user = null;
+    _pendingReturnTo = null;
+    _status = AuthStatus.unauthenticated;
+    _errorMessage = null;
+    notifyListeners();
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
+  // ─── State Mutators ───────────────────────────────────────────────────────
   void _setLoading() {
     _status = AuthStatus.loading;
     _errorMessage = null;
