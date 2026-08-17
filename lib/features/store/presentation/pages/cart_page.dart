@@ -11,7 +11,6 @@ import '../../../../shared/loaders/zabira_loader.dart';
 import '../../../../shared/widgets/zabira_network_image.dart';
 import '../../data/models/cart_item_model.dart';
 import '../controllers/cart_controller.dart';
-import '../../../payment/presentation/widgets/payment_gateway_dialog.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -45,35 +44,28 @@ class _CartPageState extends State<CartPage> {
 
     if (cart.isEmpty) return;
 
-    final isPaid = await PaymentGatewayDialog.show(
-      context: context,
-      orderId: DateTime.now().millisecondsSinceEpoch % 100000,
-      productType: 'cart',
-      title: 'Zabira Store Order (${cart.itemCount} items)',
-      amount: cart.total,
-    );
-
+    final orderId = await cart.checkout(auth.currentToken);
     if (!mounted) return;
 
-    if (isPaid) {
-      await cart.clearCart(auth.currentToken);
-      if (!mounted) return;
+    if (orderId == null || orderId <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Order placed successfully! Thank you for shopping with Zabira Academy.'),
-          backgroundColor: AppColors.success,
-          duration: Duration(seconds: 4),
+        SnackBar(
+          content: Text(cart.errorMessage ?? 'Could not initialize order. Please try again.'),
+          backgroundColor: AppColors.error,
         ),
       );
-      context.go(AppRoutes.home);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Payment cancelled. Your cart remains saved.'),
-          backgroundColor: AppColors.textSecondary,
-        ),
-      );
+      return;
     }
+
+    context.push(
+      AppRoutes.checkout,
+      extra: {
+        'orderId': orderId,
+        'productType': 'cart',
+        'title': 'Zabira Store Order (${cart.itemCount} items)',
+        'amount': cart.total,
+      },
+    );
   }
 
   @override

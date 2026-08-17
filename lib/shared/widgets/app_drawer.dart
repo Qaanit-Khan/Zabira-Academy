@@ -209,6 +209,18 @@ class AppDrawer extends StatelessWidget {
 
                   _drawerItem(
                     context,
+                    'Daily Nasheed',
+                    Icons.headphones_outlined,
+                    () => context.push(AppRoutes.nasheed),
+                  ),
+                  _drawerItem(
+                    context,
+                    'Media & Lectures',
+                    Icons.play_circle_outlined,
+                    () => context.push(AppRoutes.media),
+                  ),
+                  _drawerItem(
+                    context,
                     'Free Trial Classes',
                     Icons.videocam_outlined,
                     () => context.push(AppRoutes.courses),
@@ -217,7 +229,7 @@ class AppDrawer extends StatelessWidget {
                     context,
                     'Scholarship Program',
                     Icons.volunteer_activism_outlined,
-                    () => context.push(AppRoutes.courses),
+                    () => context.push(AppRoutes.scholarship),
                   ),
 
                   if (isAuthenticated) ...[

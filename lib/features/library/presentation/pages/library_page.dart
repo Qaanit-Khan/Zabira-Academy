@@ -7,6 +7,8 @@ import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../../../features/store/presentation/controllers/cart_controller.dart';
+import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../features/home/presentation/widgets/home_header.dart';
 import '../../../../shared/loaders/zabira_loader.dart';
 import '../../../../shared/widgets/scholarship_promo_banner.dart';
@@ -27,6 +29,7 @@ class LibraryPage extends StatefulWidget {
 }
 
 class _LibraryPageState extends State<LibraryPage> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final LibraryController _controller;
 
   @override
@@ -53,6 +56,41 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
+  Future<void> _addLibraryItemToCart(LibraryItemModel item) async {
+    final auth = context.read<AuthController>();
+    final cart = context.read<CartController>();
+
+    if (!auth.isAuthenticated) {
+      auth.setPendingReturnTo('/library/${item.id}');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to add this resource to cart.')),
+      );
+      context.push(AppRoutes.login);
+      return;
+    }
+
+    final format = item.formats.isNotEmpty ? item.formats.first.format : 'pdf';
+    final success = await cart.addItem(
+      itemData: {
+        'book_id': item.id,
+        'format': format,
+        'book_format': format,
+        'product_type': 'library',
+        'quantity': '1',
+      },
+      token: auth.currentToken,
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success ? 'Added "${item.title}" to cart.' : (cart.errorMessage ?? 'Could not add to cart.')),
+        backgroundColor: success ? AppColors.navyDark : AppColors.error,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(
@@ -63,27 +101,43 @@ class _LibraryPageState extends State<LibraryPage> {
     );
 
     final auth = context.watch<AuthController>();
+    final cart = context.watch<CartController>();
 
-    return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
-      body: Column(
-        children: [
-          // ── Fixed Top Header ──────────────────────────────────────────────
-          SafeArea(
-            bottom: false,
-            child: HomeHeader(
-              isAuthenticated: auth.isAuthenticated,
-              notificationCount: 2,
-              onSignIn: () => context.push(AppRoutes.login),
-              onProfileTap: () {
-                if (auth.isAuthenticated) {
-                  // Profile
-                } else {
-                  context.push(AppRoutes.login);
-                }
-              },
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          _scaffoldKey.currentState?.closeDrawer();
+          return;
+        }
+        context.go(AppRoutes.home);
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: const AppDrawer(),
+        backgroundColor: AppColors.surfaceLight,
+        body: Column(
+          children: [
+            // ── Fixed Top Header ──────────────────────────────────────────────
+            SafeArea(
+              bottom: false,
+              child: HomeHeader(
+                isAuthenticated: auth.isAuthenticated,
+                notificationCount: 2,
+                cartCount: cart.itemCount,
+                onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                onCartTap: () => context.push(AppRoutes.cart),
+                onSignIn: () => context.push(AppRoutes.login),
+                onProfileTap: () {
+                  if (auth.isAuthenticated) {
+                    context.go(AppRoutes.studentDash);
+                  } else {
+                    context.push(AppRoutes.login);
+                  }
+                },
+              ),
             ),
-          ),
 
           // ── Scrollable Body ───────────────────────────────────────────────
           Expanded(
@@ -226,6 +280,7 @@ class _LibraryPageState extends State<LibraryPage> {
           _buildBottomNav(context),
         ],
       ),
+    ),
     );
   }
 
@@ -262,11 +317,7 @@ class _LibraryPageState extends State<LibraryPage> {
           return LibraryBookCard(
             item: item,
             onTap: () => _openDetails(item),
-            onAddToCart: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Added "${item.title}" to cart!')),
-              );
-            },
+            onAddToCart: () => _addLibraryItemToCart(item),
           );
         },
       ),
@@ -291,11 +342,7 @@ class _LibraryPageState extends State<LibraryPage> {
           return LibraryResourceTile(
             item: item,
             onTap: () => _openDetails(item),
-            onAddToCart: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Added "${item.title}" to cart!')),
-              );
-            },
+            onAddToCart: () => _addLibraryItemToCart(item),
           );
         },
       ),

@@ -76,10 +76,12 @@ abstract final class ApiConfig {
   static const String kidsCategories = '/kids/public_categories.php';
   static const String kidsGames = '/kids/public_games.php';
   static const String kidsGame = '/kids/public_game.php';
+  static const String kidsGameDetails = '/kids/public_game.php';
   static const String kidsGamePlay = '/kids/game_play.php';
   static const String kidsGameResult = '/kids/game_result.php';
   static const String kidsQuizzes = '/kids/public_quizzes.php';
   static const String kidsQuiz = '/kids/public_quiz.php';
+  static const String kidsQuizDetails = '/kids/public_quiz.php';
   static const String kidsQuizStart = '/kids/quiz_start.php';
   static const String kidsQuizSubmit = '/kids/quiz_submit.php';
 

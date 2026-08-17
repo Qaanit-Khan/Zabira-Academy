@@ -63,18 +63,27 @@ class StudentDashboardModel {
     final wishCount = int.tryParse((stats['wishlist_count'] ?? stats['wishlist'] ?? fallbackWishlistCount ?? 0).toString()) ?? (fallbackWishlistCount ?? 0);
     final liveCount = int.tryParse((stats['live_classes_count'] ?? stats['live_classes'] ?? stats['trials_count'] ?? 0).toString()) ?? 0;
 
-    // Courses in progress
-    final rawCourses = data['continue_learning'] ?? data['courses'] ?? data['enrolled_courses'] ?? [];
+    // Courses in progress / enrolled courses
+    final dynamic rawCoursesData = data['continue_learning'] ?? data['courses'] ?? data['enrolled_courses'] ?? data['items'] ?? json['courses'] ?? json['enrollments'];
+    List? rawCourses;
+    if (rawCoursesData is List) {
+      rawCourses = rawCoursesData;
+    } else if (rawCoursesData is Map) {
+      rawCourses = (rawCoursesData['courses'] ?? rawCoursesData['items'] ?? rawCoursesData['enrollments'] ?? rawCoursesData['data']) as List?;
+    }
+
     List<EnrolledCourseModel> continueCourses = [];
-    if (rawCourses is List) {
+    if (rawCourses != null) {
       continueCourses = rawCourses
           .whereType<Map<String, dynamic>>()
           .map((c) => EnrolledCourseModel.fromJson(c))
+          .where((c) => c.courseId > 0 || c.id > 0)
           .toList();
     }
 
     // Notifications
-    final rawNotifs = data['notifications'] ?? data['recent_notifications'] ?? [];
+    final dynamic rawNotifsData = data['notifications'] ?? data['recent_notifications'];
+    List? rawNotifs = rawNotifsData is List ? rawNotifsData : (rawNotifsData is Map ? rawNotifsData['notifications'] as List? : null);
     List<StudentNotificationItem> notifs = [];
     if (rawNotifs is List) {
       notifs = rawNotifs

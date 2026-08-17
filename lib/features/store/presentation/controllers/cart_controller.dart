@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../../core/network/debug_logger.dart';
 import '../../data/models/cart_item_model.dart';
 import '../../data/services/cart_api_service.dart';
 
@@ -45,7 +46,8 @@ class CartController extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Could not load cart items.';
+      _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      DebugLogger.logError(context: 'CART loadCart', error: e);
       notifyListeners();
     }
   }
@@ -75,7 +77,8 @@ class CartController extends ChangeNotifier {
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Failed to add item to cart.';
+      _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      DebugLogger.logError(context: 'CART addItem', error: {'error': e.toString(), 'itemData': itemData});
       notifyListeners();
       return false;
     }
@@ -99,7 +102,8 @@ class CartController extends ChangeNotifier {
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Failed to remove item.';
+      _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      DebugLogger.logError(context: 'CART removeItem', error: e);
       notifyListeners();
       return false;
     }
@@ -123,6 +127,28 @@ class CartController extends ChangeNotifier {
     } catch (_) {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Checkout cart and obtain a real backend order ID
+  Future<int?> checkout(String? token) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await _service.checkout(token: token);
+      _isLoading = false;
+      notifyListeners();
+      final data = res['data'] is Map<String, dynamic> ? res['data'] as Map<String, dynamic> : res;
+      final rawOrderId = data['order_id'] ?? res['order_id'] ?? data['id'];
+      return int.tryParse(rawOrderId?.toString() ?? '');
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      DebugLogger.logError(context: 'CART checkout', error: e);
+      notifyListeners();
+      return null;
     }
   }
 

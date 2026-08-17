@@ -7,6 +7,8 @@ import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../../../features/store/presentation/controllers/cart_controller.dart';
+import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../features/home/presentation/widgets/home_header.dart';
 import '../../../../shared/loaders/zabira_loader.dart';
 import '../../../../shared/widgets/scholarship_promo_banner.dart';
@@ -28,6 +30,7 @@ class EventsPage extends StatefulWidget {
 }
 
 class _EventsPageState extends State<EventsPage> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final EventsController _controller;
 
   @override
@@ -64,27 +67,43 @@ class _EventsPageState extends State<EventsPage> {
     );
 
     final auth = context.watch<AuthController>();
+    final cart = context.watch<CartController>();
 
-    return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
-      body: Column(
-        children: [
-          // ── Fixed Top Header ──────────────────────────────────────────────
-          SafeArea(
-            bottom: false,
-            child: HomeHeader(
-              isAuthenticated: auth.isAuthenticated,
-              notificationCount: 2,
-              onSignIn: () => context.push(AppRoutes.login),
-              onProfileTap: () {
-                if (auth.isAuthenticated) {
-                  // Profile
-                } else {
-                  context.push(AppRoutes.login);
-                }
-              },
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          _scaffoldKey.currentState?.closeDrawer();
+          return;
+        }
+        context.go(AppRoutes.home);
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: const AppDrawer(),
+        backgroundColor: AppColors.surfaceLight,
+        body: Column(
+          children: [
+            // ── Fixed Top Header ──────────────────────────────────────────────
+            SafeArea(
+              bottom: false,
+              child: HomeHeader(
+                isAuthenticated: auth.isAuthenticated,
+                notificationCount: 2,
+                cartCount: cart.itemCount,
+                onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                onCartTap: () => context.push(AppRoutes.cart),
+                onSignIn: () => context.push(AppRoutes.login),
+                onProfileTap: () {
+                  if (auth.isAuthenticated) {
+                    context.go(AppRoutes.studentDash);
+                  } else {
+                    context.push(AppRoutes.login);
+                  }
+                },
+              ),
             ),
-          ),
 
           // ── Scrollable Content ────────────────────────────────────────────
           Expanded(
@@ -244,6 +263,7 @@ class _EventsPageState extends State<EventsPage> {
           _buildBottomNav(context),
         ],
       ),
+    ),
     );
   }
 
@@ -307,6 +327,7 @@ class _EventsPageState extends State<EventsPage> {
 
   Widget _buildBottomNav(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
+    final auth = context.read<AuthController>();
 
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad > 0 ? bottomPad + 4 : 14),
@@ -335,7 +356,21 @@ class _EventsPageState extends State<EventsPage> {
                 Expanded(child: _buildNavTab(1, Icons.auto_stories_outlined, 'Learn', false, () => context.push(AppRoutes.courses))),
                 const SizedBox(width: 56),
                 Expanded(child: _buildNavTab(3, Icons.calendar_month_rounded, 'Events', true, () {})),
-                Expanded(child: _buildNavTab(4, Icons.person_outline_rounded, 'Profile', false, () => context.push(AppRoutes.login))),
+                Expanded(
+                  child: _buildNavTab(
+                    4,
+                    Icons.person_outline_rounded,
+                    'Profile',
+                    false,
+                    () {
+                      if (auth.isAuthenticated) {
+                        context.go(AppRoutes.studentDash);
+                      } else {
+                        context.push(AppRoutes.login);
+                      }
+                    },
+                  ),
+                ),
               ],
             ),
           ),

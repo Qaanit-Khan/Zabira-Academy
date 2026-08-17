@@ -47,12 +47,20 @@ class PaymentRepository {
     return _api.getPaymentGateways(token: token);
   }
 
+  Future<Map<String, dynamic>> getConfigStatus({String? token}) {
+    return _api.getPaymentConfigStatus(token: token);
+  }
+
   Future<PaymentPlansData> getPaymentPlans({int? courseId, String? slug, String? token}) {
     return _api.getPaymentPlans(courseId: courseId, slug: slug, token: token);
   }
 
   Future<List<MyOrderItem>> getMyOrders({int page = 1, int limit = 20, String? token}) {
     return _api.getMyOrders(page: page, limit: limit, token: token);
+  }
+
+  Future<Map<String, dynamic>> getOrderStatus({required int orderId, String? productType, String? token}) {
+    return _api.getOrderStatus(orderId: orderId, productType: productType, token: token);
   }
 
   Future<Map<String, dynamic>> getInvoice({required int orderId, String? format, String? token}) {

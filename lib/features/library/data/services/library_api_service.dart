@@ -59,6 +59,51 @@ class LibraryApiService {
     }
   }
 
+  Future<Map<String, dynamic>> _postWithFallback(
+    String path, {
+    required Map<String, dynamic> body,
+    String? token,
+  }) async {
+    final headers = Map<String, String>.from(_headers);
+    headers['Content-Type'] = 'application/json';
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    final primaryUri = Uri.parse('${ApiConfig.baseUrl}$path');
+    final encodedBody = jsonEncode(body);
+    debugPrint('[LIBRARY API] POST $primaryUri | Body: $encodedBody');
+
+    try {
+      final response = await _client.post(primaryUri, headers: headers, body: encodedBody).timeout(const Duration(seconds: 15));
+      debugPrint('[LIBRARY API] HTTP ${response.statusCode} | URL: $primaryUri');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return _parseJson(response.body, primaryUri.toString());
+      }
+      if (response.statusCode == 404 && !path.endsWith('.php')) {
+        final fallbackUri = Uri.parse('${ApiConfig.baseUrl}$path.php');
+        debugPrint('[LIBRARY API RETRY] POST $fallbackUri');
+        final fallbackResponse = await _client.post(fallbackUri, headers: headers, body: encodedBody).timeout(const Duration(seconds: 15));
+        debugPrint('[LIBRARY API] HTTP ${fallbackResponse.statusCode} | URL: $fallbackUri');
+        if (fallbackResponse.statusCode == 200 || fallbackResponse.statusCode == 201) {
+          return _parseJson(fallbackResponse.body, fallbackUri.toString());
+        }
+        debugPrint('[LIBRARY API ERROR BODY] ${fallbackResponse.body.length > 1000 ? fallbackResponse.body.substring(0, 1000) : fallbackResponse.body}');
+      }
+      debugPrint('[LIBRARY API ERROR BODY] ${response.body.length > 1000 ? response.body.substring(0, 1000) : response.body}');
+      String backendMessage = 'Library action failed';
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          backendMessage = decoded['message']?.toString() ?? decoded['error']?.toString() ?? backendMessage;
+        }
+      } catch (_) {}
+      throw Exception('POST $path failed (HTTP ${response.statusCode}): $backendMessage | payload=$encodedBody');
+    } catch (e) {
+      debugPrint('[LIBRARY API EXCEPTION] POST $primaryUri -> $e');
+      rethrow;
+    }
+  }
+
   /// `GET /library/public_categories`
   Future<List<LibraryCategoryModel>> getCategories() async {
     final json = await _getWithFallback(ApiConfig.libraryCategories);
@@ -132,5 +177,25 @@ class LibraryApiService {
       return LibraryItemModel.fromJson(data);
     }
     return null;
+  }
+
+  Future<Map<String, dynamic>> purchaseLibraryItem({
+    required int bookId,
+    required String format,
+    String? token,
+  }) {
+    // Per OpenAPI spec: POST /library/purchase.php
+    // Documented fields: book_id (integer), format (string)
+    // No other fields are defined in the spec.
+    final body = <String, dynamic>{
+      'book_id': bookId,
+      'format': format,
+    };
+    debugPrint('[LIBRARY API] purchaseLibraryItem | book_id=$bookId | format=$format');
+    return _postWithFallback(
+      ApiConfig.libraryPurchase,
+      body: body,
+      token: token,
+    );
   }
 }

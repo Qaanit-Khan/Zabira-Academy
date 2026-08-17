@@ -147,12 +147,19 @@ class StoreService {
       headers['Authorization'] = 'Bearer $authToken';
     }
 
+    // Per OpenAPI spec: POST /store/purchase.php
+    // Required: product_id (integer)
+    // Optional: store_product_id (integer), store_variant_id (integer),
+    //           variant_id (integer), quantity (string)
+    // Note: product_type is NOT in the spec.
     final bodyMap = <String, dynamic>{
+      'product_id': storeProductId,
       'store_product_id': storeProductId,
       'quantity': quantity.toString(),
     };
     if (storeVariantId != null) {
       bodyMap['store_variant_id'] = storeVariantId;
+      bodyMap['variant_id'] = storeVariantId;
     }
     final body = jsonEncode(bodyMap);
 
@@ -176,7 +183,16 @@ class StoreService {
         }
       }
 
-      throw Exception('Purchase request failed (HTTP ${response.statusCode})');
+      final errorBody = response.body.length > 500 ? response.body.substring(0, 500) : response.body;
+      debugPrint('[API ERROR BODY] $errorBody');
+      String backendMessage = 'Purchase request failed';
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          backendMessage = decoded['message']?.toString() ?? decoded['error']?.toString() ?? backendMessage;
+        }
+      } catch (_) {}
+      throw Exception('POST ${ApiConfig.storePurchase} failed (HTTP ${response.statusCode}): $backendMessage | payload=$body');
     } catch (e) {
       debugPrint('[API EXCEPTION] POST $primaryUri -> $e');
       rethrow;

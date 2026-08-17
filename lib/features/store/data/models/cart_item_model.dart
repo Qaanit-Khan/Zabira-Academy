@@ -125,8 +125,9 @@ class CartSummaryModel {
   final int count;
 
   factory CartSummaryModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] is Map<String, dynamic> ? json['data'] as Map<String, dynamic> : json;
     List<CartItemModel> itemsList = [];
-    final rawItems = json['items'] ?? json['data'] ?? json['cart_items'] ?? [];
+    final rawItems = data['items'] ?? data['cart_items'] ?? (json['data'] is List ? json['data'] : (json['items'] ?? []));
     if (rawItems is List) {
       itemsList = rawItems
           .whereType<Map<String, dynamic>>()
@@ -134,10 +135,10 @@ class CartSummaryModel {
           .toList();
     }
 
-    final rawSubtotal = double.tryParse(json['subtotal']?.toString() ?? '');
-    final rawTotal = double.tryParse(json['total']?.toString() ?? '');
-    final rawDiscount = double.tryParse(json['discount']?.toString() ?? '');
-    final rawTax = double.tryParse(json['tax']?.toString() ?? '');
+    final rawSubtotal = double.tryParse(data['subtotal']?.toString() ?? json['subtotal']?.toString() ?? '');
+    final rawTotal = double.tryParse(data['total']?.toString() ?? json['total']?.toString() ?? '');
+    final rawDiscount = double.tryParse(data['discount']?.toString() ?? json['discount']?.toString() ?? '');
+    final rawTax = double.tryParse(data['tax']?.toString() ?? json['tax']?.toString() ?? '');
 
     final calculatedSubtotal = itemsList.fold<double>(0.0, (sum, item) => sum + item.totalPrice);
     final finalSubtotal = rawSubtotal ?? calculatedSubtotal;
@@ -150,7 +151,7 @@ class CartSummaryModel {
       discount: rawDiscount ?? 0.0,
       tax: rawTax ?? 0.0,
       total: finalTotal,
-      count: int.tryParse(json['count']?.toString() ?? json['items_count']?.toString() ?? '') ?? calculatedCount,
+      count: int.tryParse(data['count']?.toString() ?? data['items_count']?.toString() ?? json['count']?.toString() ?? '') ?? calculatedCount,
     );
   }
 }

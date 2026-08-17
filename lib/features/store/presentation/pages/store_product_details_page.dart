@@ -10,7 +10,6 @@ import '../../../../features/auth/auth_controller.dart';
 import '../../data/models/store_product_model.dart';
 import '../../data/repositories/store_repository.dart';
 import '../controllers/cart_controller.dart';
-import '../../../payment/presentation/widgets/payment_gateway_dialog.dart';
 
 /// Zabira Academy — Store Product Details Page
 class StoreProductDetailsPage extends StatefulWidget {
@@ -571,10 +570,10 @@ class _StoreProductDetailsPageState extends State<StoreProductDetailsPage> {
 
                     final success = await cart.addItem(
                       itemData: {
-                        'product_id': p.id,
                         'store_product_id': p.id,
-                        'quantity': _quantity.toString(),
+                        'product_id': p.id,
                         'product_type': 'store',
+                        'quantity': _quantity.toString(),
                       },
                       token: auth.currentToken,
                     );
@@ -627,32 +626,17 @@ class _StoreProductDetailsPageState extends State<StoreProductDetailsPage> {
                       }
 
                       final totalAmt = p.effectivePrice * _quantity;
-                      final isPaid = await PaymentGatewayDialog.show(
-                        context: context,
-                        orderId: p.id,
-                        productType: 'store',
-                        title: '$_quantity × ${p.name}',
-                        amount: totalAmt,
+                      context.push(
+                        AppRoutes.checkout,
+                        extra: {
+                          'orderId': p.id,
+                          'productType': 'store',
+                          'title': '$_quantity × ${p.name}',
+                          'amount': totalAmt,
+                          'category': p.categoryName ?? 'Store Item',
+                          'quantity': _quantity,
+                        },
                       );
-
-                      if (!mounted) return;
-
-                      if (isPaid) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Order confirmed! Thank you for purchasing ${p.name}.'),
-                            backgroundColor: AppColors.success,
-                            duration: const Duration(seconds: 4),
-                          ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Payment cancelled.'),
-                            backgroundColor: AppColors.textSecondary,
-                          ),
-                        );
-                      }
                     }
                   : null,
               style: ElevatedButton.styleFrom(

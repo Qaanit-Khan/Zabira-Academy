@@ -4,9 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../../app/router.dart';
+import '../../../../core/audio/global_audio_controller.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../../../features/store/presentation/controllers/cart_controller.dart';
+import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../features/home/presentation/widgets/home_header.dart';
 import '../../../../shared/loaders/zabira_loader.dart';
 import '../../../../shared/widgets/scholarship_promo_banner.dart';
@@ -26,29 +29,33 @@ class NasheedPage extends StatefulWidget {
 }
 
 class _NasheedPageState extends State<NasheedPage> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final NasheedController _controller;
-  late final NasheedAudioPlayerController _playerController;
+  NasheedAudioPlayerController? _playerController;
 
   @override
   void initState() {
     super.initState();
     _controller = NasheedController();
-    _playerController = NasheedAudioPlayerController();
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final globalAudio = context.read<GlobalAudioController>();
+      setState(() {
+        _playerController = NasheedAudioPlayerController(globalAudio);
+      });
+      _loadData();
+    });
   }
 
   Future<void> _loadData() async {
     await _controller.loadInitialData();
-    if (_controller.nasheedList.isNotEmpty && _playerController.currentTrack == null) {
-      // Pick first track for Now Playing preview
-      _playerController.playTrack(_controller.nasheedList.first);
-    }
+    // Do not auto-play on page load — let user choose
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    _playerController.dispose();
+    _playerController?.dispose();
     super.dispose();
   }
 
@@ -62,8 +69,11 @@ class _NasheedPageState extends State<NasheedPage> {
     );
 
     final auth = context.watch<AuthController>();
+    final cart = context.watch<CartController>();
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: const AppDrawer(),
       backgroundColor: AppColors.surfaceLight,
       body: Column(
         children: [
@@ -73,10 +83,13 @@ class _NasheedPageState extends State<NasheedPage> {
             child: HomeHeader(
               isAuthenticated: auth.isAuthenticated,
               notificationCount: 2,
+              cartCount: cart.itemCount,
+              onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+              onCartTap: () => context.push(AppRoutes.cart),
               onSignIn: () => context.push(AppRoutes.login),
               onProfileTap: () {
                 if (auth.isAuthenticated) {
-                  // Profile
+                  context.go(AppRoutes.studentDash);
                 } else {
                   context.push(AppRoutes.login);
                 }
@@ -84,11 +97,14 @@ class _NasheedPageState extends State<NasheedPage> {
             ),
           ),
 
-          // ── Scrollable Content ────────────────────────────────────────────
+          // ── Scrollable Content ────────────────────────────────────────────────
           Expanded(
             child: ListenableBuilder(
-              listenable: Listenable.merge([_controller, _playerController]),
+              listenable: Listenable.merge(
+                [_controller, ?_playerController],
+              ),
               builder: (context, _) {
+                final player = _playerController;
                 if (_controller.isLoading && _controller.nasheedList.isEmpty) {
                   return const Center(child: ZabiraLoader(size: 40));
                 }
@@ -116,8 +132,8 @@ class _NasheedPageState extends State<NasheedPage> {
                         // 1. Hero Card
                         NasheedHeroCard(
                           onListenTap: () {
-                            if (nasheeds.isNotEmpty) {
-                              _playerController.playTrack(nasheeds.first);
+                            if (nasheeds.isNotEmpty && player != null) {
+                              player.playTrack(nasheeds.first);
                             }
                           },
                         ),
@@ -211,7 +227,8 @@ class _NasheedPageState extends State<NasheedPage> {
                         ),
                         const SizedBox(height: 4),
 
-                        NasheedNowPlayingCard(playerController: _playerController),
+                        if (player != null)
+                          NasheedNowPlayingCard(playerController: player),
 
                         const SizedBox(height: 14),
 
@@ -262,9 +279,16 @@ class _NasheedPageState extends State<NasheedPage> {
                             ),
                           )
                         else
+                        if (player != null)
                           ...nasheeds.map((track) => NasheedTrackTile(
                                 track: track,
-                                playerController: _playerController,
+                                playerController: player,
+                              ))
+                        else
+                          ...nasheeds.map((track) => Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                child: Text(track.title, style: const TextStyle(color: Color(0xFF334155))),
                               )),
 
                         const SizedBox(height: 14),

@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/api_config.dart';
 import '../../../home/data/models/daily_supplement_model.dart';
-
 import '../models/nasheed_category_model.dart';
 import '../models/nasheed_item_model.dart';
 
@@ -13,11 +12,25 @@ class NasheedApiService {
 
   final http.Client _client;
 
+  List<dynamic> _extractList(dynamic decoded) {
+    if (decoded is List) return decoded;
+    if (decoded is Map) {
+      final data = decoded['data'];
+      if (data is List) return data;
+      if (data is Map) {
+        final inner = data['items'] ?? data['categories'] ?? data['nasheeds'] ?? data['records'];
+        if (inner is List) return inner;
+      }
+      final items = decoded['items'] ?? decoded['categories'] ?? decoded['nasheeds'];
+      if (items is List) return items;
+    }
+    return const [];
+  }
+
   Future<List<NasheedCategoryModel>> getCategories() async {
     final candidates = [
-      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_categories'),
       Uri.parse('${ApiConfig.baseUrl}/nasheed/public_categories.php'),
-      Uri.parse('${ApiConfig.baseUrl}/media/public_categories'),
+      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_categories'),
       Uri.parse('${ApiConfig.baseUrl}/media/public_categories.php'),
     ];
 
@@ -30,10 +43,11 @@ class NasheedApiService {
 
         if (response.statusCode == 200) {
           final decoded = jsonDecode(response.body);
-          final list = decoded['data'] ?? decoded['categories'] ?? decoded;
-          if (list is List) {
+          final list = _extractList(decoded);
+          if (list.isNotEmpty) {
             return list
-                .map((item) => NasheedCategoryModel.fromJson(item as Map<String, dynamic>))
+                .whereType<Map<String, dynamic>>()
+                .map((item) => NasheedCategoryModel.fromJson(item))
                 .toList();
           }
         }
@@ -48,9 +62,8 @@ class NasheedApiService {
     if (search != null && search.isNotEmpty) query['search'] = search;
 
     final candidates = [
-      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list').replace(queryParameters: query.isEmpty ? null : query),
       Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list.php').replace(queryParameters: query.isEmpty ? null : query),
-      Uri.parse('${ApiConfig.baseUrl}/media/public_list').replace(queryParameters: query.isEmpty ? null : query),
+      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list').replace(queryParameters: query.isEmpty ? null : query),
       Uri.parse('${ApiConfig.baseUrl}/media/public_list.php').replace(queryParameters: query.isEmpty ? null : query),
     ];
 
@@ -63,10 +76,11 @@ class NasheedApiService {
 
         if (response.statusCode == 200) {
           final decoded = jsonDecode(response.body);
-          final list = decoded['data'] ?? decoded['items'] ?? decoded['nasheeds'] ?? decoded;
-          if (list is List) {
+          final list = _extractList(decoded);
+          if (list.isNotEmpty) {
             return list
-                .map((item) => NasheedItemModel.fromJson(item as Map<String, dynamic>))
+                .whereType<Map<String, dynamic>>()
+                .map((item) => NasheedItemModel.fromJson(item))
                 .toList();
           }
         }
@@ -77,9 +91,8 @@ class NasheedApiService {
 
   Future<DailySupplementModel> getDailyNasheed() async {
     final candidates = [
-      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list?limit=1'),
       Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list.php?limit=1'),
-      Uri.parse('${ApiConfig.baseUrl}/media/public_list?limit=1'),
+      Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list?limit=1'),
       Uri.parse('${ApiConfig.baseUrl}/media/public_list.php?limit=1'),
     ];
 
@@ -93,14 +106,14 @@ class NasheedApiService {
 
         if (response.statusCode == 200) {
           final decoded = jsonDecode(response.body);
-          final list = decoded['data'] ?? decoded['items'] ?? decoded['nasheeds'] ?? decoded;
+          final list = _extractList(decoded);
 
-          if (list is List && list.isNotEmpty) {
+          if (list.isNotEmpty) {
             final item = list.first as Map<String, dynamic>;
             final title = item['title']?.toString() ?? item['name']?.toString() ?? 'Daily Nasheed';
             final artist = item['artist']?.toString() ?? item['reciter']?.toString() ?? 'Zabira Audio';
             final rawDuration = item['duration']?.toString() ?? item['duration_formatted']?.toString() ?? '04:12';
-            final cover = item['cover_image']?.toString() ?? item['thumbnail']?.toString() ?? item['image']?.toString();
+            final cover = item['cover_image']?.toString() ?? item['thumbnail']?.toString() ?? item['image']?.toString() ?? item['image_url']?.toString();
             final audio = item['audio_url']?.toString() ?? item['file_url']?.toString() ?? item['stream_url']?.toString();
 
             return DailySupplementModel(

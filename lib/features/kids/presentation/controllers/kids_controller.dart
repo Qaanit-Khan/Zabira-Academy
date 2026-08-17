@@ -46,18 +46,23 @@ class KidsController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final catsFuture = _service.getCategories();
-      final gamesFuture = _service.getGames();
-      final quizzesFuture = _service.getQuizzes();
-
-      final results = await Future.wait([catsFuture, gamesFuture, quizzesFuture]);
+      final results = await Future.wait([
+        _service.getCategories(),
+        _service.getGames(),
+        _service.getQuizzes(),
+      ]);
 
       _categories = results[0] as List<KidsCategoryItem>;
       _games = results[1] as List<KidsGameItem>;
       _quizzes = results[2] as List<KidsQuizItem>;
 
-      _state = KidsPortalState.loaded;
-      _errorMessage = null;
+      if (_games.isEmpty && _quizzes.isEmpty) {
+        _state = KidsPortalState.error;
+        _errorMessage = 'Kids API returned no games/quizzes. Please retry.';
+      } else {
+        _state = KidsPortalState.loaded;
+        _errorMessage = null;
+      }
       notifyListeners();
     } catch (e) {
       _state = KidsPortalState.error;
@@ -70,6 +75,9 @@ class KidsController extends ChangeNotifier {
     try {
       final res = await _service.startQuiz(quizId: quizId, token: token);
       _activeAttemptToken = res['attempt_token']?.toString();
+      if (_activeAttemptToken == null || _activeAttemptToken!.isEmpty) {
+        throw Exception('Quiz start did not return attempt_token');
+      }
       notifyListeners();
       return _activeAttemptToken;
     } catch (_) {
@@ -105,7 +113,11 @@ class KidsController extends ChangeNotifier {
   Future<String?> startPlayGame(int gameId, {String? token}) async {
     try {
       final res = await _service.startPlayGame(gameId: gameId, token: token);
-      return res['attempt_token']?.toString();
+      final tokenValue = res['attempt_token']?.toString();
+      if (tokenValue == null || tokenValue.isEmpty) {
+        throw Exception('Game start did not return attempt_token');
+      }
+      return tokenValue;
     } catch (_) {
       return null;
     }

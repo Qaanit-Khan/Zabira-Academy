@@ -122,7 +122,7 @@ void main() {
       );
 
       expect(session, isNotNull);
-      expect(controller.status, equals(PaymentStatus.awaitingGateway));
+      expect(controller.status, equals(PaymentStatus.launchingGateway));
       expect(controller.activeSession?.orderId, equals(200));
 
       final isVerified = await controller.verifyPayment(
@@ -133,7 +133,7 @@ void main() {
       );
 
       expect(isVerified, isTrue);
-      expect(controller.status, equals(PaymentStatus.success));
+      expect(controller.status, equals(PaymentStatus.checkingOrderStatus));
       expect(controller.lastResult?.isSuccess, isTrue);
     });
   });

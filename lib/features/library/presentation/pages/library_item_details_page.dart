@@ -31,6 +31,20 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
   String? _errorMessage;
   int _selectedFormatIndex = 0;
 
+  String _selectedFormat(LibraryItemModel item) {
+    return (item.formats.isNotEmpty && _selectedFormatIndex < item.formats.length)
+        ? item.formats[_selectedFormatIndex].format
+        : 'pdf';
+  }
+
+  double _selectedPrice(LibraryItemModel item) {
+    if (item.formats.isNotEmpty && _selectedFormatIndex < item.formats.length) {
+      final format = item.formats[_selectedFormatIndex];
+      return format.salePrice ?? format.price;
+    }
+    return item.salePrice ?? item.price;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -264,16 +278,14 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                     final cart = context.read<CartController>();
                     final messenger = ScaffoldMessenger.of(context);
 
-                    final format = (item.formats.isNotEmpty && _selectedFormatIndex < item.formats.length)
-                        ? item.formats[_selectedFormatIndex].format
-                        : 'pdf';
+                    final format = _selectedFormat(item);
 
                     final success = await cart.addItem(
                       itemData: {
                         'book_id': item.id,
                         'format': format,
                         'book_format': format,
-                        'product_type': 'book',
+                        'product_type': 'library',
                         'quantity': '1',
                       },
                       token: auth.currentToken,
@@ -318,6 +330,72 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                 ),
               ),
             ],
+          ),
+
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final auth = context.read<AuthController>();
+                if (!auth.isAuthenticated) {
+                  auth.setPendingReturnTo('/library/${item.id}');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please sign in to buy this resource.')),
+                  );
+                  context.push(AppRoutes.login);
+                  return;
+                }
+
+                final messenger = ScaffoldMessenger.of(context);
+                final format = _selectedFormat(item);
+                try {
+                  final response = await _service.purchaseLibraryItem(
+                    bookId: item.id,
+                    format: format,
+                    token: auth.currentToken,
+                  );
+                  final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
+                  final orderId = int.tryParse(data['order_id']?.toString() ?? data['id']?.toString() ?? '');
+                  if (!mounted) return;
+                  if (orderId == null || orderId <= 0) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Could not initialize library order.'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                    return;
+                  }
+                  context.push(
+                    AppRoutes.checkout,
+                    extra: {
+                      'orderId': orderId,
+                      'productType': 'library',
+                      'title': '${item.title} (${format.toUpperCase()})',
+                      'amount': _selectedPrice(item),
+                      'category': item.categoryName ?? 'Library',
+                    },
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString().replaceAll('Exception:', '').trim()),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.flash_on_rounded, size: 18),
+              label: const Text('Buy Now'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.gold,
+                foregroundColor: AppColors.navyDark,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
           ),
 
           const SizedBox(height: 20),

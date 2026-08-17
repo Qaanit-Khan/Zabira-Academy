@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/app_drawer.dart';
+import '../controllers/cart_controller.dart';
 import '../../data/models/store_category_model.dart';
 import '../../data/models/store_product_model.dart';
 import '../../data/repositories/store_repository.dart';
@@ -18,6 +21,7 @@ class StorePage extends StatefulWidget {
 }
 
 class _StorePageState extends State<StorePage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final StoreRepository _repository = StoreRepository();
   final TextEditingController _searchController = TextEditingController();
 
@@ -128,38 +132,53 @@ class _StorePageState extends State<StorePage> {
     final isTablet = screenWidth >= 600 && screenWidth < 900;
     final crossAxisCount = isDesktop ? 4 : (isTablet ? 3 : 2);
 
-    return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── 1. Store Header ─────────────────────────────────────────────
-            _buildStoreHeader(context),
+    final cart = context.watch<CartController>();
 
-            // ── 2. Search & Filter Bar ──────────────────────────────────────
-            _buildSearchBar(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          _scaffoldKey.currentState?.closeDrawer();
+          return;
+        }
+        context.go(AppRoutes.home);
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: const AppDrawer(),
+        backgroundColor: AppColors.surfaceLight,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // ── 1. Store Header ─────────────────────────────────────────────
+              _buildStoreHeader(context, cart.itemCount),
 
-            // ── 3. Category Selector Pills ──────────────────────────────────
-            _buildCategorySelector(),
+              // ── 2. Search & Filter Bar ──────────────────────────────────────
+              _buildSearchBar(),
 
-            const SizedBox(height: AppSpacing.sm),
+              // ── 3. Category Selector Pills ──────────────────────────────────
+              _buildCategorySelector(),
 
-            // ── 4. Main Products Content ────────────────────────────────────
-            Expanded(
-              child: RefreshIndicator(
-                color: AppColors.gold,
-                backgroundColor: AppColors.surfaceWhite,
-                onRefresh: _loadInitialData,
-                child: _buildBody(crossAxisCount),
+              const SizedBox(height: AppSpacing.sm),
+
+              // ── 4. Main Products Content ────────────────────────────────────
+              Expanded(
+                child: RefreshIndicator(
+                  color: AppColors.gold,
+                  backgroundColor: AppColors.surfaceWhite,
+                  onRefresh: _loadInitialData,
+                  child: _buildBody(crossAxisCount),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStoreHeader(BuildContext context) {
+  Widget _buildStoreHeader(BuildContext context, int cartCount) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
       decoration: BoxDecoration(
@@ -174,28 +193,25 @@ class _StorePageState extends State<StorePage> {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.navyDark),
-            onPressed: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go(AppRoutes.home);
-              }
-            },
-            tooltip: 'Back',
+            icon: const Icon(Icons.menu_rounded, size: 24, color: AppColors.navyDark),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            tooltip: 'Menu',
           ),
           const SizedBox(width: AppSpacing.xs),
-          Image.asset(
-            'assets/images/branding/zabira_logo_horizontal.png',
-            height: 32,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, _) => Text(
-              'ZABIRA STORE',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: AppColors.navyDark,
-                letterSpacing: 1.1,
+          GestureDetector(
+            onTap: () => context.go(AppRoutes.home),
+            child: Image.asset(
+              'assets/images/branding/zabira_logo_horizontal.png',
+              height: 32,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, _) => Text(
+                'ZABIRA STORE',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.navyDark,
+                  letterSpacing: 1.1,
+                ),
               ),
             ),
           ),
@@ -214,28 +230,35 @@ class _StorePageState extends State<StorePage> {
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.shopping_bag_outlined, size: 20, color: AppColors.navyDark),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Cart is ready for items.'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  },
+                  onPressed: () => context.push(AppRoutes.cart),
+                  tooltip: 'Cart',
                 ),
               ),
-              Positioned(
-                top: 2,
-                right: 2,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: AppColors.gold,
-                    shape: BoxShape.circle,
+              if (cartCount > 0)
+                Positioned(
+                  top: -2,
+                  right: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppColors.gold,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Center(
+                      child: Text(
+                        cartCount > 99 ? '99+' : '$cartCount',
+                        style: GoogleFonts.outfit(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.navyDark,
+                          height: 1,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ],

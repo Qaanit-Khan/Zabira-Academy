@@ -33,20 +33,8 @@ class _QuickAccessItemState extends State<QuickAccessItem>
   void _onTapUp(TapUpDetails _) {
     setState(() => _pressed = false);
     final route = widget.item.route;
-    if (route == '/courses' ||
-        route == '/store' ||
-        route == '/media' ||
-        route == '/nasheed' ||
-        route == '/library' ||
-        route == '/events') {
+    if (route.isNotEmpty) {
       context.push(route);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Opening ${widget.item.label}...'),
-          duration: const Duration(milliseconds: 800),
-        ),
-      );
     }
   }
 

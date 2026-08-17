@@ -249,8 +249,8 @@ class _LoginPageState extends State<LoginPage> {
                               PrimaryButton(
                                 label: 'Sign In',
                                 icon: Icons.arrow_forward_rounded,
-                                isLoading: auth.isLoading,
-                                onPressed: _handleSignIn,
+                                isLoading: auth.isEmailLoading,
+                                onPressed: auth.isLoading ? null : _handleSignIn,
                               ),
                               const SizedBox(height: AppSpacing.lg),
 
@@ -261,8 +261,8 @@ class _LoginPageState extends State<LoginPage> {
                               // Google Sign In Button
                               SocialButton(
                                 label: 'Continue with Google',
-                                isLoading: auth.isLoading,
-                                onPressed: _handleGoogleSignIn,
+                                isLoading: auth.isGoogleLoading,
+                                onPressed: auth.isLoading ? null : _handleGoogleSignIn,
                               ),
                               const SizedBox(height: AppSpacing.x2l),
 

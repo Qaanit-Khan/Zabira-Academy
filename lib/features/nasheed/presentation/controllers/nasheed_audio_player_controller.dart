@@ -1,93 +1,71 @@
-import 'dart:async';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import '../../data/models/nasheed_item_model.dart';
+import '../../../../core/audio/global_audio_controller.dart';
 
+/// Zabira Academy — Nasheed Audio Player Controller
+///
+/// Thin adapter around [GlobalAudioController] so nasheed-specific widgets
+/// continue to work with nasheed models while audio is global and persistent.
 class NasheedAudioPlayerController extends ChangeNotifier {
-  NasheedAudioPlayerController() {
-    _initAudioPlayer();
+  NasheedAudioPlayerController(this._globalAudio) {
+    // Mirror global audio changes as our own notifier
+    _globalAudio.addListener(_onGlobalChange);
   }
 
-  final AudioPlayer _player = AudioPlayer();
-  StreamSubscription? _posSub;
-  StreamSubscription? _durSub;
-  StreamSubscription? _stateSub;
+  final GlobalAudioController _globalAudio;
 
   NasheedItemModel? _currentTrack;
+  final Set<int> _favoriteIds = {};
+
   NasheedItemModel? get currentTrack => _currentTrack;
 
-  bool _isPlaying = false;
-  bool get isPlaying => _isPlaying;
+  bool get isPlaying =>
+      _currentTrack != null &&
+      _globalAudio.currentUrl == _currentTrack!.resolvedAudioUrl &&
+      _globalAudio.isPlaying;
 
-  Duration _position = Duration.zero;
-  Duration get position => _position;
+  bool get isLoading =>
+      _currentTrack != null &&
+      _globalAudio.currentUrl == _currentTrack!.resolvedAudioUrl &&
+      _globalAudio.isLoading;
 
-  Duration _duration = Duration.zero;
-  Duration get duration => _duration;
+  Duration get position => _globalAudio.position;
+  Duration get duration => _globalAudio.duration;
 
-  final Set<int> _favoriteIds = {};
   bool isFavorite(int id) => _favoriteIds.contains(id);
 
-  void _initAudioPlayer() {
-    _stateSub = _player.onPlayerStateChanged.listen((state) {
-      _isPlaying = (state == PlayerState.playing);
-      notifyListeners();
-    });
-
-    _posSub = _player.onPositionChanged.listen((p) {
-      _position = p;
-      notifyListeners();
-    });
-
-    _durSub = _player.onDurationChanged.listen((d) {
-      _duration = d;
-      notifyListeners();
-    });
-  }
+  void _onGlobalChange() => notifyListeners();
 
   Future<void> playTrack(NasheedItemModel track) async {
     if (_currentTrack?.id == track.id) {
-      togglePlayPause();
+      await _globalAudio.togglePlayPause();
       return;
     }
 
     _currentTrack = track;
-    _position = Duration.zero;
-    _duration = Duration(seconds: track.duration > 0 ? track.duration : 240);
     notifyListeners();
 
     final url = track.resolvedAudioUrl;
     if (url.isNotEmpty) {
-      try {
-        await _player.stop();
-        await _player.play(UrlSource(url));
-      } catch (e) {
-        debugPrint('[NASHEED PLAYER ERROR] $e');
-      }
+      await _globalAudio.playUrl(
+        url,
+        title: track.title,
+        artist: track.artist,
+        coverUrl: track.resolvedThumbnail,
+        source: 'nasheed',
+      );
+    } else {
+      debugPrint('[NASHEED PLAYER] No audio URL for track: ${track.title}');
     }
   }
 
   Future<void> togglePlayPause() async {
     if (_currentTrack == null) return;
-    if (_isPlaying) {
-      await _player.pause();
-    } else {
-      if (_position >= _duration && _duration > Duration.zero) {
-        await _player.seek(Duration.zero);
-      }
-      final url = _currentTrack!.resolvedAudioUrl;
-      if (url.isNotEmpty) {
-        await _player.resume().catchError((_) {
-          return _player.play(UrlSource(url));
-        });
-      }
-    }
+    await _globalAudio.togglePlayPause();
   }
 
   Future<void> seek(Duration newPos) async {
-    _position = newPos;
-    notifyListeners();
-    await _player.seek(newPos);
+    await _globalAudio.seek(newPos);
   }
 
   void toggleFavorite(int id) {
@@ -107,10 +85,8 @@ class NasheedAudioPlayerController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _posSub?.cancel();
-    _durSub?.cancel();
-    _stateSub?.cancel();
-    _player.dispose();
+    _globalAudio.removeListener(_onGlobalChange);
+    // Do NOT dispose _globalAudio — it is global and lives beyond this page
     super.dispose();
   }
 }

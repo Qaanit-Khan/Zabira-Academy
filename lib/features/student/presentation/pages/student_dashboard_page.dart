@@ -111,10 +111,20 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         ? enrollment.enrolledCourses
         : dashboard.continueLearningCourses;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF8FAFC),
-      drawer: const AppDrawer(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          _scaffoldKey.currentState?.closeDrawer();
+          return;
+        }
+        context.go(AppRoutes.home);
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: const Color(0xFFF8FAFC),
+        drawer: const AppDrawer(),
       body: RefreshIndicator(
         color: AppColors.gold,
         onRefresh: () async {
@@ -191,6 +201,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         ),
       ),
       bottomNavigationBar: _buildBottomNav(context),
+    ),
     );
   }
 
@@ -711,8 +722,10 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
               itemCount: courses.length,
               itemBuilder: (context, index) {
                 final c = courses[index];
+                final effectiveId = c.courseId > 0 ? c.courseId : c.id;
+                final lessonParam = c.lastLessonId != null && c.lastLessonId! > 0 ? '?lesson_id=${c.lastLessonId}' : '';
                 return GestureDetector(
-                  onTap: () => context.push('/courses/${c.courseId}'),
+                  onTap: () => context.push('/courses/$effectiveId/learn$lessonParam'),
                   child: Container(
                     width: 260,
                     margin: EdgeInsets.only(right: index < courses.length - 1 ? 12 : 0),

@@ -91,13 +91,7 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
 
     final isAlreadyEnrolled = enrollment.isEnrolled(widget.courseId);
     if (isAlreadyEnrolled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Continuing ${_course?.title ?? "course"}...'),
-          backgroundColor: AppColors.navyDark,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      context.push('/courses/${widget.courseId}/learn');
       return;
     }
 
@@ -109,20 +103,22 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
 
     if (isFree) {
       // Direct enrollment for free courses
-      final success = await enrollment.enrollInCourse(
+      final enrollRes = await enrollment.enrollInCourse(
         courseId: widget.courseId,
         token: auth.currentToken,
       );
 
       if (!mounted) return;
 
-      if (success) {
+      final isSuccess = enrollRes['success'] == true || enrollRes['status'] == 'success';
+      if (isSuccess) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Enrolled successfully! You can now start learning.'),
             backgroundColor: AppColors.success,
           ),
         );
+        context.push('/courses/${widget.courseId}/learn');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -515,6 +511,20 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                           children: section.lessons.map((lesson) {
                             return ListTile(
                               dense: true,
+                              onTap: () {
+                                final enrollment = context.read<EnrollmentController>();
+                                final isEnrolled = enrollment.isEnrolled(widget.courseId);
+                                if (isEnrolled || lesson.isPreview) {
+                                  context.push('/courses/${widget.courseId}/learn?lesson_id=${lesson.id}');
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Enroll in this course to access all lessons.'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
                               leading: const Icon(Icons.play_circle_outline_rounded, size: 18, color: AppColors.gold),
                               title: Text(
                                 lesson.title,

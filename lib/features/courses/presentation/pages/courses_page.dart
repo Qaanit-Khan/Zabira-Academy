@@ -7,10 +7,12 @@ import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../../../shared/widgets/app_drawer.dart';
 import '../../../home/presentation/widgets/home_bottom_nav.dart';
 import '../../data/models/course_api_model.dart';
 import '../../data/models/course_category_api_model.dart';
 import '../../data/repositories/course_repository.dart';
+import '../controllers/enrollment_controller.dart';
 import '../widgets/course_filter_sheet.dart';
 
 /// Zabira Academy — Courses Page
@@ -26,6 +28,7 @@ class CoursesPage extends StatefulWidget {
 }
 
 class _CoursesPageState extends State<CoursesPage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final CourseRepository _repository = CourseRepository();
   final TextEditingController _searchController = TextEditingController();
 
@@ -38,39 +41,6 @@ class _CoursesPageState extends State<CoursesPage> {
   final CourseFilterState _filterState = CourseFilterState();
   int? _selectedCategoryPillIndex; // null = all
   final Set<int> _favorites = {};
-
-  final List<_CategoryPillData> _mobileReferenceCategories = const [
-    _CategoryPillData(
-      label: 'Quran',
-      tintColor: Color(0xFFFFF8E1),
-      iconColor: Color(0xFFD97706),
-      icon: Icons.menu_book_rounded,
-    ),
-    _CategoryPillData(
-      label: 'Tajweed',
-      tintColor: Color(0xFFE0F7FA),
-      iconColor: Color(0xFF0284C7),
-      icon: Icons.auto_stories_rounded,
-    ),
-    _CategoryPillData(
-      label: 'Islamic Studies',
-      tintColor: Color(0xFFE8F5E9),
-      iconColor: Color(0xFF16A34A),
-      icon: Icons.mosque_rounded,
-    ),
-    _CategoryPillData(
-      label: 'Seerah',
-      tintColor: Color(0xFFEDE7F6),
-      iconColor: Color(0xFF7C3AED),
-      icon: Icons.account_balance_rounded,
-    ),
-    _CategoryPillData(
-      label: 'Kids Special',
-      tintColor: Color(0xFFFCE4EC),
-      iconColor: Color(0xFFE11D48),
-      icon: Icons.child_care_rounded,
-    ),
-  ];
 
   @override
   void initState() {
@@ -91,21 +61,15 @@ class _CoursesPageState extends State<CoursesPage> {
     });
 
     try {
+      final allCourses = await _fetchAllCourses();
       final results = await Future.wait([
         _repository.getCategories(),
-        _repository.getCourses(
-          search: _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null,
-          categoryId: _filterState.categoryId,
-          level: _filterState.level,
-          language: _filterState.language,
-          sort: _filterState.sort,
-        ),
       ]);
 
       if (mounted) {
         setState(() {
-          _categories = results[0] as List<CourseCategoryApiModel>;
-          _courses = results[1] as List<CourseApiModel>;
+          _categories = results[0];
+          _courses = allCourses;
           _applyLocalFilterAndSort();
           _isLoading = false;
         });
@@ -125,21 +89,120 @@ class _CoursesPageState extends State<CoursesPage> {
     }
   }
 
+  Future<List<CourseApiModel>> _fetchAllCourses() async {
+    const limit = 50;
+    const maxPages = 20;
+    final all = <CourseApiModel>[];
+    final seen = <int>{};
+    final query = _searchController.text.trim();
+
+    for (var page = 1; page <= maxPages; page++) {
+      final pageItems = await _repository.getCourses(
+        page: page,
+        limit: limit,
+        search: query.isNotEmpty ? query : null,
+        categoryId: _filterState.categoryId,
+        level: _filterState.level,
+        language: _filterState.language,
+        sort: _filterState.sort,
+      );
+
+      debugPrint('[COURSES CATALOG] page=$page limit=$limit received=${pageItems.length}');
+
+      if (pageItems.isEmpty) {
+        break;
+      }
+
+      for (final item in pageItems) {
+        if (seen.add(item.id)) {
+          all.add(item);
+        }
+      }
+
+      if (pageItems.length < limit) {
+        break;
+      }
+    }
+
+    debugPrint('[COURSES CATALOG] total_displayed=${all.length}');
+    return all;
+  }
+
+  List<_CategoryPillData> _getCategoryPills() {
+    final pills = <_CategoryPillData>[
+      const _CategoryPillData(
+        label: 'All',
+        categoryId: null,
+        tintColor: Color(0xFFF1F5F9),
+        iconColor: AppColors.navyDark,
+        icon: Icons.grid_view_rounded,
+      ),
+    ];
+
+    for (final cat in _categories) {
+      final nameLower = cat.name.toLowerCase();
+      Color tint;
+      Color iconColor;
+      IconData icon;
+
+      if (nameLower.contains('quran')) {
+        tint = const Color(0xFFFFF8E1);
+        iconColor = const Color(0xFFD97706);
+        icon = Icons.menu_book_rounded;
+      } else if (nameLower.contains('islamic')) {
+        tint = const Color(0xFFE8F5E9);
+        iconColor = const Color(0xFF16A34A);
+        icon = Icons.mosque_rounded;
+      } else if (nameLower.contains('language') || nameLower.contains('arabic') || nameLower.contains('urdu')) {
+        tint = const Color(0xFFE0F7FA);
+        iconColor = const Color(0xFF0284C7);
+        icon = Icons.translate_rounded;
+      } else if (nameLower.contains('self') || nameLower.contains('paced')) {
+        tint = const Color(0xFFEDE7F6);
+        iconColor = const Color(0xFF7C3AED);
+        icon = Icons.speed_rounded;
+      } else if (nameLower.contains('workshop') || nameLower.contains('event')) {
+        tint = const Color(0xFFFFF3E0);
+        iconColor = const Color(0xFFEA580C);
+        icon = Icons.event_note_rounded;
+      } else if (nameLower.contains('kid')) {
+        tint = const Color(0xFFFCE4EC);
+        iconColor = const Color(0xFFE11D48);
+        icon = Icons.child_care_rounded;
+      } else {
+        tint = const Color(0xFFE0F2FE);
+        iconColor = const Color(0xFF0369A1);
+        icon = Icons.auto_stories_rounded;
+      }
+
+      pills.add(_CategoryPillData(
+        label: cat.name,
+        categoryId: cat.id,
+        tintColor: tint,
+        iconColor: iconColor,
+        icon: icon,
+      ));
+    }
+
+    return pills;
+  }
+
   void _applyLocalFilterAndSort() {
     var list = List<CourseApiModel>.from(_courses);
+    final pills = _getCategoryPills();
 
-    // Filter by category pill if selected
-    if (_selectedCategoryPillIndex != null && _selectedCategoryPillIndex! < _mobileReferenceCategories.length) {
-      final selectedPill = _mobileReferenceCategories[_selectedCategoryPillIndex!].label.toLowerCase();
+    // Filter by category pill if selected (index > 0 means a specific category)
+    if (_selectedCategoryPillIndex != null &&
+        _selectedCategoryPillIndex! > 0 &&
+        _selectedCategoryPillIndex! < pills.length) {
+      final selectedPill = pills[_selectedCategoryPillIndex!];
       list = list.where((c) {
+        if (selectedPill.categoryId != null && c.categoryId == selectedPill.categoryId) {
+          return true;
+        }
         final cat = (c.categoryName ?? '').toLowerCase();
-        final title = c.title.toLowerCase();
-        if (selectedPill == 'quran') return cat.contains('quran') || title.contains('quran');
-        if (selectedPill == 'tajweed') return cat.contains('tajweed') || title.contains('tajweed');
-        if (selectedPill == 'islamic studies') return cat.contains('islamic') || title.contains('hadith') || title.contains('fiqh');
-        if (selectedPill == 'seerah') return cat.contains('seerah') || title.contains('seerah') || title.contains('prophet');
-        if (selectedPill == 'kids special') return cat.contains('kid') || title.contains('young') || title.contains('child') || title.contains('kid');
-        return true;
+        final pillLabel = selectedPill.label.toLowerCase();
+        return cat.contains(pillLabel) || pillLabel.contains(cat);
       }).toList();
     }
 
@@ -191,7 +254,7 @@ class _CoursesPageState extends State<CoursesPage> {
     HapticFeedback.lightImpact();
     setState(() {
       if (_selectedCategoryPillIndex == index) {
-        _selectedCategoryPillIndex = null; // deselect
+        _selectedCategoryPillIndex = 0; // default to All
       } else {
         _selectedCategoryPillIndex = index;
       }
@@ -224,10 +287,11 @@ class _CoursesPageState extends State<CoursesPage> {
   void _onStartLearning(CourseApiModel course) {
     HapticFeedback.mediumImpact();
     final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      context.push('/courses/${course.id}');
+    final enrollment = context.read<EnrollmentController>();
+    if (auth.isAuthenticated && enrollment.isEnrolled(course.id)) {
+      context.push('/courses/${course.id}/learn');
     } else {
-      context.push(AppRoutes.login);
+      context.push('/courses/${course.id}');
     }
   }
 
@@ -247,92 +311,100 @@ class _CoursesPageState extends State<CoursesPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 900;
 
-    return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
-      body: Column(
-        children: [
-          // ── 1. Mobile Header (Matches mobile reference, No Assalamu Alaikum)
-          SafeArea(
-            bottom: false,
-            child: _buildHeader(context),
-          ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          _scaffoldKey.currentState?.closeDrawer();
+          return;
+        }
+        context.go(AppRoutes.home);
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: const AppDrawer(),
+        backgroundColor: AppColors.surfaceLight,
+        body: Column(
+          children: [
+            // ── 1. Mobile Header (Matches mobile reference, No Assalamu Alaikum)
+            SafeArea(
+              bottom: false,
+              child: _buildHeader(context),
+            ),
 
-          // ── 2. Scrollable Courses Content ─────────────────────────────────
-          Expanded(
-            child: RefreshIndicator(
-              color: AppColors.gold,
-              backgroundColor: AppColors.surfaceWhite,
-              onRefresh: _loadInitialData,
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Hero Section
-                    _buildHeroSection(isDesktop),
+            // ── 2. Scrollable Courses Content ─────────────────────────────────
+            Expanded(
+              child: RefreshIndicator(
+                color: AppColors.gold,
+                backgroundColor: AppColors.surfaceWhite,
+                onRefresh: _loadInitialData,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Hero Section
+                      _buildHeroSection(isDesktop),
 
-                    const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: AppSpacing.md),
 
-                    // Categories Selector
-                    _buildCategoryPillsRow(),
+                      // Categories Selector
+                      _buildCategoryPillsRow(),
 
-                    const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: AppSpacing.lg),
 
-                    // All Courses Header + Sort Dropdown
-                    _buildCoursesHeader(),
+                      // All Courses Header + Sort Dropdown
+                      _buildCoursesHeader(),
 
-                    const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(height: AppSpacing.sm),
 
-                    // Courses List / Grid
-                    _buildCoursesContent(isDesktop),
+                      // Courses List / Grid
+                      _buildCoursesContent(isDesktop),
 
-                    const SizedBox(height: AppSpacing.xl),
+                      const SizedBox(height: AppSpacing.xl),
 
-                    // Feature Highlights Row (4 items)
-                    _buildValueHighlights(isDesktop),
+                      // Feature Highlights Row (4 items)
+                      _buildValueHighlights(isDesktop),
 
-                    const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: AppSpacing.lg),
 
-                    // Scholarship Banner
-                    _buildScholarshipBanner(),
+                      // Scholarship Banner
+                      _buildScholarshipBanner(),
 
-                    // Bottom spacing for floating navigation dock
-                    const SizedBox(height: AppSpacing.xxl + 24),
-                  ],
+                      // Bottom spacing for floating navigation dock
+                      const SizedBox(height: AppSpacing.xxl + 24),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // ── 3. Bottom Dock Navigation (Learn tab active) ──────────────────
-          HomeBottomNav(
-            selectedIndex: 1,
-            onItemTapped: (index) {
-              if (index == 0) {
-                context.go(AppRoutes.home);
-              } else if (index == 1) {
-                // Already on Learn
-              } else if (index == 2) {
-                // Center Kids Portal
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Opening Kids Portal...'), duration: Duration(seconds: 1)),
-                );
-              } else if (index == 3) {
-                // Library
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Opening Library...'), duration: Duration(seconds: 1)),
-                );
-              } else if (index == 4) {
-                final auth = context.read<AuthController>();
-                if (auth.isAuthenticated) {
-                  // Profile
-                } else {
-                  context.push(AppRoutes.login);
+            // ── 3. Bottom Dock Navigation (Learn tab active) ──────────────────
+            HomeBottomNav(
+              selectedIndex: 1,
+              onItemTapped: (index) {
+                if (index == 0) {
+                  context.go(AppRoutes.home);
+                } else if (index == 1) {
+                  // Already on Learn
+                } else if (index == 2) {
+                  context.push('/kids');
+                } else if (index == 3) {
+                  context.push(AppRoutes.library);
+                } else if (index == 4) {
+                  final auth = context.read<AuthController>();
+                  if (auth.isAuthenticated) {
+                    context.push(AppRoutes.studentDash);
+                  } else {
+                    auth.setPendingReturnTo(AppRoutes.studentDash);
+                    context.push(AppRoutes.login);
+                  }
                 }
-              }
-            },
-          ),
-        ],
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -357,11 +429,7 @@ class _CoursesPageState extends State<CoursesPage> {
           // Left: Hamburger Menu + Logo
           IconButton(
             icon: const Icon(Icons.menu_rounded, size: 24, color: AppColors.navyDark),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Zabira Academy Menu'), duration: Duration(seconds: 1)),
-              );
-            },
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32),
           ),
@@ -621,16 +689,17 @@ class _CoursesPageState extends State<CoursesPage> {
 
   // ── Category Pills Row ─────────────────────────────────────────────────────
   Widget _buildCategoryPillsRow() {
+    final pills = _getCategoryPills();
     return SizedBox(
-      height: 84,
+      height: 88,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        itemCount: _mobileReferenceCategories.length,
+        itemCount: pills.length,
         itemBuilder: (context, index) {
-          final cat = _mobileReferenceCategories[index];
-          final isSelected = _selectedCategoryPillIndex == index;
+          final cat = pills[index];
+          final isSelected = (_selectedCategoryPillIndex ?? 0) == index;
 
           return Padding(
             padding: const EdgeInsets.only(right: 12.0),
@@ -666,12 +735,18 @@ class _CoursesPageState extends State<CoursesPage> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    cat.label,
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected ? AppColors.navyDark : AppColors.textSecondary,
+                  SizedBox(
+                    width: 64,
+                    child: Text(
+                      cat.label,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(
+                        fontSize: 10.5,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? AppColors.navyDark : AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ],
@@ -1405,12 +1480,14 @@ class _CourseArtworkFallback extends StatelessWidget {
 class _CategoryPillData {
   const _CategoryPillData({
     required this.label,
+    this.categoryId,
     required this.tintColor,
     required this.iconColor,
     required this.icon,
   });
 
   final String label;
+  final int? categoryId;
   final Color tintColor;
   final Color iconColor;
   final IconData icon;

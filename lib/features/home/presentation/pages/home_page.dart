@@ -94,10 +94,24 @@ class _HomePageState extends State<HomePage> {
     final user = auth.user;
     final isAuth = auth.isAuthenticated && user != null;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: AppColors.surfaceLight,
-      drawer: const AppDrawer(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          _scaffoldKey.currentState?.closeDrawer();
+          return;
+        }
+        if (_selectedNavIndex != 0) {
+          setState(() => _selectedNavIndex = 0);
+          return;
+        }
+        SystemNavigator.pop();
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: AppColors.surfaceLight,
+        drawer: const AppDrawer(),
       body: Column(
         children: [
           // ── Fixed Header ──────────────────────────────────────────────────
@@ -216,6 +230,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+    ),
     );
   }
 }

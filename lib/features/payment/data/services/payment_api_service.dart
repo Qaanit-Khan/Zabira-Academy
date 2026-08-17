@@ -14,47 +14,21 @@ class PaymentApiService {
 
   /// Get active payment gateways configured on Zabira server.
   Future<List<PaymentGatewayInfo>> getPaymentGateways({String? token}) async {
-    try {
-      final response = await _client.get(ApiConfig.paymentsGateways, token: token);
-      final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
-      final rawList = data['gateways'] ?? response['gateways'] ?? response['data'] ?? [];
-      if (rawList is List) {
-        return rawList
-            .whereType<Map<String, dynamic>>()
-            .map((item) => PaymentGatewayInfo.fromJson(item))
-            .toList();
-      }
-    } catch (_) {}
+    final response = await _client.get(ApiConfig.paymentsGateways, token: token);
+    final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
+    final rawList = data['gateways'] ?? response['gateways'] ?? response['data'] ?? [];
+    if (rawList is List) {
+      return rawList
+          .whereType<Map<String, dynamic>>()
+          .map((item) => PaymentGatewayInfo.fromJson(item))
+          .where((gateway) => gateway.isActive && gateway.isConfigured)
+          .toList();
+    }
+    return const [];
+  }
 
-    // Also try config status endpoint
-    try {
-      final statusResp = await _client.get(ApiConfig.paymentsConfigStatus, token: token);
-      final data = statusResp['data'] is Map<String, dynamic> ? statusResp['data'] as Map<String, dynamic> : statusResp;
-      final rawList = data['gateways'] ?? statusResp['gateways'] ?? [];
-      if (rawList is List) {
-        return rawList
-            .whereType<Map<String, dynamic>>()
-            .map((item) => PaymentGatewayInfo.fromJson(item))
-            .toList();
-      }
-    } catch (_) {}
-
-    return const [
-      PaymentGatewayInfo(
-        id: 1,
-        code: 'cashfree',
-        name: 'Cashfree',
-        isRecommended: true,
-        features: ['UPI', 'Credit Cards', 'Debit Cards', 'Net Banking', 'Wallets'],
-      ),
-      PaymentGatewayInfo(
-        id: 2,
-        code: 'razorpay',
-        name: 'Razorpay',
-        isRecommended: false,
-        features: ['UPI', 'Credit Cards', 'Debit Cards', 'Net Banking', 'Wallets'],
-      ),
-    ];
+  Future<Map<String, dynamic>> getPaymentConfigStatus({String? token}) {
+    return _client.get(ApiConfig.paymentsConfigStatus, token: token);
   }
 
   /// Get flexible payment plans for a course
@@ -125,17 +99,48 @@ class PaymentApiService {
     int limit = 20,
     String? token,
   }) async {
-    final query = {'page': page, 'limit': limit};
-    final response = await _client.get(ApiConfig.paymentsMyOrders, queryParameters: query, token: token);
-    final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
-    final rawList = data['orders'] ?? response['orders'] ?? (response['data'] is List ? response['data'] : []);
-    if (rawList is List) {
-      return rawList
-          .whereType<Map<String, dynamic>>()
-          .map((item) => MyOrderItem.fromJson(item))
-          .toList();
+    final allOrders = <MyOrderItem>[];
+    final seenOrderIds = <int>{};
+    var currentPage = page;
+    var keepFetching = true;
+
+    while (keepFetching) {
+      final query = {'page': currentPage, 'limit': limit};
+      final response = await _client.get(ApiConfig.paymentsMyOrders, queryParameters: query, token: token);
+      final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
+      final rawList = data['orders'] ?? response['orders'] ?? (response['data'] is List ? response['data'] : []);
+
+      final pageOrders = <MyOrderItem>[];
+      if (rawList is List) {
+        pageOrders.addAll(
+          rawList
+              .whereType<Map<String, dynamic>>()
+              .map((item) => MyOrderItem.fromJson(item))
+              .where((item) => item.orderId > 0),
+        );
+      }
+
+      for (final order in pageOrders) {
+        if (seenOrderIds.add(order.orderId)) {
+          allOrders.add(order);
+        }
+      }
+
+      final pagination = data['pagination'] is Map<String, dynamic>
+          ? data['pagination'] as Map<String, dynamic>
+          : (response['pagination'] is Map<String, dynamic> ? response['pagination'] as Map<String, dynamic> : null);
+      final totalPages = int.tryParse(pagination?['total_pages']?.toString() ?? '');
+
+      if (totalPages != null && totalPages > 0) {
+        keepFetching = currentPage < totalPages;
+      } else {
+        keepFetching = pageOrders.length >= limit && currentPage < (page + 10);
+      }
+
+      currentPage++;
     }
-    return [];
+
+    return allOrders;
   }
 
   /// `GET /payments/order_status.php`

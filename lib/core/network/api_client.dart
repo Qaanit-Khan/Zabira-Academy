@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants/api_config.dart';
+import 'debug_logger.dart';
 
 /// Standard Zabira Academy API Exception
 class ApiException implements Exception {
@@ -27,7 +27,7 @@ class ApiClient {
 
   final http.Client _client;
 
-  static const int defaultTimeoutSeconds = 15;
+  static const int defaultTimeoutSeconds = 20;
 
   Map<String, String> _buildHeaders({String? token, Map<String, String>? extraHeaders}) {
     final headers = <String, String>{
@@ -63,19 +63,33 @@ class ApiClient {
       queryParameters: cleanParams.isEmpty ? null : cleanParams,
     );
 
-    if (kDebugMode) debugPrint('[API GET] $uri');
+    final headers = _buildHeaders(token: token);
+    DebugLogger.logRequest(method: 'GET', uri: uri, headers: headers);
 
+    final stopwatch = Stopwatch()..start();
     try {
       final response = await _client
-          .get(uri, headers: _buildHeaders(token: token))
+          .get(uri, headers: headers)
           .timeout(Duration(seconds: timeoutSeconds));
+      stopwatch.stop();
+
+      DebugLogger.logResponse(
+        method: 'GET',
+        uri: uri,
+        statusCode: response.statusCode,
+        body: response.body,
+        duration: stopwatch.elapsed,
+      );
 
       return _handleResponse(response, uri);
-    } on SocketException {
+    } on SocketException catch (e) {
+      DebugLogger.logError(context: 'GET $uri SocketException', error: e);
       throw const ApiException(message: 'Unable to reach server. Please check your internet connection.');
-    } on TimeoutException {
+    } on TimeoutException catch (e) {
+      DebugLogger.logError(context: 'GET $uri TimeoutException', error: e);
       throw const ApiException(message: 'Request timed out. Please try again.');
     } catch (e) {
+      DebugLogger.logError(context: 'GET $uri Exception', error: e);
       if (e is ApiException) rethrow;
       throw ApiException(message: e.toString());
     }
@@ -92,19 +106,33 @@ class ApiClient {
     final uri = Uri.parse('${ApiConfig.baseUrl}$path');
     final jsonBody = body != null ? jsonEncode(body) : '{}';
 
-    if (kDebugMode) debugPrint('[API POST] $uri | Body: $jsonBody');
+    final headers = _buildHeaders(token: token);
+    DebugLogger.logRequest(method: 'POST', uri: uri, headers: headers, body: body);
 
+    final stopwatch = Stopwatch()..start();
     try {
       final response = await _client
-          .post(uri, headers: _buildHeaders(token: token), body: jsonBody)
+          .post(uri, headers: headers, body: jsonBody)
           .timeout(Duration(seconds: timeoutSeconds));
+      stopwatch.stop();
+
+      DebugLogger.logResponse(
+        method: 'POST',
+        uri: uri,
+        statusCode: response.statusCode,
+        body: response.body,
+        duration: stopwatch.elapsed,
+      );
 
       return _handleResponse(response, uri);
-    } on SocketException {
+    } on SocketException catch (e) {
+      DebugLogger.logError(context: 'POST $uri SocketException', error: e);
       throw const ApiException(message: 'Unable to reach server. Please check your internet connection.');
-    } on TimeoutException {
+    } on TimeoutException catch (e) {
+      DebugLogger.logError(context: 'POST $uri TimeoutException', error: e);
       throw const ApiException(message: 'Request timed out. Please try again.');
     } catch (e) {
+      DebugLogger.logError(context: 'POST $uri Exception', error: e);
       if (e is ApiException) rethrow;
       throw ApiException(message: e.toString());
     }
@@ -121,19 +149,33 @@ class ApiClient {
     final uri = Uri.parse('${ApiConfig.baseUrl}$path');
     final jsonBody = body != null ? jsonEncode(body) : '{}';
 
-    if (kDebugMode) debugPrint('[API PUT] $uri | Body: $jsonBody');
+    final headers = _buildHeaders(token: token);
+    DebugLogger.logRequest(method: 'PUT', uri: uri, headers: headers, body: body);
 
+    final stopwatch = Stopwatch()..start();
     try {
       final response = await _client
-          .put(uri, headers: _buildHeaders(token: token), body: jsonBody)
+          .put(uri, headers: headers, body: jsonBody)
           .timeout(Duration(seconds: timeoutSeconds));
+      stopwatch.stop();
+
+      DebugLogger.logResponse(
+        method: 'PUT',
+        uri: uri,
+        statusCode: response.statusCode,
+        body: response.body,
+        duration: stopwatch.elapsed,
+      );
 
       return _handleResponse(response, uri);
-    } on SocketException {
+    } on SocketException catch (e) {
+      DebugLogger.logError(context: 'PUT $uri SocketException', error: e);
       throw const ApiException(message: 'Unable to reach server. Please check your internet connection.');
-    } on TimeoutException {
+    } on TimeoutException catch (e) {
+      DebugLogger.logError(context: 'PUT $uri TimeoutException', error: e);
       throw const ApiException(message: 'Request timed out. Please try again.');
     } catch (e) {
+      DebugLogger.logError(context: 'PUT $uri Exception', error: e);
       if (e is ApiException) rethrow;
       throw ApiException(message: e.toString());
     }
@@ -158,29 +200,39 @@ class ApiClient {
       queryParameters: cleanParams.isEmpty ? null : cleanParams,
     );
 
-    if (kDebugMode) debugPrint('[API DELETE] $uri');
+    final headers = _buildHeaders(token: token);
+    DebugLogger.logRequest(method: 'DELETE', uri: uri, headers: headers);
 
+    final stopwatch = Stopwatch()..start();
     try {
       final response = await _client
-          .delete(uri, headers: _buildHeaders(token: token))
+          .delete(uri, headers: headers)
           .timeout(Duration(seconds: timeoutSeconds));
+      stopwatch.stop();
+
+      DebugLogger.logResponse(
+        method: 'DELETE',
+        uri: uri,
+        statusCode: response.statusCode,
+        body: response.body,
+        duration: stopwatch.elapsed,
+      );
 
       return _handleResponse(response, uri);
-    } on SocketException {
+    } on SocketException catch (e) {
+      DebugLogger.logError(context: 'DELETE $uri SocketException', error: e);
       throw const ApiException(message: 'Unable to reach server. Please check your internet connection.');
-    } on TimeoutException {
+    } on TimeoutException catch (e) {
+      DebugLogger.logError(context: 'DELETE $uri TimeoutException', error: e);
       throw const ApiException(message: 'Request timed out. Please try again.');
     } catch (e) {
+      DebugLogger.logError(context: 'DELETE $uri Exception', error: e);
       if (e is ApiException) rethrow;
       throw ApiException(message: e.toString());
     }
   }
 
   Map<String, dynamic> _handleResponse(http.Response response, Uri uri) {
-    if (kDebugMode) {
-      debugPrint('[API RESPONSE] HTTP ${response.statusCode} | URL: $uri');
-    }
-
     dynamic decoded;
     try {
       decoded = jsonDecode(response.body);

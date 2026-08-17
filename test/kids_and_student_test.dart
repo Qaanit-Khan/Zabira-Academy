@@ -109,7 +109,7 @@ void main() {
       expect(quiz.pointsReward, equals(100));
     });
 
-    test('KidsApiService returns default categories and games when server is quiet', () async {
+    test('KidsController reports error when kids APIs return empty payloads', () async {
       final mockClient = MockClient((request) async {
         return http.Response(jsonEncode({'success': true, 'data': []}), 200);
       });
@@ -119,10 +119,9 @@ void main() {
 
       await controller.loadKidsPortal();
 
-      expect(controller.state, equals(KidsPortalState.loaded));
-      expect(controller.categories.length, greaterThanOrEqualTo(4));
-      expect(controller.games.length, greaterThanOrEqualTo(4));
-      expect(controller.quizzes.length, greaterThanOrEqualTo(4));
+      expect(controller.state, equals(KidsPortalState.error));
+      expect(controller.games, isEmpty);
+      expect(controller.quizzes, isEmpty);
     });
   });
 }

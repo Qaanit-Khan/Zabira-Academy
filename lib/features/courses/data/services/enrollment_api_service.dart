@@ -110,17 +110,47 @@ class EnrollmentApiService {
   /// `GET /enrollment/my_courses`
   Future<List<EnrolledCourseModel>> getMyCourses({String? token}) async {
     final response = await _getWithFallback(ApiConfig.enrollmentMyCourses, token: token);
-    final rawList = response['data'] ?? response['courses'] ?? response['enrollments'] ?? [];
-    if (rawList is List) {
-      return rawList
+    
+    if (kDebugMode) {
+      debugPrint('[ENROLLMENT API] getMyCourses raw keys: ${response.keys.toList()}');
+    }
+
+    final dynamic data = response['data'] ?? response;
+    List? rawList;
+
+    if (data is List) {
+      rawList = data;
+    } else if (data is Map) {
+      rawList = (data['courses'] ?? data['enrollments'] ?? data['items'] ?? data['data'] ?? data['enrolled_courses']) as List?;
+    } else if (response['courses'] is List) {
+      rawList = response['courses'] as List;
+    } else if (response['enrollments'] is List) {
+      rawList = response['enrollments'] as List;
+    }
+
+    if (rawList != null) {
+      final courses = rawList
           .whereType<Map<String, dynamic>>()
           .map((e) => EnrolledCourseModel.fromJson(e))
+          .where((e) => e.courseId > 0 || e.id > 0)
           .toList();
+      
+      if (kDebugMode) {
+        debugPrint('[ENROLLMENT API] getMyCourses parsed count: ${courses.length}');
+      }
+      return courses;
+    }
+
+    if (kDebugMode) {
+      debugPrint('[ENROLLMENT API] getMyCourses returned empty or unknown structure');
     }
     return [];
   }
 
   /// `POST /enrollment/enroll`
+  ///
+  /// Per OpenAPI spec: course_id (required integer), payment_plan (optional string),
+  /// plan_type (optional string), email (optional string).
   Future<Map<String, dynamic>> enrollInCourse({
     required int courseId,
     String? paymentPlan,
@@ -135,7 +165,20 @@ class EnrollmentApiService {
     if (planType != null) body['plan_type'] = planType;
     if (email != null) body['email'] = email;
 
-    return _postWithFallback(ApiConfig.enrollmentEnroll, body: body, token: token);
+    if (kDebugMode) {
+      debugPrint('[ENROLLMENT API] enrollInCourse | course_id=$courseId | payment_plan=$paymentPlan | plan_type=$planType');
+    }
+
+    final result = await _postWithFallback(ApiConfig.enrollmentEnroll, body: body, token: token);
+
+    if (kDebugMode) {
+      final data = result['data'] is Map<String, dynamic> ? result['data'] as Map<String, dynamic> : result;
+      final orderId = data['order_id'] ?? data['id'];
+      final status = data['status'] ?? result['message'];
+      debugPrint('[ENROLLMENT API] enrollInCourse response | order_id=$orderId | status=$status | success=${result['success']}');
+    }
+
+    return result;
   }
 
   Map<String, dynamic> _parseSuccess(String body) {

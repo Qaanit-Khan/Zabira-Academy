@@ -9,12 +9,14 @@ import '../features/auth/presentation/pages/reset_password_page.dart';
 import '../features/auth/presentation/pages/splash_page.dart';
 import '../features/auth/presentation/pages/teacher_login_page.dart';
 import '../features/courses/presentation/pages/course_details_page.dart';
+import '../features/courses/presentation/pages/course_learning_page.dart';
 import '../features/courses/presentation/pages/courses_page.dart';
 import '../features/courses/presentation/pages/my_courses_page.dart';
 import '../features/events/presentation/pages/event_details_page.dart';
 import '../features/events/presentation/pages/events_page.dart';
 import '../features/home/presentation/pages/home_page.dart';
 import '../features/kids/data/models/kids_models.dart';
+import '../features/kids/presentation/pages/kids_game_detail_page.dart';
 import '../features/kids/presentation/pages/kids_game_page.dart';
 import '../features/kids/presentation/pages/kids_portal_page.dart';
 import '../features/kids/presentation/pages/kids_quiz_page.dart';
@@ -25,6 +27,7 @@ import '../features/media/presentation/pages/media_page.dart';
 import '../features/nasheed/presentation/pages/nasheed_page.dart';
 import '../features/parent/presentation/pages/parent_dashboard_page.dart';
 import '../features/payment/presentation/pages/checkout_page.dart';
+import '../features/scholarship/presentation/pages/scholarship_page.dart';
 import '../features/payment/presentation/pages/my_orders_page.dart';
 import '../features/payment/presentation/pages/payment_success_page.dart';
 import '../features/store/presentation/pages/cart_page.dart';
@@ -48,6 +51,7 @@ abstract final class AppRoutes {
   static const String home = '/home';
   static const String courses = '/courses';
   static const String courseDetails = '/courses/:id';
+  static const String courseLearn = '/courses/:id/learn';
   static const String myCourses = '/my-courses';
   static const String store = '/store';
   static const String storeDetails = '/store/:id';
@@ -61,6 +65,7 @@ abstract final class AppRoutes {
   static const String events = '/events';
   static const String eventDetails = '/events/:id';
   static const String kids = '/kids';
+  static const String scholarship = '/scholarship';
   static const String checkout = '/checkout';
   static const String paymentSuccess = '/payment-success';
   static const String myOrders = '/my-orders';
@@ -100,6 +105,7 @@ GoRouter buildRouter(BuildContext context) {
           loc.startsWith('/events/') ||
           loc == AppRoutes.kids ||
           loc.startsWith('/kids/') ||
+          loc == AppRoutes.scholarship ||
           loc == AppRoutes.checkout ||
           loc == AppRoutes.paymentSuccess ||
           loc == AppRoutes.myOrders ||
@@ -147,6 +153,15 @@ GoRouter buildRouter(BuildContext context) {
           return CourseDetailsPage(courseId: id);
         },
       ),
+      GoRoute(
+        path: AppRoutes.courseLearn,
+        builder: (context, state) {
+          final idParam = state.pathParameters['id'];
+          final id = int.tryParse(idParam ?? '') ?? 0;
+          final lessonId = int.tryParse(state.uri.queryParameters['lesson_id'] ?? '');
+          return CourseLearningPage(courseId: id, initialLessonId: lessonId);
+        },
+      ),
       GoRoute(path: AppRoutes.myCourses, builder: (context, state) => const MyCoursesPage()),
       GoRoute(path: AppRoutes.store, builder: (context, state) => const StorePage()),
       GoRoute(
@@ -188,6 +203,7 @@ GoRouter buildRouter(BuildContext context) {
         },
       ),
       GoRoute(path: AppRoutes.kids, builder: (context, state) => const KidsPortalPage()),
+      GoRoute(path: AppRoutes.scholarship, builder: (context, state) => const ScholarshipPage()),
       GoRoute(
         path: '/kids/quiz/:id',
         builder: (context, state) {
@@ -207,6 +223,15 @@ GoRouter buildRouter(BuildContext context) {
         },
       ),
       GoRoute(
+        path: '/kids/game-detail/:id',
+        builder: (context, state) {
+          final idParam = state.pathParameters['id'];
+          final id = int.tryParse(idParam ?? '') ?? 0;
+          final game = state.extra is KidsGameItem ? state.extra as KidsGameItem : null;
+          return KidsGameDetailPage(gameId: id, game: game);
+        },
+      ),
+      GoRoute(
         path: AppRoutes.checkout,
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
@@ -223,6 +248,7 @@ GoRouter buildRouter(BuildContext context) {
             mode: extra['mode']?.toString(),
             planLabel: extra['planLabel']?.toString(),
             courseId: int.tryParse(extra['courseId']?.toString() ?? ''),
+            quantity: int.tryParse(extra['quantity']?.toString() ?? '1') ?? 1,
           );
         },
       ),
@@ -232,10 +258,12 @@ GoRouter buildRouter(BuildContext context) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
           return PaymentSuccessPage(
             orderId: int.tryParse(extra['orderId']?.toString() ?? '0') ?? 0,
-            paymentId: extra['paymentId']?.toString() ?? 'pay_verified',
+            paymentId: extra['paymentId']?.toString() ?? '',
             title: extra['title']?.toString() ?? 'Course Enrollment',
             amount: double.tryParse(extra['amount']?.toString() ?? '0') ?? 0.0,
             productType: extra['productType']?.toString() ?? 'course',
+            verified: extra['verified'] == true,
+            courseId: int.tryParse(extra['courseId']?.toString() ?? ''),
           );
         },
       ),

@@ -7,6 +7,8 @@ import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../../../features/store/presentation/controllers/cart_controller.dart';
+import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../features/home/presentation/widgets/home_header.dart';
 import '../../../../shared/loaders/zabira_loader.dart';
 import '../../../../shared/widgets/scholarship_promo_banner.dart';
@@ -27,6 +29,7 @@ class MediaPage extends StatefulWidget {
 }
 
 class _MediaPageState extends State<MediaPage> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final MediaController _controller;
 
   @override
@@ -63,27 +66,43 @@ class _MediaPageState extends State<MediaPage> {
     );
 
     final auth = context.watch<AuthController>();
+    final cart = context.watch<CartController>();
 
-    return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
-      body: Column(
-        children: [
-          // ── Fixed Top Header ──────────────────────────────────────────────
-          SafeArea(
-            bottom: false,
-            child: HomeHeader(
-              isAuthenticated: auth.isAuthenticated,
-              notificationCount: 2,
-              onSignIn: () => context.push(AppRoutes.login),
-              onProfileTap: () {
-                if (auth.isAuthenticated) {
-                  // Profile
-                } else {
-                  context.push(AppRoutes.login);
-                }
-              },
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          _scaffoldKey.currentState?.closeDrawer();
+          return;
+        }
+        context.go(AppRoutes.home);
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: const AppDrawer(),
+        backgroundColor: AppColors.surfaceLight,
+        body: Column(
+          children: [
+            // ── Fixed Top Header ──────────────────────────────────────────────
+            SafeArea(
+              bottom: false,
+              child: HomeHeader(
+                isAuthenticated: auth.isAuthenticated,
+                notificationCount: 2,
+                cartCount: cart.itemCount,
+                onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                onCartTap: () => context.push(AppRoutes.cart),
+                onSignIn: () => context.push(AppRoutes.login),
+                onProfileTap: () {
+                  if (auth.isAuthenticated) {
+                    context.go(AppRoutes.studentDash);
+                  } else {
+                    context.push(AppRoutes.login);
+                  }
+                },
+              ),
             ),
-          ),
 
           // ── Scrollable Body ───────────────────────────────────────────────
           Expanded(
@@ -228,6 +247,7 @@ class _MediaPageState extends State<MediaPage> {
           _buildBottomNav(context),
         ],
       ),
+    ),
     );
   }
 

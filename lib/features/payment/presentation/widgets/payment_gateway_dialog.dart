@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../data/services/payment_gateway_launcher.dart';
 import '../controllers/payment_controller.dart';
 import '../../data/models/payment_models.dart';
 
@@ -59,6 +60,7 @@ class _PaymentGatewayDialogState extends State<PaymentGatewayDialog> {
   bool _isProcessing = false;
   String _statusStep = '';
   String? _errorMsg;
+  final PaymentGatewayLauncher _gatewayLauncher = PaymentGatewayLauncher();
 
   @override
   void initState() {
@@ -84,66 +86,104 @@ class _PaymentGatewayDialogState extends State<PaymentGatewayDialog> {
       _errorMsg = null;
     });
 
-    // 1. Create Payment Session
-    final session = await payment.createSession(
-      orderId: widget.orderId,
-      productType: widget.productType,
-      gateway: _selectedGateway,
-      token: auth.currentToken,
-    );
+    try {
+      // 1. Create Payment Session
+      final session = await payment.createSession(
+        orderId: widget.orderId,
+        productType: widget.productType,
+        gateway: _selectedGateway,
+        token: auth.currentToken,
+      );
 
-    if (session == null) {
+      if (session == null) {
+        if (!mounted) return;
+        setState(() {
+          _isProcessing = false;
+          _errorMsg = payment.errorMessage ?? 'Failed to initialize payment session.';
+        });
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() => _statusStep = 'Opening payment gateway...');
+      payment.setStatus(PaymentStatus.waitingForGateway);
+
+      final gatewayResult = await _gatewayLauncher.launch(
+        context: context,
+        session: session,
+        title: widget.title,
+        amount: widget.amount,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _statusStep = 'Verifying payment with Zabira server...';
+      });
+
+      // 3. Verify Payment
+      final isVerified = await payment.verifyPayment(
+        orderId: widget.orderId,
+        productType: widget.productType,
+        gatewayOrderId: gatewayResult.gatewayOrderId,
+        paymentId: gatewayResult.paymentId,
+        signature: gatewayResult.signature,
+        razorpayOrderId: gatewayResult.razorpayOrderId,
+        token: auth.currentToken,
+      );
+
+      if (!mounted) return;
+
+      if (isVerified) {
+        final status = await payment.checkOrderStatus(
+          orderId: widget.orderId,
+          productType: widget.productType,
+          token: auth.currentToken,
+        );
+        if (!payment.isConfirmedOrderStatus(status, widget.productType)) {
+          setState(() {
+            _isProcessing = false;
+            _errorMsg = payment.errorMessage ?? 'Payment verified, but order is not confirmed.';
+          });
+          return;
+        }
+        setState(() {
+          _isProcessing = false;
+          _statusStep = 'Payment verified successfully!';
+        });
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (mounted) {
+          Navigator.of(context).pop(true);
+        }
+      } else {
+        setState(() {
+          _isProcessing = false;
+          _errorMsg = payment.errorMessage ?? 'Payment verification failed.';
+        });
+      }
+    } on PaymentGatewayLaunchException catch (e) {
+      // Gateway launch failure or user cancellation — no payment was made
+      payment.setStatus(PaymentStatus.failed, error: e.message);
       if (!mounted) return;
       setState(() {
         _isProcessing = false;
-        _errorMsg = payment.errorMessage ?? 'Failed to initialize payment session.';
+        _errorMsg = e.message;
       });
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _statusStep = 'Authorizing transaction...';
-    });
-
-    // 2. Simulate gateway completion with backend-ready parameters
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
-
-    setState(() {
-      _statusStep = 'Verifying payment with Zabira server...';
-    });
-
-    final gatewayOrderId = session.gatewayOrderId ?? 'order_${DateTime.now().millisecondsSinceEpoch}';
-    final paymentId = 'pay_${DateTime.now().millisecondsSinceEpoch}';
-    final signature = 'sig_${DateTime.now().millisecondsSinceEpoch}';
-
-    // 3. Verify Payment
-    final isVerified = await payment.verifyPayment(
-      orderId: widget.orderId,
-      productType: widget.productType,
-      gatewayOrderId: gatewayOrderId,
-      paymentId: paymentId,
-      signature: signature,
-      razorpayOrderId: gatewayOrderId,
-      token: auth.currentToken,
-    );
-
-    if (!mounted) return;
-
-    if (isVerified) {
-      setState(() {
-        _isProcessing = false;
-        _statusStep = 'Payment verified successfully!';
-      });
-      await Future.delayed(const Duration(milliseconds: 600));
-      if (mounted) {
-        Navigator.of(context).pop(true);
+    } catch (e) {
+      // If payment was already received (has payment_id), don't say "Payment Failed"
+      final hasPaymentId = payment.lastResult?.transactionId != null &&
+          (payment.lastResult?.transactionId?.isNotEmpty ?? false);
+      if (hasPaymentId) {
+        payment.setStatus(
+          PaymentStatus.awaitingConfirmation,
+          error: 'Payment received, but confirmation pending. Order ID: #${widget.orderId}.',
+        );
+      } else {
+        payment.setStatus(PaymentStatus.failed, error: e.toString().replaceAll('Exception:', '').trim());
       }
-    } else {
+      if (!mounted) return;
       setState(() {
         _isProcessing = false;
-        _errorMsg = payment.errorMessage ?? 'Payment verification failed.';
+        _errorMsg = payment.errorMessage ?? e.toString().replaceAll('Exception:', '').trim();
       });
     }
   }

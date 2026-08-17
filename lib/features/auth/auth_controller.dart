@@ -20,6 +20,12 @@ enum AuthStatus {
   error,
 }
 
+enum GoogleAuthStatus {
+  idle,
+  authenticating,
+  error,
+}
+
 /// Zabira Academy — Auth Controller
 ///
 /// Manages authentication state using ChangeNotifier (Provider).
@@ -34,16 +40,22 @@ class AuthController extends ChangeNotifier {
 
   // ─── State ────────────────────────────────────────────────────────────────
   AuthStatus _status = AuthStatus.initial;
+  GoogleAuthStatus _googleStatus = GoogleAuthStatus.idle;
+  bool _isEmailLoading = false;
+  bool _isGoogleLoading = false;
   UserModel? _user;
   String? _errorMessage;
   String? _pendingReturnTo;
 
   AuthStatus get status => _status;
+  GoogleAuthStatus get googleStatus => _googleStatus;
+  bool get isEmailLoading => _isEmailLoading;
+  bool get isGoogleLoading => _isGoogleLoading;
   UserModel? get user => _user;
   String? get errorMessage => _errorMessage;
   String? get currentToken => _auth.currentToken;
   bool get isAuthenticated => _status == AuthStatus.authenticated && _user != null;
-  bool get isLoading => _status == AuthStatus.loading;
+  bool get isLoading => _status == AuthStatus.loading || _isEmailLoading || _isGoogleLoading;
   String? get pendingReturnTo => _pendingReturnTo;
 
   void setPendingReturnTo(String? route) {
@@ -80,8 +92,12 @@ class AuthController extends ChangeNotifier {
     required String password,
     String portal = 'student',
   }) async {
-    if (_status == AuthStatus.loading) return false;
-    _setLoading();
+    if (_isEmailLoading || _isGoogleLoading) return false;
+    _isEmailLoading = true;
+    _status = AuthStatus.loading;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       final user = await _auth.signInWithApi(
         email: email,
@@ -91,11 +107,15 @@ class AuthController extends ChangeNotifier {
       _user = user;
       _status = AuthStatus.authenticated;
       _errorMessage = null;
+      _isEmailLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
       _user = null;
-      _setError(e.toString());
+      _status = AuthStatus.error;
+      _errorMessage = e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim();
+      _isEmailLoading = false;
+      notifyListeners();
       return false;
     }
   }
@@ -107,18 +127,36 @@ class AuthController extends ChangeNotifier {
 
   // ─── Google Sign In (Official Zabira API) ─────────────────────────────────
   Future<bool> signInWithGoogle({String portal = 'student'}) async {
-    if (_status == AuthStatus.loading) return false;
-    _setLoading();
+    if (_isGoogleLoading || _isEmailLoading) return false;
+    _isGoogleLoading = true;
+    _googleStatus = GoogleAuthStatus.authenticating;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       final user = await _auth.signInWithGoogle(portal: portal);
       _user = user;
       _status = AuthStatus.authenticated;
+      _googleStatus = GoogleAuthStatus.idle;
+      _isGoogleLoading = false;
       _errorMessage = null;
       notifyListeners();
       return true;
     } catch (e) {
-      _user = null;
-      _setError(e.toString());
+      _isGoogleLoading = false;
+      _googleStatus = GoogleAuthStatus.error;
+      final rawMsg = e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim();
+      
+      if (rawMsg.contains('10') || rawMsg.contains('DEVELOPER_ERROR') || rawMsg.contains('sign_in_failed')) {
+        _errorMessage = 'Google Sign-In is currently unavailable. Please sign in with email and password.';
+      } else if (rawMsg.toLowerCase().contains('cancelled')) {
+        _errorMessage = 'Google sign-in was cancelled.';
+      } else {
+        _errorMessage = rawMsg;
+      }
+      
+      _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+      notifyListeners();
       return false;
     }
   }
@@ -166,7 +204,7 @@ class AuthController extends ChangeNotifier {
       return true;
     } catch (e) {
       _user = null;
-      _setError(e.toString());
+      _setError(e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim());
       return false;
     }
   }
@@ -182,7 +220,7 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _setError(e.toString());
+      _setError(e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim());
       return false;
     }
   }
@@ -198,7 +236,7 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return isValid;
     } catch (e) {
-      _setError(e.toString());
+      _setError(e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim());
       return false;
     }
   }
@@ -222,7 +260,7 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _setError(e.toString());
+      _setError(e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim());
       return false;
     }
   }
@@ -243,6 +281,9 @@ class AuthController extends ChangeNotifier {
     _user = null;
     _pendingReturnTo = null;
     _status = AuthStatus.unauthenticated;
+    _isEmailLoading = false;
+    _isGoogleLoading = false;
+    _googleStatus = GoogleAuthStatus.idle;
     _errorMessage = null;
     notifyListeners();
   }

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../../../core/audio/global_audio_controller.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../data/models/daily_supplement_model.dart';
@@ -25,7 +27,6 @@ class DailySupplementCard extends StatefulWidget {
 
 class _DailySupplementCardState extends State<DailySupplementCard>
     with SingleTickerProviderStateMixin {
-  bool _playing = false;
   late final AnimationController _waveController;
 
   @override
@@ -45,18 +46,35 @@ class _DailySupplementCardState extends State<DailySupplementCard>
 
   void _togglePlay() {
     HapticFeedback.lightImpact();
-    setState(() {
-      _playing = !_playing;
-      if (_playing) {
-        _waveController.repeat(reverse: true);
-      } else {
-        _waveController.stop();
-      }
-    });
+    final audio = context.read<GlobalAudioController>();
+    final audioUrl = widget.supplement.audioUrl ?? '';
+    if (audioUrl.isNotEmpty) {
+      audio.playUrl(
+        audioUrl,
+        title: widget.supplement.contentTitle,
+        artist: widget.supplement.contentType,
+        coverUrl: widget.supplement.imageUrl,
+        source: 'nasheed',
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final audio = context.watch<GlobalAudioController>();
+    final audioUrl = widget.supplement.audioUrl ?? '';
+    final isThisTrackActive = audioUrl.isNotEmpty && audio.currentUrl == audioUrl;
+    final playing = isThisTrackActive && audio.isPlaying;
+    final isLoading = isThisTrackActive && audio.isLoading;
+    final hasError = isThisTrackActive && audio.hasError;
+
+    // Keep waveform animation in sync with real playback state
+    if (playing && !_waveController.isAnimating) {
+      _waveController.repeat(reverse: true);
+    } else if (!playing && _waveController.isAnimating) {
+      _waveController.stop();
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Container(
@@ -141,7 +159,7 @@ class _DailySupplementCardState extends State<DailySupplementCard>
               animation: _waveController,
               builder: (context, _) {
                 return _WaveformWidget(
-                  playing: _playing,
+                  playing: playing,
                   animationValue: _waveController.value,
                 );
               },
@@ -151,7 +169,9 @@ class _DailySupplementCardState extends State<DailySupplementCard>
 
             // ── 4. Compact Play / Pause Button ─────────────────────────────
             _PlayButton(
-              playing: _playing,
+              playing: playing,
+              isLoading: isLoading,
+              hasError: hasError,
               onTap: _togglePlay,
             ),
           ],
@@ -302,16 +322,18 @@ class _WaveformPainter extends CustomPainter {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 /// Circular dark navy play/pause button (compact 36×36px) with gold border.
 class _PlayButton extends StatefulWidget {
   const _PlayButton({
     required this.playing,
     required this.onTap,
+    this.isLoading = false,
+    this.hasError = false,
   });
 
   final bool playing;
+  final bool isLoading;
+  final bool hasError;
   final VoidCallback onTap;
 
   @override
@@ -341,9 +363,9 @@ class _PlayButtonState extends State<_PlayButton> {
             height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF081D3A),
+              color: widget.hasError ? const Color(0xFF7F1D1D) : const Color(0xFF081D3A),
               border: Border.all(
-                color: AppColors.gold,
+                color: widget.hasError ? Colors.red.shade300 : AppColors.gold,
                 width: 1.3,
               ),
               boxShadow: [
@@ -355,15 +377,26 @@ class _PlayButtonState extends State<_PlayButton> {
               ],
             ),
             child: Center(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 140),
-                child: Icon(
-                  widget.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  key: ValueKey(widget.playing),
-                  color: AppColors.gold,
-                  size: 20,
-                ),
-              ),
+              child: widget.isLoading
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.gold),
+                      ),
+                    )
+                  : AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 140),
+                      child: Icon(
+                        widget.hasError
+                            ? Icons.error_outline_rounded
+                            : (widget.playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                        key: ValueKey('${widget.playing}_${widget.hasError}'),
+                        color: widget.hasError ? Colors.red.shade300 : AppColors.gold,
+                        size: 20,
+                      ),
+                    ),
             ),
           ),
         ),

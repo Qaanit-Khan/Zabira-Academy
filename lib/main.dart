@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'app/app.dart';
+import 'core/audio/global_audio_controller.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/courses/presentation/controllers/enrollment_controller.dart';
@@ -45,6 +46,10 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
+        // Global audio — must be first so all others can access it
+        ChangeNotifierProvider(
+          create: (_) => GlobalAudioController(),
+        ),
         ChangeNotifierProvider(
           create: (_) => AuthController(authRepository: authRepository),
         ),

@@ -25,6 +25,28 @@ class CartApiService {
     'User-Agent': 'ZabiraAcademy-App/1.0',
   };
 
+  Exception _httpError({
+    required String method,
+    required Uri uri,
+    required int statusCode,
+    required String body,
+    Map<String, dynamic>? payload,
+  }) {
+    String message = 'HTTP $statusCode';
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        final backendMessage = decoded['message']?.toString() ?? decoded['error']?.toString();
+        if (backendMessage != null && backendMessage.isNotEmpty) {
+          message = backendMessage;
+        }
+      }
+    } catch (_) {}
+
+    final payloadText = payload == null ? '' : ' | payload=${jsonEncode(payload)}';
+    return Exception('$method $uri failed (HTTP $statusCode): $message$payloadText');
+  }
+
   /// Helper for GET requests with automatic .php fallback
   Future<Map<String, dynamic>> _getWithFallback(
     String path, {
@@ -57,7 +79,12 @@ class CartApiService {
         }
       }
 
-      throw Exception('Cart request failed (HTTP ${response.statusCode})');
+      throw _httpError(
+        method: 'GET',
+        uri: primaryUri,
+        statusCode: response.statusCode,
+        body: response.body,
+      );
     } on TimeoutException {
       throw Exception('Cart request timed out. Please check your internet connection.');
     } on SocketException {
@@ -101,7 +128,16 @@ class CartApiService {
         }
       }
 
-      throw Exception('Cart action failed (HTTP ${response.statusCode})');
+      if (kDebugMode) {
+        debugPrint('[CART API ERROR BODY] ${response.body.length > 1000 ? response.body.substring(0, 1000) : response.body}');
+      }
+      throw _httpError(
+        method: 'POST',
+        uri: primaryUri,
+        statusCode: response.statusCode,
+        body: response.body,
+        payload: body,
+      );
     } on TimeoutException {
       throw Exception('Cart request timed out. Please check your internet connection.');
     } on SocketException {
@@ -157,6 +193,11 @@ class CartApiService {
   /// `POST /cart/clear`
   Future<Map<String, dynamic>> clearCart({String? token}) async {
     return _postWithFallback(ApiConfig.cartClear, body: {}, token: token);
+  }
+
+  /// `POST /cart/checkout`
+  Future<Map<String, dynamic>> checkout({String? token}) async {
+    return _postWithFallback(ApiConfig.cartCheckout, body: {}, token: token);
   }
 
   Map<String, dynamic> _parseSuccess(String body) {
