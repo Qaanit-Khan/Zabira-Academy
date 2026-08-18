@@ -50,6 +50,8 @@ class EnrolledCourseModel {
 
   bool get isActive => status.toLowerCase() == 'active' || status.toLowerCase() == 'enrolled' || status.toLowerCase() == 'paid';
 
+  bool get isCompleted => completed || progressPercent >= 100.0 || (lessonsCount > 0 && completedLessonsCount >= lessonsCount);
+
   factory EnrolledCourseModel.fromJson(Map<String, dynamic> json) {
     final dynamic courseObj = json['course'] is Map<String, dynamic> ? json['course'] as Map<String, dynamic> : null;
 

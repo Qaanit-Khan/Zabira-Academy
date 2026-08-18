@@ -19,7 +19,9 @@ import '../features/kids/data/models/kids_models.dart';
 import '../features/kids/presentation/pages/kids_game_detail_page.dart';
 import '../features/kids/presentation/pages/kids_game_page.dart';
 import '../features/kids/presentation/pages/kids_portal_page.dart';
+import '../features/kids/presentation/pages/kids_quiz_detail_page.dart';
 import '../features/kids/presentation/pages/kids_quiz_page.dart';
+import '../features/kids/presentation/pages/kids_story_detail_page.dart';
 import '../features/library/presentation/pages/library_item_details_page.dart';
 import '../features/library/presentation/pages/library_page.dart';
 import '../features/media/presentation/pages/media_details_page.dart';
@@ -203,7 +205,18 @@ GoRouter buildRouter(BuildContext context) {
         },
       ),
       GoRoute(path: AppRoutes.kids, builder: (context, state) => const KidsPortalPage()),
+      GoRoute(path: '/kids/quizzes', builder: (context, state) => const KidsPortalPage()),
       GoRoute(path: AppRoutes.scholarship, builder: (context, state) => const ScholarshipPage()),
+      GoRoute(
+        path: '/kids/quiz-detail/:id',
+        builder: (context, state) {
+          final idParam = state.pathParameters['id'];
+          final id = int.tryParse(idParam ?? '') ?? 0;
+          final slug = state.uri.queryParameters['slug'];
+          final quiz = state.extra is KidsQuizItem ? state.extra as KidsQuizItem : null;
+          return KidsQuizDetailPage(quizId: id, slug: slug, initialQuiz: quiz);
+        },
+      ),
       GoRoute(
         path: '/kids/quiz/:id',
         builder: (context, state) {
@@ -229,6 +242,16 @@ GoRouter buildRouter(BuildContext context) {
           final id = int.tryParse(idParam ?? '') ?? 0;
           final game = state.extra is KidsGameItem ? state.extra as KidsGameItem : null;
           return KidsGameDetailPage(gameId: id, game: game);
+        },
+      ),
+      GoRoute(
+        path: '/kids/story/:id',
+        builder: (context, state) {
+          final idParam = state.pathParameters['id'];
+          final id = int.tryParse(idParam ?? '') ?? 0;
+          final slug = state.uri.queryParameters['slug'];
+          final story = state.extra is KidsStoryItem ? state.extra as KidsStoryItem : null;
+          return KidsStoryDetailPage(storyId: id, slug: slug, initialStory: story);
         },
       ),
       GoRoute(

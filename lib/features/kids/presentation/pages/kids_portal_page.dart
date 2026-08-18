@@ -36,28 +36,6 @@ class _KidsDuaItem {
   final String? audioUrl;
 }
 
-class _KidsStoryItem {
-  const _KidsStoryItem({
-    required this.id,
-    required this.title,
-    required this.prophet,
-    required this.moral,
-    required this.readTime,
-    required this.icon,
-    required this.color,
-    required this.body,
-  });
-
-  final int id;
-  final String title;
-  final String prophet;
-  final String moral;
-  final String readTime;
-  final IconData icon;
-  final Color color;
-  final String body;
-}
-
 /// Zabira Academy — Kids Learning Portal Screen
 class KidsPortalPage extends StatefulWidget {
   const KidsPortalPage({super.key});
@@ -151,113 +129,12 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
     ),
   ];
 
-  static const List<_KidsStoryItem> _storiesList = [
-    _KidsStoryItem(
-      id: 1,
-      title: 'The Great Ark of Faith',
-      prophet: 'Prophet Nuh (AS)',
-      moral: 'Trust in Allah with patience and perseverance.',
-      readTime: '4 min read',
-      icon: Icons.sailing_rounded,
-      color: Color(0xFF0284C7),
-      body: 'Allah commanded Prophet Nuh (AS) to build a massive ship on dry land. Despite ridicule from the disbelievers, Prophet Nuh followed Allah\'s guidance faithfully. When the great flood came, the Ark was saved by Allah\'s divine decree, teaching us to always trust Allah\'s commands even when others do not understand.',
-    ),
-    _KidsStoryItem(
-      id: 2,
-      title: 'The Cool Fire & Kaaba',
-      prophet: 'Prophet Ibrahim (AS)',
-      moral: 'True devotion and courage in Allah alone.',
-      readTime: '5 min read',
-      icon: Icons.local_fire_department_rounded,
-      color: Color(0xFFF59E0B),
-      body: 'When thrown into the raging fire by King Nimrod, Prophet Ibrahim (AS) placed all his trust in Allah. Allah commanded the fire: "O fire, be cool and peaceful for Ibrahim!" Later in life, alongside his son Ismail (AS), he built the Holy Kaaba in Makkah as a sanctuary for pure worship.',
-    ),
-    _KidsStoryItem(
-      id: 3,
-      title: 'The Splitting of the Sea',
-      prophet: 'Prophet Musa (AS)',
-      moral: 'Allah provides a way out for the believers.',
-      readTime: '4 min read',
-      icon: Icons.waves_rounded,
-      color: Color(0xFF10B981),
-      body: 'Trapped between the Red Sea and Pharaoh\'s marching army, Prophet Musa (AS) said with unshakeable conviction: "Indeed, my Lord is with me; He will guide me!" Allah commanded Musa to strike the sea with his staff, miraculously parting the deep waters into towering walls of safety.',
-    ),
-    _KidsStoryItem(
-      id: 4,
-      title: 'In the Belly of the Whale',
-      prophet: 'Prophet Yunus (AS)',
-      moral: 'The power of sincere repentance (Istighfar).',
-      readTime: '3 min read',
-      icon: Icons.water_rounded,
-      color: Color(0xFF6366F1),
-      body: 'In the deepest darkness of the ocean inside the whale, Prophet Yunus (AS) called out to Allah: "La ilaha illa Anta, Subhanaka, inni kuntu minaz-zalimeen" (There is no deity except You; exalted are You. Indeed, I have been of the wrongdoers). Allah heard his prayer and brought him safely to the shore.',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<KidsController>().loadKidsPortal();
     });
-  }
-
-  void _showStoryDialog(_KidsStoryItem story) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: story.color.withAlpha(25), shape: BoxShape.circle),
-              child: Icon(story.icon, color: story.color, size: 22),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(story.title, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.navyDark)),
-                  Text(story.prophet, style: GoogleFonts.outfit(fontSize: 12, color: story.color, fontWeight: FontWeight.w700)),
-                ],
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(10)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.lightbulb_rounded, color: Color(0xFFB45309), size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text('Moral: ${story.moral}', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF92400E)))),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                story.body,
-                style: GoogleFonts.outfit(fontSize: 13.5, color: const Color(0xFF334155), height: 1.5),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.gold, foregroundColor: AppColors.navyDark),
-            child: const Text('Done Reading'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -273,15 +150,24 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
     final categories = kidsCtrl.categories;
     final games = kidsCtrl.games;
     final quizzes = kidsCtrl.quizzes;
+    final stories = kidsCtrl.stories;
 
     final selectedCat = kidsCtrl.selectedCategory;
-    final filteredGames = selectedCat == null
+    final filteredGames = (selectedCat == null || selectedCat == 'Islamic Games')
         ? games
         : games.where((g) => g.category?.toLowerCase() == selectedCat.toLowerCase()).toList();
 
-    final filteredQuizzes = selectedCat == null
+    final filteredQuizzes = (selectedCat == null || selectedCat == 'Interactive Quizzes' || selectedCat.toLowerCase() == 'quiz' || selectedCat.toLowerCase() == 'quizzes')
         ? quizzes
-        : quizzes.where((q) => q.category?.toLowerCase() == selectedCat.toLowerCase()).toList();
+        : quizzes.where((q) =>
+            q.category?.toLowerCase() == selectedCat.toLowerCase() ||
+            q.categoryName?.toLowerCase() == selectedCat.toLowerCase()).toList();
+
+    final filteredStories = (selectedCat == null || selectedCat == 'Quran Stories' || selectedCat.toLowerCase() == 'stories' || selectedCat.toLowerCase() == 'story')
+        ? stories
+        : stories.where((s) =>
+            s.categorySlug?.toLowerCase() == selectedCat.toLowerCase() ||
+            s.categoryName?.toLowerCase() == selectedCat.toLowerCase()).toList();
 
     return Scaffold(
       key: _scaffoldKey,
@@ -348,13 +234,21 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
                     ],
 
                     // ── 5. Quran Stories Section ─────────────────────────────
-                    if (selectedCat == null || selectedCat == 'Quran Stories') ...[
-                      _buildStoriesSection(context),
+                    if (selectedCat == null ||
+                        selectedCat == 'Quran Stories' ||
+                        selectedCat.toLowerCase() == 'stories' ||
+                        selectedCat.toLowerCase() == 'story' ||
+                        (filteredStories.isNotEmpty && selectedCat != 'Daily Duas' && selectedCat != 'Interactive Quizzes' && selectedCat != 'Islamic Games')) ...[
+                      _buildStoriesSection(context, filteredStories),
                       const SizedBox(height: 24),
                     ],
 
                     // ── 6. Interactive Quizzes Section ───────────────────────
-                    if (selectedCat == null || selectedCat == 'Interactive Quizzes') ...[
+                    if (selectedCat == null ||
+                        selectedCat == 'Interactive Quizzes' ||
+                        selectedCat.toLowerCase() == 'quiz' ||
+                        selectedCat.toLowerCase() == 'quizzes' ||
+                        (filteredQuizzes.isNotEmpty && selectedCat != 'Daily Duas' && selectedCat != 'Quran Stories' && selectedCat != 'Islamic Games')) ...[
                       _buildQuizzesSection(context, filteredQuizzes),
                       const SizedBox(height: 24),
                     ],
@@ -953,102 +847,377 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Quran Stories Section
+  // Quran Stories Section — Live API Driven
   // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildStoriesSection(BuildContext context) {
+  Widget _buildStoriesSection(BuildContext context, List<KidsStoryItem> stories) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Stories of the Prophets',
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.navyDark,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Stories of the Prophets',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.navyDark,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Inspiring lessons and moral tales for young believers.',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+            if (stories.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3B82F6).withAlpha(20),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF3B82F6).withAlpha(100)),
+                ),
+                child: Text(
+                  '${stories.length} STORIES',
+                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF2563EB)),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+
+        if (stories.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFEF3C7),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.auto_stories_rounded, size: 32, color: Color(0xFFB45309)),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Stories coming soon',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.navyDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Our scholars and educators are crafting inspiring, illustrated stories. Check back soon!',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12.5,
+                      color: const Color(0xFF64748B),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: const Color(0xFF3B82F6).withAlpha(20),
-                borderRadius: BorderRadius.circular(6),
+          )
+        else ...[
+          // Featured Story (First story)
+          _buildFeaturedStoryCard(context, stories.first),
+          const SizedBox(height: 14),
+
+          // Remaining Stories (if any)
+          if (stories.length > 1) ...[
+            ...stories.skip(1).map((story) => _buildStoryListItem(context, story)),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFeaturedStoryCard(BuildContext context, KidsStoryItem story) {
+    final coverUrl = story.resolvedCoverImage ?? story.resolvedThumbnail;
+
+    return GestureDetector(
+      onTap: () => context.push('/kids/story/${story.id}?slug=${story.slug}', extra: story),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(6),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: Container(
+                height: 160,
+                width: double.infinity,
+                color: AppColors.navyDark,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (coverUrl != null && coverUrl.isNotEmpty)
+                      Image.network(
+                        coverUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _buildStoryFallbackCover(story),
+                      )
+                    else
+                      _buildStoryFallbackCover(story),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3B82F6),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'FEATURED STORY',
+                          style: GoogleFonts.outfit(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Text(
-                '${_storiesList.length} STORIES',
-                style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF2563EB)),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (story.prophetName != null && story.prophetName!.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            story.prophetName!,
+                            style: GoogleFonts.outfit(fontSize: 10.5, fontWeight: FontWeight.w800, color: const Color(0xFF1D4ED8)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          story.readTimeLabel,
+                          style: GoogleFonts.outfit(fontSize: 10.5, fontWeight: FontWeight.w800, color: const Color(0xFFB45309)),
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'AGES ${story.ageLabel.toUpperCase()}',
+                          style: GoogleFonts.outfit(fontSize: 10.5, fontWeight: FontWeight.w800, color: const Color(0xFF475569)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    story.title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.navyDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (story.shortDescription != null && story.shortDescription!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      story.shortDescription!,
+                      style: GoogleFonts.outfit(fontSize: 12.5, color: const Color(0xFF64748B), height: 1.35),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        'READ STORY',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.gold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_forward_rounded, color: AppColors.gold, size: 16),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+      ),
+    );
+  }
 
-        ..._storiesList.map((story) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+  Widget _buildStoryListItem(BuildContext context, KidsStoryItem story) {
+    final coverUrl = story.resolvedThumbnail ?? story.resolvedCoverImage;
+
+    return GestureDetector(
+      onTap: () => context.push('/kids/story/${story.id}?slug=${story.slug}', extra: story),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(4),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: story.color.withAlpha(25),
-                    borderRadius: BorderRadius.circular(12),
+          ],
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 54,
+                height: 54,
+                color: AppColors.navyDark,
+                child: coverUrl != null && coverUrl.isNotEmpty
+                    ? Image.network(
+                        coverUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const Icon(Icons.auto_stories_rounded, color: AppColors.gold, size: 24),
+                      )
+                    : const Icon(Icons.auto_stories_rounded, color: AppColors.gold, size: 24),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    story.title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.navyDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  child: Center(
-                    child: Icon(story.icon, color: story.color, size: 22),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 4),
+                  Row(
                     children: [
                       Text(
-                        story.title,
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.navyDark,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${story.prophet} · ${story.readTime}',
+                        story.readTimeLabel,
                         style: GoogleFonts.outfit(fontSize: 11.5, color: const Color(0xFF64748B)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '· Ages ${story.ageLabel}',
+                        style: GoogleFonts.outfit(fontSize: 11.5, color: const Color(0xFF94A3B8)),
                       ),
                     ],
                   ),
-                ),
-                ElevatedButton(
-                  onPressed: () => _showStoryDialog(story),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: story.color,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 0,
-                  ),
-                  child: Text('Read', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700)),
-                ),
-              ],
+                ],
+              ),
             ),
-          );
-        }),
-      ],
+            ElevatedButton(
+              onPressed: () => context.push('/kids/story/${story.id}?slug=${story.slug}', extra: story),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3B82F6),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+              ),
+              child: Text('Read', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStoryFallbackCover(KidsStoryItem story) {
+    return Container(
+      color: AppColors.navyDark,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.auto_stories_rounded, color: AppColors.gold, size: 36),
+            const SizedBox(height: 6),
+            Text(
+              story.title,
+              style: GoogleFonts.outfit(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w700),
+              maxLines: 1,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   // ───────────────────────────────────────────────────────────────────────────
   // Interactive Quizzes Section
+  // ───────────────────────────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
+  // Interactive Quizzes Section — "Pick a Quiz" Rich Design
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildQuizzesSection(BuildContext context, List<KidsQuizItem> quizzes) {
     return Column(
@@ -1057,108 +1226,304 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Interactive Quizzes',
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.navyDark,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pick a Quiz',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.navyDark,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Choose a topic, start the quiz, and see how much you know.',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+              ],
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF8B5CF6).withAlpha(20),
-                borderRadius: BorderRadius.circular(6),
+                color: AppColors.gold.withAlpha(30),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.gold.withAlpha(120)),
               ),
               child: Text(
                 '${quizzes.length} QUIZZES',
-                style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF8B5CF6)),
+                style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFFB45309)),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        ...quizzes.map((quiz) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
+        const SizedBox(height: 14),
+
+        if (quizzes.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F3FF),
-                    borderRadius: BorderRadius.circular(12),
+            child: Center(
+              child: Column(
+                children: [
+                  const Icon(Icons.quiz_outlined, size: 40, color: Color(0xFF94A3B8)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No quizzes available right now.',
+                    style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
                   ),
-                  child: const Center(
-                    child: Icon(Icons.extension_rounded, color: Color(0xFF8B5CF6), size: 24),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        quiz.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.navyDark,
+                ],
+              ),
+            ),
+          )
+        else
+          ...quizzes.map((quiz) => _buildPickAQuizCard(context, quiz)),
+      ],
+    );
+  }
+
+  Widget _buildPickAQuizCard(BuildContext context, KidsQuizItem quiz) {
+    final coverUrl = quiz.resolvedThumbnail ?? quiz.resolvedCoverImage;
+
+    return GestureDetector(
+      onTap: () => context.push('/kids/quiz-detail/${quiz.id}?slug=${quiz.slug}', extra: quiz),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(6),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Top Cover Image / Banner ─────────────────────────────────────
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: Container(
+                height: 150,
+                width: double.infinity,
+                color: AppColors.navyDark,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (coverUrl != null && coverUrl.isNotEmpty)
+                      Image.network(
+                        coverUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _buildQuizCardFallbackCover(quiz),
+                      )
+                    else
+                      _buildQuizCardFallbackCover(quiz),
+                    if (quiz.featured)
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF59E0B),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'FEATURED',
+                            style: GoogleFonts.outfit(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.navyDark,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Card Content ─────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Badges Row: AGES 7-9 · 10 Qs
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'AGES ${quiz.ageLabel.toUpperCase()}',
+                          style: GoogleFonts.outfit(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.help_outline_rounded, size: 12, color: Color(0xFF475569)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${quiz.questionsCount} Qs',
+                              style: GoogleFonts.outfit(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF475569),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      if (quiz.pointsReward > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '+${quiz.pointsReward} XP',
+                            style: GoogleFonts.outfit(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFFB45309),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Title
+                  Text(
+                    quiz.title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.navyDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Description
+                  if (quiz.description != null && quiz.description!.isNotEmpty)
+                    Text(
+                      quiz.description!,
+                      style: GoogleFonts.outfit(
+                        fontSize: 12.5,
+                        color: const Color(0xFF64748B),
+                        height: 1.35,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  const SizedBox(height: 14),
+
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  const SizedBox(height: 12),
+
+                  // Bottom Action Row: DIFF: Easy · START ->
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
                       Row(
                         children: [
                           Text(
-                            '${quiz.questionsCount} Questions · ${quiz.difficulty}',
-                            style: GoogleFonts.outfit(fontSize: 11.5, color: const Color(0xFF64748B)),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFEF3C7),
-                              borderRadius: BorderRadius.circular(4),
+                            'DIFF: ',
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF94A3B8),
                             ),
-                            child: Text(
-                              '+${quiz.pointsReward} XP',
-                              style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFFB45309)),
+                          ),
+                          Text(
+                            quiz.difficulty,
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: quiz.difficulty.toLowerCase() == 'easy'
+                                  ? const Color(0xFF10B981)
+                                  : (quiz.difficulty.toLowerCase() == 'medium' ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
                             ),
                           ),
                         ],
                       ),
+                      Row(
+                        children: [
+                          Text(
+                            'START',
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.gold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.arrow_forward_rounded, color: AppColors.gold, size: 16),
+                        ],
+                      ),
                     ],
                   ),
-                ),
-                ElevatedButton(
-                  onPressed: () => context.push('/kids/quiz/${quiz.id}', extra: quiz),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8B5CF6),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    'Play',
-                    style: GoogleFonts.outfit(fontSize: 12.5, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          );
-        }),
-      ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuizCardFallbackCover(KidsQuizItem quiz) {
+    return Container(
+      color: AppColors.navyDark,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.quiz_rounded, color: AppColors.gold, size: 36),
+            const SizedBox(height: 6),
+            Text(
+              quiz.title,
+              style: GoogleFonts.outfit(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w700),
+              maxLines: 1,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

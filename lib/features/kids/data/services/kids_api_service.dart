@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/api_config.dart';
 import '../../../../core/network/api_client.dart';
@@ -78,57 +79,107 @@ class KidsApiService {
   }
 
   /// `GET /kids/public_quizzes.php`
-  Future<List<KidsQuizItem>> getQuizzes({String? category, String? ageGroup}) async {
-    final query = <String, dynamic>{'page': 1, 'limit': 50};
-    if (category != null && category.isNotEmpty && category != 'All') {
-      query['category'] = category;
+  Future<List<KidsQuizItem>> getQuizzes({
+    int page = 1,
+    int limit = 24,
+    String? search,
+    String? category,
+    String? age,
+    String? ageGroup,
+    String? difficulty,
+    bool? featured,
+  }) async {
+    final query = <String, dynamic>{
+      'page': page,
+      'limit': limit,
+    };
+
+    if (search != null && search.trim().isNotEmpty) {
+      query['search'] = search.trim();
     }
-    if (ageGroup != null && ageGroup.isNotEmpty) {
-      query['age_group'] = ageGroup;
+    if (category != null && category.trim().isNotEmpty && category != 'All') {
+      query['category'] = category.trim();
+    }
+    if (age != null && age.trim().isNotEmpty) {
+      query['age'] = age.trim();
+    }
+    if (ageGroup != null && ageGroup.trim().isNotEmpty) {
+      query['age_group'] = ageGroup.trim();
+    }
+    if (difficulty != null && difficulty.trim().isNotEmpty) {
+      query['difficulty'] = difficulty.trim();
+    }
+    if (featured == true) {
+      query['featured'] = '1';
     }
 
     final response = await _client.get(ApiConfig.kidsQuizzes, queryParameters: query);
     final rawList = _extractList(response, 'items');
-    return rawList
+    final quizzes = rawList
         .whereType<Map<String, dynamic>>()
         .map((q) => KidsQuizItem.fromJson(q))
         .toList();
+
+    return quizzes;
   }
 
   /// `GET /kids/public_quiz.php`
-  Future<KidsQuizItem?> getQuizDetails({required int quizId, String? slug}) async {
-    final query = <String, dynamic>{'id': quizId};
-    if (slug != null && slug.isNotEmpty) query['slug'] = slug;
+  Future<KidsQuizItem?> getQuizDetails({int? quizId, String? slug}) async {
+    final query = <String, dynamic>{};
+    if (slug != null && slug.trim().isNotEmpty) {
+      query['slug'] = slug.trim();
+    } else if (quizId != null && quizId > 0) {
+      query['id'] = quizId;
+    } else {
+      throw const ApiException(message: 'Quiz identifier (id or slug) is required.');
+    }
 
     try {
       final response = await _client.get(ApiConfig.kidsQuizDetails, queryParameters: query);
       final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
-      final quizMap = data['quiz'] is Map<String, dynamic> ? data['quiz'] as Map<String, dynamic> : data;
+      final quizMap = data['quiz'] is Map<String, dynamic> ? Map<String, dynamic>.from(data['quiz'] as Map) : Map<String, dynamic>.from(data);
+
+      // Embed questions if returned at top data level
+      final rawQuestions = data['questions'] ?? quizMap['questions'] ?? response['questions'];
+      if (rawQuestions is List) {
+        quizMap['questions'] = rawQuestions;
+      }
+
       return KidsQuizItem.fromJson(quizMap);
     } catch (_) {
-      return null;
+      rethrow;
     }
   }
 
   /// `POST /kids/quiz_start.php`
   Future<Map<String, dynamic>> startQuiz({required int quizId, String? token}) async {
-    return _client.post(ApiConfig.kidsQuizStart, body: {'quiz_id': quizId}, token: token);
+    final response = await _client.post(
+      ApiConfig.kidsQuizStart,
+      body: {'quiz_id': quizId},
+      token: token,
+    );
+
+    final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
+    return data;
   }
 
   /// `POST /kids/quiz_submit.php`
-  Future<Map<String, dynamic>> submitQuiz({
+  Future<QuizSubmitResult> submitQuiz({
     required String attemptToken,
-    required Map<String, dynamic> answers,
+    required List<QuizSubmitAnswer> answers,
     String? token,
   }) async {
-    return _client.post(
+    final response = await _client.post(
       ApiConfig.kidsQuizSubmit,
       body: {
         'attempt_token': attemptToken,
-        'answers': answers,
+        'answers': answers.map((a) => a.toJson()).toList(),
       },
       token: token,
     );
+
+    final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
+    return QuizSubmitResult.fromJson(data);
   }
 
   /// `POST /kids/game_play.php`
@@ -164,20 +215,89 @@ class KidsApiService {
     );
   }
 
-  Future<List<KidsQuestionItem>> getQuizQuestions({required int quizId, String? slug}) async {
-    final query = <String, dynamic>{'id': quizId};
-    if (slug != null && slug.isNotEmpty) {
-      query['slug'] = slug;
+  Future<List<KidsQuestionItem>> getQuizQuestions({int? quizId, String? slug}) async {
+    final quiz = await getQuizDetails(quizId: quizId, slug: slug);
+    return quiz?.questions ?? const [];
+  }
+
+  /// `GET /kids/public_stories.php` or media stories fallback
+  Future<List<KidsStoryItem>> getStories({
+    int page = 1,
+    int limit = 20,
+    String? search,
+    String? token,
+  }) async {
+    try {
+      final query = <String, String>{
+        'page': page.toString(),
+        'limit': limit.toString(),
+      };
+      if (search != null && search.trim().isNotEmpty) {
+        query['search'] = search.trim();
+      }
+
+      // Try dedicated kids stories endpoint first
+      try {
+        final response = await _client.get('/kids/public_stories.php', queryParameters: query, token: token);
+        if (response['success'] == true && response['data'] != null) {
+          final data = response['data'];
+          final List? items = data is List
+              ? data
+              : (data is Map ? (data['items'] ?? data['stories'] ?? data['data']) as List? : null);
+          if (items != null && items.isNotEmpty) {
+            return items.whereType<Map<String, dynamic>>().map(KidsStoryItem.fromJson).toList();
+          }
+        }
+      } catch (_) {
+        // Fall back to media stories if /kids/public_stories.php is not yet routed
+      }
+
+      // Secondary fallback: /media/public_list.php?category_slug=stories
+      final mediaQuery = <String, String>{
+        'category_slug': 'stories',
+        'page': page.toString(),
+        'limit': limit.toString(),
+      };
+      if (search != null && search.trim().isNotEmpty) {
+        mediaQuery['search'] = search.trim();
+      }
+
+      final mediaRes = await _client.get('/media/public_list.php', queryParameters: mediaQuery, token: token);
+      if (mediaRes['success'] == true && mediaRes['data'] != null) {
+        final data = mediaRes['data'];
+        final List? items = data is List
+            ? data
+            : (data is Map ? (data['items'] ?? data['data']) as List? : null);
+        if (items != null && items.isNotEmpty) {
+          return items.whereType<Map<String, dynamic>>().map(KidsStoryItem.fromJson).toList();
+        }
+      }
+
+      return [];
+    } catch (e) {
+      debugPrint('[KIDS STORIES API EXCEPTION] $e');
+      return [];
     }
-    final response = await _client.get(ApiConfig.kidsQuizDetails, queryParameters: query);
-    final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
-    final raw = data['questions'] ?? data['quiz']?['questions'] ?? response['questions'] ?? const [];
-    if (raw is List) {
-      return raw
-          .whereType<Map<String, dynamic>>()
-          .map(KidsQuestionItem.fromJson)
-          .toList();
-    }
-    return const [];
+  }
+
+  /// `GET /kids/public_story.php` or story details
+  Future<KidsStoryItem?> getStoryDetails({int? id, String? slug, String? token}) async {
+    try {
+      final query = <String, String>{};
+      if (id != null && id > 0) query['id'] = id.toString();
+      if (slug != null && slug.isNotEmpty) query['slug'] = slug;
+
+      final res = await _client.get('/kids/public_story.php', queryParameters: query, token: token);
+      if (res['success'] == true && res['data'] != null) {
+        final data = res['data'];
+        final Map<String, dynamic>? storyMap = data is Map<String, dynamic>
+            ? (data['story'] ?? data['item'] ?? data) as Map<String, dynamic>?
+            : null;
+        if (storyMap != null) {
+          return KidsStoryItem.fromJson(storyMap);
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 }

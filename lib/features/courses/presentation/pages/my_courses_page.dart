@@ -60,9 +60,9 @@ class _MyCoursesPageState extends State<MyCoursesPage> {
 
     // Status filter
     if (_selectedFilter == 'in_progress') {
-      list = list.where((c) => !c.completed && c.progressPercent < 100.0).toList();
+      list = list.where((c) => !c.isCompleted).toList();
     } else if (_selectedFilter == 'completed') {
-      list = list.where((c) => c.completed || c.progressPercent >= 100.0).toList();
+      list = list.where((c) => c.isCompleted).toList();
     }
 
     return list;
@@ -176,12 +176,12 @@ class _MyCoursesPageState extends State<MyCoursesPage> {
                                 _buildFilterPill('All (${enrollment.enrolledCourses.length})', 'all'),
                                 const SizedBox(width: 8),
                                 _buildFilterPill(
-                                  'In Progress (${enrollment.enrolledCourses.where((c) => !c.completed && c.progressPercent < 100.0).length})',
+                                  'In Progress (${enrollment.enrolledCourses.where((c) => !c.isCompleted).length})',
                                   'in_progress',
                                 ),
                                 const SizedBox(width: 8),
                                 _buildFilterPill(
-                                  'Completed (${enrollment.enrolledCourses.where((c) => c.completed || c.progressPercent >= 100.0).length})',
+                                  'Completed (${enrollment.enrolledCourses.where((c) => c.isCompleted).length})',
                                   'completed',
                                 ),
                               ],

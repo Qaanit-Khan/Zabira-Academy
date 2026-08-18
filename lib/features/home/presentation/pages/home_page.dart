@@ -145,63 +145,79 @@ class _HomePageState extends State<HomePage> {
 
           // ── Scrollable Content ────────────────────────────────────
           Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Personalized Greeting Section (only if authenticated)
-                  if (isAuth) ...[
-                    GreetingSection(
-                      userName: user.displayName,
-                      subtitle: 'Keep learning, keep growing.',
+            child: RefreshIndicator(
+              color: AppColors.gold,
+              backgroundColor: AppColors.surfaceWhite,
+              onRefresh: () async {
+                final auth = context.read<AuthController>();
+                if (auth.isAuthenticated) {
+                  await Future.wait([
+                    context.read<EnrollmentController>().loadMyCourses(auth.currentToken, forceRefresh: true),
+                    context.read<CartController>().loadCart(auth.currentToken),
+                    _loadDailyNasheed(),
+                  ]);
+                } else {
+                  await _loadDailyNasheed();
+                }
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Personalized Greeting Section (only if authenticated)
+                    if (isAuth) ...[
+                      GreetingSection(
+                        userName: user.displayName,
+                        subtitle: 'Keep learning, keep growing.',
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                    ] else ...[
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
+
+                    // Continue Learning Section (only incomplete enrolled courses)
+                    if (isAuth && enrollment.enrolledCourses.isNotEmpty) ...[
+                      _ContinueLearningSection(courses: enrollment.enrolledCourses),
+                    ],
+
+                    // 1. Hero Carousel — 4 banners
+                    HeroCarousel(banners: _banners),
+
+                    const SizedBox(height: AppSpacing.md),
+
+                    // 2. Category Grid — 8 icons (4×2)
+                    QuickAccessGrid(items: _categories),
+
+                    const SizedBox(height: AppSpacing.md),
+
+                    // 3. Daily Supplement / Nasheed — live API player card
+                    DailySupplementCard(supplement: _dailySupplement),
+
+                    const SizedBox(height: AppSpacing.md),
+
+                    // 4. Daily Supplement Promotional Banner
+                    const DailySupplementBanner(),
+
+                    const SizedBox(height: AppSpacing.lg),
+
+                    // 5. Latest Launches — compact square image cards
+                    SectionHeader(
+                      title: 'Latest Launches',
+                      onSeeAll: () => context.push(AppRoutes.courses),
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                  ] else ...[
                     const SizedBox(height: AppSpacing.sm),
+                    _LatestLaunchesRow(launches: _latestLaunches),
+
+                    const SizedBox(height: AppSpacing.lg),
+
+                    // 6. From Zabira Store — dynamic live products from official API
+                    const FromZabiraStoreSection(),
+
+                    // Bottom breathing room above nav bar
+                    const SizedBox(height: AppSpacing.xl),
                   ],
-
-                  // Continue Learning Section (if user has enrolled courses)
-                  if (isAuth && enrollment.enrolledCourses.isNotEmpty) ...[
-                    _ContinueLearningSection(courses: enrollment.enrolledCourses),
-                  ],
-
-                  // 1. Hero Carousel — 4 banners
-                  HeroCarousel(banners: _banners),
-
-                  const SizedBox(height: AppSpacing.md),
-
-                  // 2. Category Grid — 8 icons (4×2)
-                  QuickAccessGrid(items: _categories),
-
-                  const SizedBox(height: AppSpacing.md),
-
-                  // 3. Daily Supplement / Nasheed — live API player card
-                  DailySupplementCard(supplement: _dailySupplement),
-
-                  const SizedBox(height: AppSpacing.md),
-
-                  // 4. Daily Supplement Promotional Banner
-                  const DailySupplementBanner(),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  // 5. Latest Launches — compact square image cards
-                  SectionHeader(
-                    title: 'Latest Launches',
-                    onSeeAll: () => context.push(AppRoutes.courses),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _LatestLaunchesRow(launches: _latestLaunches),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  // 6. From Zabira Store — dynamic live products from official API
-                  const FromZabiraStoreSection(),
-
-                  // Bottom breathing room above nav bar
-                  const SizedBox(height: AppSpacing.xl),
-                ],
+                ),
               ),
             ),
           ),
@@ -245,6 +261,12 @@ class _ContinueLearningSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Only show courses that are NOT completed and progress < 100%
+    final activeIncomplete = courses.where((c) => !c.isCompleted && c.progressPercent < 100.0).toList();
+    if (activeIncomplete.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -282,12 +304,12 @@ class _ContinueLearningSection extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            itemCount: courses.length,
+            itemCount: activeIncomplete.length,
             itemBuilder: (context, index) {
-              final course = courses[index];
+              final course = activeIncomplete[index];
               return Padding(
                 padding: EdgeInsets.only(
-                  right: index < courses.length - 1 ? 12.0 : 0,
+                  right: index < activeIncomplete.length - 1 ? 12.0 : 0,
                 ),
                 child: _ContinueLearningCard(course: course),
               );
@@ -307,8 +329,11 @@ class _ContinueLearningCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveId = course.courseId > 0 ? course.courseId : course.id;
+    final lessonParam = course.lastLessonId != null && course.lastLessonId! > 0 ? '?lesson_id=${course.lastLessonId}' : '';
+
     return GestureDetector(
-      onTap: () => context.push('/courses/${course.courseId}'),
+      onTap: () => context.push('/courses/$effectiveId/learn$lessonParam', extra: course),
       child: Container(
         width: 250,
         padding: const EdgeInsets.all(12),

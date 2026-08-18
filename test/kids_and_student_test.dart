@@ -5,6 +5,7 @@ import 'package:http/testing.dart';
 import 'package:zabira_academy/features/kids/data/models/kids_models.dart';
 import 'package:zabira_academy/features/kids/data/services/kids_api_service.dart';
 import 'package:zabira_academy/features/kids/presentation/controllers/kids_controller.dart';
+import 'package:zabira_academy/features/courses/data/models/enrolled_course_model.dart';
 import 'package:zabira_academy/features/student/data/models/student_dashboard_model.dart';
 import 'package:zabira_academy/features/student/data/services/student_api_service.dart';
 import 'package:zabira_academy/features/student/presentation/controllers/student_controller.dart';
@@ -122,6 +123,73 @@ void main() {
       expect(controller.state, equals(KidsPortalState.error));
       expect(controller.games, isEmpty);
       expect(controller.quizzes, isEmpty);
+      expect(controller.stories, isEmpty);
+    });
+
+    test('KidsStoryItem parses JSON and readTime correctly', () {
+      final storyJson = {
+        'id': 5,
+        'title': 'The Story of Prophet Yusuf',
+        'slug': 'story-prophet-yusuf',
+        'prophet_name': 'Prophet Yusuf (AS)',
+        'category_name': 'Prophets',
+        'age_group': '7-9',
+        'age_label': '7–9',
+        'read_time_minutes': 4,
+        'short_description': 'A story of patience and forgiveness.',
+        'content': 'Prophet Yusuf went through many trials and became a great ruler.',
+        'is_featured': 1,
+      };
+
+      final story = KidsStoryItem.fromJson(storyJson);
+      expect(story.id, equals(5));
+      expect(story.title, equals('The Story of Prophet Yusuf'));
+      expect(story.prophetName, equals('Prophet Yusuf (AS)'));
+      expect(story.readTimeLabel, equals('4 min read'));
+      expect(story.ageLabel, equals('7–9'));
+      expect(story.isFeatured, isTrue);
+      expect(story.shortDescription, contains('patience'));
+      expect(story.content, contains('trials'));
+    });
+  });
+
+  group('Course Enrollment & Completion Tests', () {
+    test('EnrolledCourseModel isCompleted handles percent >= 100 and lesson counts accurately', () {
+      final inProgressCourse = EnrolledCourseModel(
+        id: 1,
+        courseId: 23,
+        title: 'Language of Quran',
+        slug: 'language-of-quran',
+        progressPercent: 40.0,
+        completed: false,
+        lessonsCount: 10,
+        completedLessonsCount: 4,
+      );
+      expect(inProgressCourse.isCompleted, isFalse);
+
+      final completedCourseByPercent = EnrolledCourseModel(
+        id: 2,
+        courseId: 24,
+        title: 'Modern Arabic',
+        slug: 'modern-arabic',
+        progressPercent: 100.0,
+        completed: false,
+        lessonsCount: 10,
+        completedLessonsCount: 4,
+      );
+      expect(completedCourseByPercent.isCompleted, isTrue);
+
+      final completedCourseByLessons = EnrolledCourseModel(
+        id: 3,
+        courseId: 25,
+        title: 'Stories from the Quran',
+        slug: 'stories-from-the-quran',
+        progressPercent: 90.0,
+        completed: false,
+        lessonsCount: 5,
+        completedLessonsCount: 5,
+      );
+      expect(completedCourseByLessons.isCompleted, isTrue);
     });
   });
 }

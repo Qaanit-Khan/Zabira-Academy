@@ -13,6 +13,7 @@ import '../../data/models/course_api_model.dart';
 import '../../data/repositories/course_repository.dart';
 import '../../data/services/progress_api_service.dart';
 import '../controllers/enrollment_controller.dart';
+import '../../../student/presentation/controllers/student_controller.dart';
 
 /// Zabira Academy — Native Mobile Course Learning & Lesson Player Screen
 ///
@@ -273,14 +274,22 @@ class _CourseLearningPageState extends State<CourseLearningPage> {
 
     // Call backend
     try {
-      await _progressService.updateProgress(
+      final res = await _progressService.updateProgress(
         courseId: _course!.id,
         lessonId: lessonId,
         status: isAlreadyDone ? 'in_progress' : 'completed',
         progressPercent: _courseProgressPercent,
         token: auth.currentToken,
       );
-    } catch (_) {}
+      debugPrint('[PROGRESS UPDATE] courseId=${_course!.id} lessonId=$lessonId percent=$_courseProgressPercent response=$res');
+
+      if (auth.isAuthenticated && mounted) {
+        enrollment.loadMyCourses(auth.currentToken, forceRefresh: true);
+        context.read<StudentController>().loadDashboard(auth.currentToken);
+      }
+    } catch (e) {
+      debugPrint('[PROGRESS UPDATE EXCEPTION] $e');
+    }
 
     if (mounted) {
       setState(() => _isUpdatingProgress = false);

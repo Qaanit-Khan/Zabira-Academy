@@ -107,9 +107,11 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
           continueLearningCourses: enrollment.enrolledCourses,
         );
 
-    final continueCourses = enrollment.enrolledCourses.isNotEmpty
-        ? enrollment.enrolledCourses
-        : dashboard.continueLearningCourses;
+    final continueCourses = (enrollment.enrolledCourses.isNotEmpty
+            ? enrollment.enrolledCourses
+            : dashboard.continueLearningCourses)
+        .where((c) => !c.isCompleted && c.progressPercent < 100.0)
+        .toList();
 
     return PopScope(
       canPop: false,
