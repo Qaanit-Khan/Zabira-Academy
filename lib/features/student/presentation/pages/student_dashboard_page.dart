@@ -8,12 +8,14 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/auth_controller.dart';
+import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../../courses/data/models/enrolled_course_model.dart';
 import '../../../courses/presentation/controllers/enrollment_controller.dart';
 import '../../../store/presentation/controllers/cart_controller.dart';
 import '../../../../shared/widgets/zabira_logo.dart';
 import '../../../../shared/widgets/zabira_network_image.dart';
 import '../../../../shared/widgets/app_drawer.dart';
+import '../../../../shared/widgets/zabira_bottom_nav.dart';
 import '../controllers/student_controller.dart';
 import '../../data/models/student_dashboard_model.dart';
 
@@ -85,7 +87,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
               Text('Please sign in to access your dashboard.', style: AppTypography.titleMedium),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => context.go(AppRoutes.login),
+                onPressed: () => showAuthBottomSheet(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.navyDark,
                   foregroundColor: AppColors.gold,
@@ -126,8 +128,10 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: const Color(0xFFF8FAFC),
+        extendBody: true,
         drawer: const AppDrawer(),
-      body: RefreshIndicator(
+        bottomNavigationBar: const ZabiraBottomNav(selectedIndex: -1),
+        body: RefreshIndicator(
         color: AppColors.gold,
         onRefresh: () async {
           _loadData();
@@ -202,10 +206,9 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(context),
     ),
-    );
-  }
+  );
+}
 
   // ───────────────────────────────────────────────────────────────────────────
   // Dark Navy Hero Header
@@ -282,7 +285,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
               IconButton(
                 icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 26),
                 tooltip: 'Menu',
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                onPressed: () => AppDrawer.open(context),
               ),
             ],
           ),
@@ -1270,52 +1273,6 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
           Text(
             'Badges and learning milestones will appear here as you progress — stay consistent.',
             style: GoogleFonts.outfit(fontSize: 12.5, color: const Color(0xFF64748B)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Bottom Navigation
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildBottomNav(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      padding: EdgeInsets.fromLTRB(8, 8, 8, MediaQuery.of(context).padding.bottom + 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(context, 'Home', Icons.home_outlined, false, () => context.go(AppRoutes.home)),
-          _navItem(context, 'Courses', Icons.menu_book_outlined, false, () => context.push(AppRoutes.courses)),
-          _navItem(context, 'Library', Icons.library_books_outlined, false, () => context.push(AppRoutes.library)),
-          _navItem(context, 'Store', Icons.storefront_outlined, false, () => context.push(AppRoutes.store)),
-          _navItem(context, 'Kids', Icons.child_care_outlined, false, () => context.push('/kids')),
-          _navItem(context, 'Dashboard', Icons.dashboard_rounded, true, () {}),
-        ],
-      ),
-    );
-  }
-
-  Widget _navItem(BuildContext context, String label, IconData icon, bool isActive, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 22, color: isActive ? AppColors.gold : const Color(0xFF64748B)),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: GoogleFonts.outfit(
-              fontSize: 10.5,
-              fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
-              color: isActive ? AppColors.navyDark : const Color(0xFF64748B),
-            ),
           ),
         ],
       ),

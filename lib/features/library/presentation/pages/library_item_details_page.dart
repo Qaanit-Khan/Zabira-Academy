@@ -7,6 +7,7 @@ import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../../../features/store/presentation/controllers/cart_controller.dart';
 import '../../../../shared/loaders/zabira_loader.dart';
 import '../../../../shared/widgets/zabira_error_state.dart';
@@ -340,10 +341,7 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                 final auth = context.read<AuthController>();
                 if (!auth.isAuthenticated) {
                   auth.setPendingReturnTo('/library/${item.id}');
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please sign in to buy this resource.')),
-                  );
-                  context.push(AppRoutes.login);
+                  showAuthBottomSheet(context);
                   return;
                 }
 

@@ -6,7 +6,9 @@ import '../../app/router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../features/auth/auth_controller.dart';
+import '../../features/auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../features/store/presentation/controllers/cart_controller.dart';
+import 'app_drawer.dart';
 import 'zabira_logo.dart';
 
 /// Zabira Academy — Unified Global Navigation App Bar
@@ -63,16 +65,7 @@ class ZabiraAppBar extends StatelessWidget implements PreferredSizeWidget {
               builder: (innerContext) => IconButton(
                 icon: const Icon(Icons.menu_rounded, color: AppColors.navyDark, size: 26),
                 tooltip: 'Open Menu',
-                onPressed: onMenuPressed ??
-                    () {
-                      final scaffold = Scaffold.maybeOf(innerContext);
-                      if (scaffold != null && scaffold.hasDrawer) {
-                        scaffold.openDrawer();
-                      } else {
-                        // Fallback open via event or push
-                        _showDrawerModal(innerContext);
-                      }
-                    },
+                onPressed: onMenuPressed ?? () => AppDrawer.open(innerContext),
               ),
             ),
       title: title != null
@@ -86,36 +79,43 @@ class ZabiraAppBar extends StatelessWidget implements PreferredSizeWidget {
             )
           : GestureDetector(
               onTap: () => context.go(AppRoutes.home),
-              child: const ZabiraLogo(size: LogoSize.small),
+              child: Image.asset(
+                'assets/images/branding/zabira_logo_horizontal.png',
+                height: 36,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+                errorBuilder: (context, error, _) => const ZabiraLogo(size: LogoSize.small),
+              ),
             ),
       actions: actions ??
           [
             // Cart Button with badge
             Stack(
+              alignment: Alignment.center,
               clipBehavior: Clip.none,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.navyDark, size: 22),
+                  icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF081D3A), size: 21),
                   tooltip: 'Shopping Cart',
                   onPressed: () => context.push(AppRoutes.cart),
                 ),
                 if (cart.itemCount > 0)
                   Positioned(
-                    right: 6,
                     top: 6,
+                    right: 6,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(3),
                       decoration: const BoxDecoration(
                         color: AppColors.gold,
                         shape: BoxShape.circle,
                       ),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
                       child: Text(
                         cart.itemCount > 99 ? '99+' : '${cart.itemCount}',
-                        style: const TextStyle(
-                          color: AppColors.navyDark,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFF071B36),
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w800,
                           height: 1,
                         ),
                         textAlign: TextAlign.center,
@@ -124,59 +124,57 @@ class ZabiraAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
               ],
             ),
+            const SizedBox(width: 4),
 
-            // Profile or Sign In
-            if (auth.isAuthenticated)
-              Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.sm),
-                child: GestureDetector(
-                  onTap: () => context.go(AppRoutes.studentDash),
-                  child: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: AppColors.gold.withAlpha(40),
-                    child: Text(
-                      (auth.user?.displayName.isNotEmpty == true) ? auth.user!.displayName[0].toUpperCase() : 'U',
-                      style: GoogleFonts.outfit(
-                        color: AppColors.navyDark,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+            // Profile Button (matching HomeHeader styling)
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.md),
+              child: GestureDetector(
+                onTap: () {
+                  if (auth.isAuthenticated) {
+                    context.go(AppRoutes.studentDash);
+                  } else {
+                    showAuthBottomSheet(context);
+                  }
+                },
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF081D3A),
+                    border: Border.all(
+                      color: AppColors.gold.withAlpha(160),
+                      width: 1.4,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF081D3A).withAlpha(30),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
-                    ),
+                    ],
                   ),
-                ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.md, left: AppSpacing.xs),
-                child: TextButton(
-                  onPressed: () => context.push(AppRoutes.login),
-                  style: TextButton.styleFrom(
-                    backgroundColor: AppColors.navyDark,
-                    foregroundColor: AppColors.gold,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: Text(
-                    'Sign In',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Center(
+                    child: auth.isAuthenticated && (auth.user?.displayName.isNotEmpty == true)
+                        ? Text(
+                            auth.user!.displayName[0].toUpperCase(),
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.gold,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.person_outline_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
                   ),
                 ),
               ),
+            ),
           ],
-    );
-  }
-
-  static void _showDrawerModal(BuildContext context) {
-    // If Scaffold doesn't directly enclose it, show drawer in a safe bottom sheet/dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Opening Navigation Menu...'), duration: Duration(milliseconds: 600)),
     );
   }
 }

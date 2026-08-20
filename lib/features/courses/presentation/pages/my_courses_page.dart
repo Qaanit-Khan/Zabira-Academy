@@ -9,6 +9,8 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
 import '../../../../shared/buttons/primary_button.dart';
 import '../../../../shared/loaders/zabira_loader.dart';
+import '../../../../shared/widgets/app_drawer.dart';
+import '../../../../shared/widgets/zabira_bottom_nav.dart';
 import '../../../../shared/widgets/zabira_network_image.dart';
 import '../../data/models/enrolled_course_model.dart';
 import '../controllers/enrollment_controller.dart';
@@ -83,7 +85,9 @@ class _MyCoursesPageState extends State<MyCoursesPage> {
     final filteredList = _filterCourses(enrollment.enrolledCourses);
 
     return Scaffold(
+        extendBody: true,
       backgroundColor: const Color(0xFFF8FAFC),
+      bottomNavigationBar: const ZabiraBottomNav(selectedIndex: 0),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -111,6 +115,11 @@ class _MyCoursesPageState extends State<MyCoursesPage> {
             icon: const Icon(Icons.refresh_rounded, color: AppColors.navyDark, size: 22),
             tooltip: 'Refresh',
             onPressed: () => enrollment.loadMyCourses(auth.currentToken, forceRefresh: true),
+          ),
+          IconButton(
+            icon: const Icon(Icons.menu_rounded, color: AppColors.navyDark, size: 24),
+            tooltip: 'Menu',
+            onPressed: () => AppDrawer.open(context),
           ),
           const SizedBox(width: 4),
         ],
@@ -582,3 +591,4 @@ class _MyCoursesPageState extends State<MyCoursesPage> {
     );
   }
 }
+

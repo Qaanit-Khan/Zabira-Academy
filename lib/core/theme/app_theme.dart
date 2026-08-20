@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'app_typography.dart';
@@ -138,12 +137,39 @@ final class AppTheme {
       // ─── Divider ──────────────────────────────────────────────────────────
       dividerTheme: const DividerThemeData(color: AppColors.borderMedium, thickness: 1, space: 1),
 
+      // ─── Clean Subtle Fade Transitions ────────────────────────────────────
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: <TargetPlatform, PageTransitionsBuilder>{
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.android: _SubtleFadeTransitionsBuilder(),
+          TargetPlatform.iOS: _SubtleFadeTransitionsBuilder(),
+          TargetPlatform.windows: _SubtleFadeTransitionsBuilder(),
+          TargetPlatform.macOS: _SubtleFadeTransitionsBuilder(),
+          TargetPlatform.linux: _SubtleFadeTransitionsBuilder(),
+          TargetPlatform.fuchsia: _SubtleFadeTransitionsBuilder(),
         },
       ),
+    );
+  }
+}
+
+/// Global subtle Fade transition for clean, modern app navigation.
+class _SubtleFadeTransitionsBuilder extends PageTransitionsBuilder {
+  const _SubtleFadeTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return FadeTransition(
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeInOut,
+      ),
+      child: child,
     );
   }
 }

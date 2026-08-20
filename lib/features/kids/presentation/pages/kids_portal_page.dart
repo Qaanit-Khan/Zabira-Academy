@@ -8,6 +8,7 @@ import '../../../../core/audio/global_audio_controller.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_drawer.dart';
+import '../../../../shared/widgets/zabira_bottom_nav.dart';
 import '../../../../shared/widgets/zabira_logo.dart';
 import '../controllers/kids_controller.dart';
 import '../../data/models/kids_models.dart';
@@ -170,6 +171,7 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
             s.categoryName?.toLowerCase() == selectedCat.toLowerCase()).toList();
 
     return Scaffold(
+        extendBody: true,
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF8FAFC),
       drawer: const AppDrawer(),
@@ -319,7 +321,7 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
               IconButton(
                 icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 26),
                 tooltip: 'Menu',
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                onPressed: () => AppDrawer.open(context),
               ),
             ],
           ),
@@ -2013,45 +2015,7 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
   // Bottom Navigation
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildBottomNav(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      padding: EdgeInsets.fromLTRB(8, 8, 8, MediaQuery.of(context).padding.bottom + 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(context, 'Home', Icons.home_outlined, false, () => context.go(AppRoutes.home)),
-          _navItem(context, 'Courses', Icons.menu_book_outlined, false, () => context.push(AppRoutes.courses)),
-          _navItem(context, 'Library', Icons.library_books_outlined, false, () => context.push(AppRoutes.library)),
-          _navItem(context, 'Store', Icons.storefront_outlined, false, () => context.push(AppRoutes.store)),
-          _navItem(context, 'Kids', Icons.child_care_rounded, true, () {}),
-          _navItem(context, 'Dashboard', Icons.dashboard_outlined, false, () => context.push(AppRoutes.studentDash)),
-        ],
-      ),
-    );
-  }
-
-  Widget _navItem(BuildContext context, String label, IconData icon, bool isActive, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 22, color: isActive ? AppColors.gold : const Color(0xFF64748B)),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: GoogleFonts.outfit(
-              fontSize: 10.5,
-              fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
-              color: isActive ? AppColors.navyDark : const Color(0xFF64748B),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const ZabiraBottomNav(selectedIndex: 1);
   }
 }
+

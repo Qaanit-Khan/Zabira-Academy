@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/zabira_logo.dart';
-import '../../auth_controller.dart';
 
 /// Zabira Academy — Splash Page
 ///
@@ -51,21 +49,8 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
     await Future.delayed(const Duration(milliseconds: 1800));
     if (!mounted) return;
 
-    final auth = context.read<AuthController>();
-    if (auth.isAuthenticated) {
-      final role = auth.user?.role;
-      context.go(_dashboardForRole(role));
-    } else {
-      context.go(AppRoutes.home);
-    }
-  }
-
-  String _dashboardForRole(dynamic role) {
-    return switch (role?.value) {
-      'parent' => AppRoutes.parentDash,
-      'teacher' => AppRoutes.teacherDash,
-      _ => AppRoutes.studentDash,
-    };
+    // Always start at the Home Page on fresh app launch
+    context.go(AppRoutes.home);
   }
 
   @override

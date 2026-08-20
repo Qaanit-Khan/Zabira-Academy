@@ -6,8 +6,11 @@ import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../../../features/courses/presentation/controllers/enrollment_controller.dart';
 import '../../../../features/store/presentation/controllers/cart_controller.dart';
+import '../../../../shared/widgets/app_drawer.dart';
+import '../../../../shared/widgets/zabira_bottom_nav.dart';
 import '../../../../shared/widgets/zabira_network_image.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -80,7 +83,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (!auth.isAuthenticated || user == null) {
       return Scaffold(
+        extendBody: true,
         backgroundColor: AppColors.surfaceLight,
+        bottomNavigationBar: const ZabiraBottomNav(selectedIndex: -1),
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
@@ -108,7 +113,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 20),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: AppColors.navyDark, foregroundColor: Colors.white),
-                  onPressed: () => context.push(AppRoutes.login),
+                  onPressed: () => showAuthBottomSheet(context),
                   child: const Text('Sign In'),
                 ),
               ],
@@ -119,7 +124,9 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     return Scaffold(
+        extendBody: true,
       backgroundColor: AppColors.surfaceLight,
+      bottomNavigationBar: const ZabiraBottomNav(selectedIndex: -1),
       appBar: AppBar(
         backgroundColor: const Color(0xFF071B36),
         elevation: 0,
@@ -144,10 +151,16 @@ class _ProfilePageState extends State<ProfilePage> {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
+            tooltip: 'Menu',
+            onPressed: () => AppDrawer.open(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.white),
             tooltip: 'Sign Out',
             onPressed: _showLogoutDialog,
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: SingleChildScrollView(
@@ -480,3 +493,4 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
+

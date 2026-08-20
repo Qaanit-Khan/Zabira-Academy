@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/network/debug_logger.dart';
 import '../../../auth/auth_controller.dart';
+import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../../courses/presentation/controllers/enrollment_controller.dart';
 import '../../../store/presentation/controllers/cart_controller.dart';
 import '../../../student/presentation/controllers/student_controller.dart';
@@ -184,7 +185,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     if (!auth.isAuthenticated) {
       auth.setPendingReturnTo(GoRouterState.of(context).matchedLocation);
-      context.push(AppRoutes.login);
+      showAuthBottomSheet(context);
       return;
     }
 

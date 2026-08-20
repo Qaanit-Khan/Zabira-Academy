@@ -12,7 +12,9 @@ import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../features/home/presentation/widgets/home_header.dart';
 import '../../../../shared/loaders/zabira_loader.dart';
 import '../../../../shared/widgets/scholarship_promo_banner.dart';
+import '../../../../shared/widgets/zabira_bottom_nav.dart';
 import '../../../../shared/widgets/zabira_error_state.dart';
+import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../data/models/media_item_model.dart';
 import '../controllers/media_controller.dart';
 import '../widgets/media_category_chips.dart';
@@ -79,9 +81,11 @@ class _MediaPageState extends State<MediaPage> {
         context.go(AppRoutes.home);
       },
       child: Scaffold(
+        extendBody: true,
         key: _scaffoldKey,
         drawer: const AppDrawer(),
         backgroundColor: AppColors.surfaceLight,
+        bottomNavigationBar: const ZabiraBottomNav(selectedIndex: -1),
         body: Column(
           children: [
             // ── Fixed Top Header ──────────────────────────────────────────────
@@ -91,14 +95,14 @@ class _MediaPageState extends State<MediaPage> {
                 isAuthenticated: auth.isAuthenticated,
                 notificationCount: 2,
                 cartCount: cart.itemCount,
-                onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                onMenuTap: () => AppDrawer.open(context),
                 onCartTap: () => context.push(AppRoutes.cart),
-                onSignIn: () => context.push(AppRoutes.login),
+                onSignIn: () => showAuthBottomSheet(context),
                 onProfileTap: () {
                   if (auth.isAuthenticated) {
                     context.go(AppRoutes.studentDash);
                   } else {
-                    context.push(AppRoutes.login);
+                    showAuthBottomSheet(context);
                   }
                 },
               ),
@@ -242,14 +246,11 @@ class _MediaPageState extends State<MediaPage> {
               },
             ),
           ),
-
-          // ── Fixed Bottom Navigation ───────────────────────────────────────
-          _buildBottomNav(context),
         ],
       ),
     ),
-    );
-  }
+  );
+}
 
   Widget _buildLatestVideosList() {
     final list = _controller.latestVideos;
@@ -314,108 +315,6 @@ class _MediaPageState extends State<MediaPage> {
             onTap: () => _openDetails(item),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildBottomNav(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).padding.bottom;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad > 0 ? bottomPad + 4 : 14),
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.topCenter,
-        children: [
-          Container(
-            width: double.infinity,
-            height: 54,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: AppColors.borderLight.withAlpha(220), width: 1.0),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.navyDark.withAlpha(14),
-                  blurRadius: 20,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(child: _buildNavTab(0, Icons.home_rounded, 'Home', false, () => context.go(AppRoutes.home))),
-                Expanded(child: _buildNavTab(1, Icons.auto_stories_outlined, 'Learn', false, () => context.push(AppRoutes.courses))),
-                const SizedBox(width: 56), // Center gap
-                Expanded(child: _buildNavTab(3, Icons.menu_book_outlined, 'Library', false, () => context.push(AppRoutes.library))),
-                Expanded(child: _buildNavTab(4, Icons.smart_display_rounded, 'Media', true, () {})),
-              ],
-            ),
-          ),
-          Positioned(
-            top: -10,
-            child: GestureDetector(
-              onTap: () => context.go(AppRoutes.home),
-              child: Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF081D3A),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF081D3A).withAlpha(40),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/images/home/footer/academy_footer_logo.png',
-                    width: 52,
-                    height: 52,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.auto_stories_rounded, color: AppColors.gold, size: 24),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavTab(int index, IconData icon, String label, bool isActive, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 20, color: isActive ? AppColors.navyDark : const Color(0xFF8FA0BB)),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: GoogleFonts.outfit(
-              fontSize: 9.5,
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              color: isActive ? AppColors.navyDark : const Color(0xFF8FA0BB),
-              height: 1.1,
-            ),
-          ),
-          const SizedBox(height: 2),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: isActive ? 4 : 0,
-            height: isActive ? 4 : 0,
-            decoration: const BoxDecoration(
-              color: AppColors.gold,
-              shape: BoxShape.circle,
-            ),
-          ),
-        ],
       ),
     );
   }

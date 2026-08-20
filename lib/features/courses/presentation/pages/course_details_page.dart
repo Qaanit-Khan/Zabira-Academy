@@ -7,6 +7,7 @@ import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../data/models/course_api_model.dart';
 import '../../data/repositories/course_repository.dart';
 import '../controllers/enrollment_controller.dart';
@@ -82,10 +83,7 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
 
     if (!auth.isAuthenticated) {
       auth.setPendingReturnTo('/courses/${widget.courseId}');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in to enroll in this course.')),
-      );
-      context.push(AppRoutes.login);
+      showAuthBottomSheet(context);
       return;
     }
 

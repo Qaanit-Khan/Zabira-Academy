@@ -6,7 +6,11 @@ import 'package:provider/provider.dart';
 import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../features/auth/auth_controller.dart';
+import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../../../shared/widgets/app_drawer.dart';
+import '../../../../shared/widgets/zabira_bottom_nav.dart';
+import '../../../home/presentation/widgets/home_header.dart';
 import '../controllers/cart_controller.dart';
 import '../../data/models/store_category_model.dart';
 import '../../data/models/store_product_model.dart';
@@ -133,6 +137,9 @@ class _StorePageState extends State<StorePage> {
     final crossAxisCount = isDesktop ? 4 : (isTablet ? 3 : 2);
 
     final cart = context.watch<CartController>();
+    final auth = context.watch<AuthController>();
+    final user = auth.user;
+    final isAuth = auth.isAuthenticated && user != null;
 
     return PopScope(
       canPop: false,
@@ -145,14 +152,33 @@ class _StorePageState extends State<StorePage> {
         context.go(AppRoutes.home);
       },
       child: Scaffold(
+        extendBody: true,
         key: _scaffoldKey,
         drawer: const AppDrawer(),
         backgroundColor: AppColors.surfaceLight,
-        body: SafeArea(
-          child: Column(
-            children: [
-              // ── 1. Store Header ─────────────────────────────────────────────
-              _buildStoreHeader(context, cart.itemCount),
+        bottomNavigationBar: const ZabiraBottomNav(selectedIndex: 3),
+        body: Column(
+          children: [
+            // ── 1. Store Header ─────────────────────────────────────────────
+            SafeArea(
+              bottom: false,
+              child: HomeHeader(
+                isAuthenticated: isAuth,
+                notificationCount: isAuth ? 2 : 0,
+                cartCount: cart.itemCount,
+                userInitial: isAuth && user.displayName.isNotEmpty ? user.displayName[0] : null,
+                onMenuTap: () => AppDrawer.open(context),
+                onCartTap: () => context.push(AppRoutes.cart),
+                onSignIn: () => showAuthBottomSheet(context),
+                onProfileTap: () {
+                  if (isAuth) {
+                    context.push(AppRoutes.studentDash);
+                  } else {
+                    showAuthBottomSheet(context);
+                  }
+                },
+              ),
+            ),
 
               // ── 2. Search & Filter Bar ──────────────────────────────────────
               _buildSearchBar(),
@@ -174,97 +200,8 @@ class _StorePageState extends State<StorePage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildStoreHeader(BuildContext context, int cartCount) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.borderLight.withAlpha(150),
-            width: 1.0,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.menu_rounded, size: 24, color: AppColors.navyDark),
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            tooltip: 'Menu',
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          GestureDetector(
-            onTap: () => context.go(AppRoutes.home),
-            child: Image.asset(
-              'assets/images/branding/zabira_logo_horizontal.png',
-              height: 32,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, _) => Text(
-                'ZABIRA STORE',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.navyDark,
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ),
-          ),
-          const Spacer(),
-          // Cart Icon with Badge
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceLight,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.borderLight),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.shopping_bag_outlined, size: 20, color: AppColors.navyDark),
-                  onPressed: () => context.push(AppRoutes.cart),
-                  tooltip: 'Cart',
-                ),
-              ),
-              if (cartCount > 0)
-                Positioned(
-                  top: -2,
-                  right: -2,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppColors.gold,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: Center(
-                      child: Text(
-                        cartCount > 99 ? '99+' : '$cartCount',
-                        style: GoogleFonts.outfit(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.navyDark,
-                          height: 1,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+      );
+    }
 
   Widget _buildSearchBar() {
     return Padding(
@@ -815,3 +752,4 @@ class _CodeFallbackIcon extends StatelessWidget {
     );
   }
 }
+

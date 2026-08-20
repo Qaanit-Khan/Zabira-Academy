@@ -7,8 +7,11 @@ import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../../../shared/widgets/app_drawer.dart';
-import '../../../home/presentation/widgets/home_bottom_nav.dart';
+import '../../../../shared/widgets/zabira_bottom_nav.dart';
+import '../../../home/presentation/widgets/home_header.dart';
+import '../../../store/presentation/controllers/cart_controller.dart';
 import '../../data/models/course_api_model.dart';
 import '../../data/models/course_category_api_model.dart';
 import '../../data/repositories/course_repository.dart';
@@ -310,6 +313,10 @@ class _CoursesPageState extends State<CoursesPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 900;
+    final auth = context.watch<AuthController>();
+    final cart = context.watch<CartController>();
+    final user = auth.user;
+    final isAuth = auth.isAuthenticated && user != null;
 
     return PopScope(
       canPop: false,
@@ -322,15 +329,32 @@ class _CoursesPageState extends State<CoursesPage> {
         context.go(AppRoutes.home);
       },
       child: Scaffold(
+        extendBody: true,
         key: _scaffoldKey,
         drawer: const AppDrawer(),
         backgroundColor: AppColors.surfaceLight,
+        bottomNavigationBar: const ZabiraBottomNav(selectedIndex: 0),
         body: Column(
           children: [
-            // ── 1. Mobile Header (Matches mobile reference, No Assalamu Alaikum)
+            // ── 1. Global Header ──────────────────────────────────────────────
             SafeArea(
               bottom: false,
-              child: _buildHeader(context),
+              child: HomeHeader(
+                isAuthenticated: isAuth,
+                notificationCount: isAuth ? 2 : 0,
+                cartCount: cart.itemCount,
+                userInitial: isAuth && user.displayName.isNotEmpty ? user.displayName[0] : null,
+                onMenuTap: () => AppDrawer.open(context),
+                onCartTap: () => context.push(AppRoutes.cart),
+                onSignIn: () => showAuthBottomSheet(context),
+                onProfileTap: () {
+                  if (isAuth) {
+                    context.push(AppRoutes.studentDash);
+                  } else {
+                    showAuthBottomSheet(context);
+                  }
+                },
+              ),
             ),
 
             // ── 2. Scrollable Courses Content ─────────────────────────────────
@@ -379,136 +403,8 @@ class _CoursesPageState extends State<CoursesPage> {
                 ),
               ),
             ),
-
-            // ── 3. Bottom Dock Navigation (Learn tab active) ──────────────────
-            HomeBottomNav(
-              selectedIndex: 1,
-              onItemTapped: (index) {
-                if (index == 0) {
-                  context.go(AppRoutes.home);
-                } else if (index == 1) {
-                  // Already on Learn
-                } else if (index == 2) {
-                  context.push('/kids');
-                } else if (index == 3) {
-                  context.push(AppRoutes.library);
-                } else if (index == 4) {
-                  final auth = context.read<AuthController>();
-                  if (auth.isAuthenticated) {
-                    context.push(AppRoutes.studentDash);
-                  } else {
-                    auth.setPendingReturnTo(AppRoutes.studentDash);
-                    context.push(AppRoutes.login);
-                  }
-                }
-              },
-            ),
           ],
         ),
-      ),
-    );
-  }
-
-  // ── Header Widget ──────────────────────────────────────────────────────────
-  Widget _buildHeader(BuildContext context) {
-    final auth = context.watch<AuthController>();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.borderLight.withAlpha(120),
-            width: 1.0,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Left: Hamburger Menu + Logo
-          IconButton(
-            icon: const Icon(Icons.menu_rounded, size: 24, color: AppColors.navyDark),
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32),
-          ),
-          const SizedBox(width: 8),
-          Image.asset(
-            'assets/images/branding/zabira_logo_horizontal.png',
-            height: 34,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, _) => Text(
-              'ZABIRA ACADEMY',
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: AppColors.navyDark,
-                letterSpacing: 1.1,
-              ),
-            ),
-          ),
-
-          const Spacer(),
-
-          // Right: Cart, Notification, Profile
-          // 1. Cart
-          IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined, size: 22, color: AppColors.navyDark),
-            onPressed: () => context.push(AppRoutes.store),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36),
-          ),
-
-          // 2. Notification
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none_rounded, size: 22, color: AppColors.navyDark),
-                onPressed: () {},
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(
-                    color: AppColors.gold,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(width: 4),
-
-          // 3. Profile Avatar
-          GestureDetector(
-            onTap: () {
-              if (auth.isAuthenticated) {
-                // Profile
-              } else {
-                context.push(AppRoutes.login);
-              }
-            },
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                color: Color(0xFF081D3A),
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: Icon(Icons.person, size: 18, color: Colors.white),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

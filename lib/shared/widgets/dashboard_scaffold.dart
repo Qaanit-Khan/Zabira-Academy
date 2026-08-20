@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../features/auth/auth_controller.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/zabira_logo.dart';
 import '../buttons/primary_button.dart';
 
@@ -77,6 +78,12 @@ class DashboardScaffold extends StatelessWidget {
                                 ),
                               ],
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
+                            tooltip: 'Menu',
+                            onPressed: () => AppDrawer.open(context),
                           ),
                         ],
                       ),

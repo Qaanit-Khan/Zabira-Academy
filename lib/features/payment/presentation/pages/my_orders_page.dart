@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/app_drawer.dart';
 import '../../../auth/auth_controller.dart';
 import '../controllers/payment_controller.dart';
 import '../../data/models/payment_models.dart';
@@ -90,6 +91,14 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
           'My Orders & Invoices',
           style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.navyDark),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.menu_rounded, color: AppColors.navyDark, size: 24),
+            tooltip: 'Menu',
+            onPressed: () => AppDrawer.open(context),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.gold))

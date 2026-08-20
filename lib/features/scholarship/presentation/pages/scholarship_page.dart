@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../shared/widgets/zabira_app_bar.dart';
+import '../../../../shared/widgets/zabira_bottom_nav.dart';
 
 /// Zabira Academy — Scholarship & Financial Aid Screen
 class ScholarshipPage extends StatefulWidget {
@@ -55,6 +56,7 @@ class _ScholarshipPageState extends State<ScholarshipPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+        extendBody: true,
       key: _scaffoldKey,
       backgroundColor: AppColors.surfaceLight,
       appBar: ZabiraAppBar(
@@ -62,6 +64,7 @@ class _ScholarshipPageState extends State<ScholarshipPage> {
         onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
       ),
       drawer: const AppDrawer(),
+      bottomNavigationBar: const ZabiraBottomNav(selectedIndex: -1),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
           : SingleChildScrollView(
@@ -281,3 +284,4 @@ class _ScholarshipPageState extends State<ScholarshipPage> {
     );
   }
 }
+

@@ -6,8 +6,10 @@ import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
+import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../../../shared/buttons/primary_button.dart';
 import '../../../../shared/loaders/zabira_loader.dart';
+import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../shared/widgets/zabira_network_image.dart';
 import '../../data/models/cart_item_model.dart';
 import '../controllers/cart_controller.dart';
@@ -35,10 +37,7 @@ class _CartPageState extends State<CartPage> {
 
     if (!auth.isAuthenticated) {
       auth.setPendingReturnTo(AppRoutes.cart);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in to proceed with checkout.')),
-      );
-      context.push(AppRoutes.login);
+      showAuthBottomSheet(context);
       return;
     }
 
@@ -104,6 +103,12 @@ class _CartPageState extends State<CartPage> {
               tooltip: 'Clear Cart',
               onPressed: () => cart.clearCart(auth.currentToken),
             ),
+          IconButton(
+            icon: const Icon(Icons.menu_rounded, color: AppColors.navyDark, size: 24),
+            tooltip: 'Menu',
+            onPressed: () => AppDrawer.open(context),
+          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: cart.isLoading && cart.items.isEmpty

@@ -130,44 +130,7 @@ class HomeHeader extends StatelessWidget {
 
               const SizedBox(width: gapBetweenControls),
 
-              // 2. Notifications (Bell + Badge)
-              SizedBox(
-                width: controlSize,
-                height: controlSize,
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    _HeaderIconButton(
-                      size: controlSize,
-                      icon: Icons.notifications_outlined,
-                      onTap: onNotificationTap ?? () {},
-                      semanticLabel: 'Notifications',
-                    ),
-                    if (notificationCount > 0)
-                      Positioned(
-                        top: 5,
-                        right: 5,
-                        child: Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: AppColors.gold,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.surfaceWhite,
-                              width: 1,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: gapBetweenControls),
-
-              // 3. Profile Circular Button
+              // 2. Profile Circular Button
               _ProfileButton(
                 size: controlSize,
                 onTap: _handleProfileTap,

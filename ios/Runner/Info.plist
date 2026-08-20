@@ -16,6 +16,8 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>zabira_academy</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Zabira Academy needs microphone access for the Islamic AI voice assistant.</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
