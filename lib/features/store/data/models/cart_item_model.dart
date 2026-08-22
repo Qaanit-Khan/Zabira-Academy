@@ -50,8 +50,15 @@ class CartItemModel {
         json['course_title']?.toString() ??
         'Item';
 
-    final price = double.tryParse(json['price']?.toString() ?? '0') ?? 0.0;
-    final salePrice = double.tryParse(json['sale_price']?.toString() ?? '0');
+    final price = double.tryParse(json['price']?.toString() ?? json['unit_price']?.toString() ?? json['amount']?.toString() ?? '0') ?? 0.0;
+    final salePrice = double.tryParse(
+      json['sale_price']?.toString() ??
+          json['discount_price']?.toString() ??
+          json['discounted_price']?.toString() ??
+          json['offer_price']?.toString() ??
+          json['effective_price']?.toString() ??
+          '',
+    );
 
     final quantity = int.tryParse(json['quantity']?.toString() ?? '1') ?? 1;
 

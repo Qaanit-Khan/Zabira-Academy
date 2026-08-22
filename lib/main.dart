@@ -7,6 +7,7 @@ import 'core/audio/global_audio_controller.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/courses/presentation/controllers/enrollment_controller.dart';
+import 'features/courses/presentation/controllers/wishlist_controller.dart';
 import 'features/kids/presentation/controllers/kids_controller.dart';
 import 'features/payment/presentation/controllers/payment_controller.dart';
 import 'features/store/presentation/controllers/cart_controller.dart';
@@ -67,6 +68,9 @@ Future<void> main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => KidsController(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => WishlistController(),
         ),
       ],
       child: const ZabiraApp(),

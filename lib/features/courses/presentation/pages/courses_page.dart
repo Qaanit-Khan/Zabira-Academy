@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../../app/router.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
 import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
@@ -19,18 +18,10 @@ import '../../../store/presentation/controllers/cart_controller.dart';
 import '../../data/models/course_api_model.dart';
 import '../../data/models/course_category_api_model.dart';
 import '../../data/repositories/course_repository.dart';
-import '../controllers/enrollment_controller.dart';
+import '../controllers/wishlist_controller.dart';
 import '../widgets/course_filter_sheet.dart';
 
 /// Zabira Academy — Courses Page
-///
-/// Features:
-/// - Displays full 14 courses dataset retrieved from official backend API
-/// - Top header with dynamic "${_filteredCourses.length} Programs Found"
-/// - Reusable Global Hero Banner slider
-/// - Category selector pills + filter sheet modal
-/// - Fixed-height, aligned course cards matching reference design
-/// - Bottom Scholarship Promotional Banner
 class CoursesPage extends StatefulWidget {
   const CoursesPage({super.key});
 
@@ -41,19 +32,18 @@ class CoursesPage extends StatefulWidget {
 class _CoursesPageState extends State<CoursesPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final CourseRepository _repository = CourseRepository();
-  final TextEditingController _searchController = TextEditingController();
 
   List<CourseCategoryApiModel> _categories = List.from(CourseRepository.defaultCategories);
   List<CourseApiModel> _courses = List.from(CourseRepository.defaultCourses);
   List<CourseApiModel> _filteredCourses = List.from(CourseRepository.defaultCourses);
-  bool _isLoading = false;
-  String? _errorMessage;
 
   final CourseFilterState _filterState = CourseFilterState();
-  int? _selectedCategoryPillIndex; // null or 0 = all
-  final Set<int> _favorites = {};
+  int? _selectedCategoryId; // null = All
 
   late final List<HeroBannerModel> _banners;
+
+  static const Color brandGold = Color(0xFFC4A95B);
+  static const Color brandNavy = Color(0xFF112039);
 
   @override
   void initState() {
@@ -68,14 +58,7 @@ class _CoursesPageState extends State<CoursesPage> {
       onStoreTap: () => context.push(AppRoutes.store),
       onHero4Tap: () {},
     );
-    _applyLocalFilterAndSort();
     _loadInitialData();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadInitialData() async {
@@ -91,172 +74,211 @@ class _CoursesPageState extends State<CoursesPage> {
           final fetchedCategories = results[1] as List<CourseCategoryApiModel>;
           if (fetchedCourses.isNotEmpty) {
             _courses = fetchedCourses;
-          } else {
-            _courses = List.from(CourseRepository.defaultCourses);
           }
-          if (fetchedCategories.isNotEmpty) _categories = fetchedCategories;
-          _applyLocalFilterAndSort();
-          _isLoading = false;
+          if (fetchedCategories.isNotEmpty) {
+            _categories = fetchedCategories;
+          }
+          _applyFilterAndSort();
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _courses = List.from(CourseRepository.defaultCourses);
-          _isLoading = false;
-          _applyLocalFilterAndSort();
+          _applyFilterAndSort();
         });
       }
     }
   }
 
   Future<List<CourseApiModel>> _fetchAllCourses() async {
-    // Fetches all available courses from official API
-    final query = _searchController.text.trim();
-    final items = await _repository.getCourses(
-      page: 1,
-      limit: 50,
-      search: query.isNotEmpty ? query : null,
-      categoryId: _filterState.categoryId,
-      level: _filterState.level,
-      language: _filterState.language,
-      sort: _filterState.sort,
-    );
-    return items;
+    try {
+      return await _repository.getCourses(limit: 50);
+    } catch (_) {
+      return CourseRepository.defaultCourses;
+    }
   }
 
-  List<_CategoryPillData> _getCategoryPills() {
-    final pills = <_CategoryPillData>[
-      const _CategoryPillData(
-        label: 'All',
-        categoryId: null,
-        tintColor: Color(0xFFF1F5F9),
-        iconColor: AppColors.navyDark,
-        icon: Icons.grid_view_rounded,
-      ),
-    ];
+  void _applyFilterAndSort() {
+    List<CourseApiModel> result = List.from(_courses);
 
-    for (final cat in _categories) {
-      final nameLower = cat.name.toLowerCase();
-      Color tint;
-      Color iconColor;
-      IconData icon;
-
-      if (nameLower.contains('quran')) {
-        tint = const Color(0xFFFFF8E1);
-        iconColor = const Color(0xFFD97706);
-        icon = Icons.menu_book_rounded;
-      } else if (nameLower.contains('islamic')) {
-        tint = const Color(0xFFE8F5E9);
-        iconColor = const Color(0xFF16A34A);
-        icon = Icons.mosque_rounded;
-      } else if (nameLower.contains('language') || nameLower.contains('arabic') || nameLower.contains('urdu')) {
-        tint = const Color(0xFFE0F7FA);
-        iconColor = const Color(0xFF0284C7);
-        icon = Icons.translate_rounded;
-      } else if (nameLower.contains('self') || nameLower.contains('paced')) {
-        tint = const Color(0xFFEDE7F6);
-        iconColor = const Color(0xFF7C3AED);
-        icon = Icons.speed_rounded;
-      } else if (nameLower.contains('workshop') || nameLower.contains('event')) {
-        tint = const Color(0xFFFFF3E0);
-        iconColor = const Color(0xFFEA580C);
-        icon = Icons.event_note_rounded;
-      } else if (nameLower.contains('kid')) {
-        tint = const Color(0xFFFCE4EC);
-        iconColor = const Color(0xFFE11D48);
-        icon = Icons.child_care_rounded;
-      } else {
-        tint = const Color(0xFFE0F2FE);
-        iconColor = const Color(0xFF0369A1);
-        icon = Icons.auto_stories_rounded;
-      }
-
-      pills.add(_CategoryPillData(
-        label: cat.name,
-        categoryId: cat.id,
-        tintColor: tint,
-        iconColor: iconColor,
-        icon: icon,
-      ));
+    // Category filter
+    final catId = _filterState.categoryId ?? _selectedCategoryId;
+    if (catId != null) {
+      result = result.where((c) => c.categoryId == catId).toList();
     }
 
-    return pills;
-  }
+    if (_filterState.level != null && _filterState.level != 'All') {
+      result = result.where((c) => c.level.toLowerCase() == _filterState.level!.toLowerCase()).toList();
+    }
 
-  void _applyLocalFilterAndSort() {
-    var list = List<CourseApiModel>.from(_courses);
-    final pills = _getCategoryPills();
-
-    // Filter by category pill if selected
-    if (_selectedCategoryPillIndex != null &&
-        _selectedCategoryPillIndex! > 0 &&
-        _selectedCategoryPillIndex! < pills.length) {
-      final selectedPill = pills[_selectedCategoryPillIndex!];
-      list = list.where((c) {
-        if (selectedPill.categoryId != null && c.categoryId == selectedPill.categoryId) {
-          return true;
-        }
-        final cat = (c.categoryName ?? '').toLowerCase();
-        final pillLabel = selectedPill.label.toLowerCase();
-        return cat.contains(pillLabel) || pillLabel.contains(cat);
+    if (_filterState.language != null && _filterState.language != 'All') {
+      result = result.where((c) {
+        final selLang = _filterState.language!.toLowerCase();
+        return c.language.toLowerCase().contains(selLang) ||
+            c.languages.any((l) => l.toLowerCase().contains(selLang));
       }).toList();
     }
 
-    // Filter by search query
-    final query = _searchController.text.trim().toLowerCase();
-    if (query.isNotEmpty) {
-      list = list.where((c) {
-        return c.title.toLowerCase().contains(query) ||
-            (c.shortDescription ?? '').toLowerCase().contains(query) ||
-            (c.categoryName ?? '').toLowerCase().contains(query);
-      }).toList();
-    }
-
-    // Filter by sheet level
-    if (_filterState.level != null) {
-      list = list.where((c) => c.level.toLowerCase() == _filterState.level!.toLowerCase()).toList();
-    }
-
-    // Filter by sheet language
-    if (_filterState.language != null) {
-      list = list.where((c) => c.language.toLowerCase() == _filterState.language!.toLowerCase()).toList();
-    }
-
-    // Sort
+    // Sort order
     switch (_filterState.sort) {
+      case 'popular':
+        result.sort((a, b) => (b.isPopular ? 1 : 0).compareTo(a.isPopular ? 1 : 0));
+        break;
+      case 'rating':
+        result.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
       case 'newest':
-        list.sort((a, b) => b.id.compareTo(a.id));
+        result.sort((a, b) => (b.isNew ? 1 : 0).compareTo(a.isNew ? 1 : 0));
         break;
-      case 'price_asc':
-        list.sort((a, b) => a.effectivePrice.compareTo(b.effectivePrice));
+      case 'price_low':
+        result.sort((a, b) => a.effectivePrice.compareTo(b.effectivePrice));
         break;
-      case 'price_desc':
-        list.sort((a, b) => b.effectivePrice.compareTo(a.effectivePrice));
+      case 'price_high':
+        result.sort((a, b) => b.effectivePrice.compareTo(a.effectivePrice));
         break;
-      case 'featured':
       default:
-        list.sort((a, b) {
-          if (a.isFeatured && !b.isFeatured) return -1;
-          if (!a.isFeatured && b.isFeatured) return 1;
-          return b.rating.compareTo(a.rating);
-        });
         break;
     }
 
-    _filteredCourses = list;
+    setState(() {
+      _filteredCourses = result;
+    });
   }
 
-  void _onCategoryPillTapped(int index) {
+  void _onCategorySelected(int? categoryId) {
+    if (_selectedCategoryId == categoryId) return;
     HapticFeedback.lightImpact();
     setState(() {
-      if (_selectedCategoryPillIndex == index) {
-        _selectedCategoryPillIndex = 0; // default to All
-      } else {
-        _selectedCategoryPillIndex = index;
-      }
-      _applyLocalFilterAndSort();
+      _selectedCategoryId = categoryId;
     });
+    _applyFilterAndSort();
+  }
+
+  void _toggleFavorite(CourseApiModel course) {
+    HapticFeedback.selectionClick();
+    final wishlist = context.read<WishlistController>();
+    final added = wishlist.toggleCourse(course);
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          added ? 'Added to Wishlist ⭐' : 'Removed from Wishlist',
+          style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+        ),
+        backgroundColor: brandNavy,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(milliseconds: 1500),
+      ),
+    );
+  }
+
+  Future<void> _addToCart(CourseApiModel course) async {
+    HapticFeedback.mediumImpact();
+    final cart = context.read<CartController>();
+    final auth = context.read<AuthController>();
+
+    if (!auth.isAuthenticated) {
+      auth.setPendingReturnTo('/courses/${course.id}');
+      showAuthBottomSheet(context);
+      return;
+    }
+
+    final success = await cart.addItem(
+      itemData: {
+        'course_id': course.id,
+        'product_type': 'course',
+        'quantity': '1',
+        'price': course.effectivePrice,
+        'discount_price': course.effectivePrice,
+      },
+      token: auth.currentToken,
+    );
+
+    if (!mounted) return;
+
+    // Fast 2-second auto-dismissing toast
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: brandGold, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                success ? 'Added "${course.title}" (₹${course.effectivePrice.toInt()})' : 'Item added to cart',
+                style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: brandNavy,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(milliseconds: 2000),
+        action: SnackBarAction(
+          label: 'View Cart',
+          textColor: brandGold,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            context.push(AppRoutes.cart);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showQuickEnrollModal(CourseApiModel course) {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _QuickEnrollSheet(
+        course: course,
+        onEnrollNow: (selectedPlan) {
+          Navigator.pop(ctx);
+          final auth = context.read<AuthController>();
+          if (!auth.isAuthenticated) {
+            auth.setPendingReturnTo('/courses/${course.id}');
+            showAuthBottomSheet(context);
+            return;
+          }
+          final effectivePrice = selectedPlan == 'monthly'
+              ? (course.paymentOptions.length > 1 && course.paymentOptions[1].installmentAmount != null
+                  ? course.paymentOptions[1].installmentAmount!
+                  : (course.effectivePrice / 6).ceilToDouble())
+              : course.effectivePrice;
+
+          context.push(
+            '/checkout',
+            extra: {
+              'orderId': course.id,
+              'productType': 'course',
+              'title': course.title,
+              'amount': effectivePrice,
+              'instructor': course.instructorName,
+              'category': course.categoryName,
+              'level': course.level,
+              'language': course.language,
+              'duration': course.duration,
+              'mode': course.courseType,
+              'planLabel': selectedPlan == 'monthly' ? 'Monthly Installment' : 'Pay in Full',
+              'courseId': course.id,
+            },
+          );
+        },
+        onAddToCart: () {
+          Navigator.pop(ctx);
+          _addToCart(course);
+        },
+      ),
+    );
   }
 
   void _openFilterSheet() {
@@ -274,68 +296,14 @@ class _CoursesPageState extends State<CoursesPage> {
             _filterState.level = newState.level;
             _filterState.language = newState.language;
             _filterState.sort = newState.sort;
-            _applyLocalFilterAndSort();
+            if (newState.categoryId != null) {
+              _selectedCategoryId = newState.categoryId;
+            }
           });
+          _applyFilterAndSort();
         },
       ),
     );
-  }
-
-  void _onStartLearning(CourseApiModel course) {
-    HapticFeedback.mediumImpact();
-    final auth = context.read<AuthController>();
-    final enrollment = context.read<EnrollmentController>();
-    if (auth.isAuthenticated && enrollment.isEnrolled(course.id)) {
-      context.push('/courses/${course.id}/learn');
-    } else {
-      context.push('/courses/${course.id}');
-    }
-  }
-
-  void _toggleFavorite(int courseId) {
-    HapticFeedback.selectionClick();
-    setState(() {
-      if (_favorites.contains(courseId)) {
-        _favorites.remove(courseId);
-      } else {
-        _favorites.add(courseId);
-      }
-    });
-  }
-
-  Future<void> _addCourseToCart(CourseApiModel course) async {
-    HapticFeedback.lightImpact();
-    final auth = context.read<AuthController>();
-    final cart = context.read<CartController>();
-
-    final success = await cart.addItem(
-      itemData: {
-        'course_id': course.id,
-        'product_type': 'course',
-        'quantity': '1',
-      },
-      token: auth.currentToken,
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success ? '${course.title} added to Cart' : 'Unable to add to cart',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
-          ),
-          backgroundColor: success ? AppColors.navyDark : Colors.red,
-          duration: const Duration(seconds: 2),
-          action: success
-              ? SnackBarAction(
-                  label: 'View Cart',
-                  textColor: AppColors.gold,
-                  onPressed: () => context.push(AppRoutes.cart),
-                )
-              : null,
-        ),
-      );
-    }
   }
 
   @override
@@ -359,11 +327,12 @@ class _CoursesPageState extends State<CoursesPage> {
         extendBody: true,
         key: _scaffoldKey,
         drawer: const AppDrawer(),
-        backgroundColor: AppColors.surfaceLight,
+        backgroundColor: const Color(0xFFF8FAFC),
         bottomNavigationBar: const ZabiraBottomNav(selectedIndex: 0),
+        floatingActionButton: _buildFloatingFilterButton(),
         body: Column(
           children: [
-            // ── 1. Global App Header ──────────────────────────────────────────
+            // ── 1. Top Header: Exact HomeHeader ─────────────────────────────
             SafeArea(
               bottom: false,
               child: HomeHeader(
@@ -384,52 +353,74 @@ class _CoursesPageState extends State<CoursesPage> {
               ),
             ),
 
-            // ── 2. Scrollable Courses Content ─────────────────────────────────
+            // ── 2. Scrollable Body Content ──────────────────────────────────
             Expanded(
               child: RefreshIndicator(
-                color: AppColors.gold,
-                backgroundColor: AppColors.surfaceWhite,
+                color: brandGold,
+                backgroundColor: Colors.white,
                 onRefresh: _loadInitialData,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Top Title Row with Programs Count ───────────────────
-                      _buildTopHeader(),
-
-                      const SizedBox(height: AppSpacing.sm),
-
-                      // ── Search & Filter Controls ────────────────────────────
-                      _buildSearchAndFilterBar(),
-
-                      const SizedBox(height: AppSpacing.sm),
-
-                      // ── Hero Banner Carousel ────────────────────────────────
+                      // ── Hero Banner Carousel ──────────────────────────────
                       HeroCarousel(banners: _banners),
 
+                      const SizedBox(height: AppSpacing.sm),
+
+                      // ── Store-style Horizontal Category Slider ─────────────
+                      _buildCategorySlider(),
+
                       const SizedBox(height: AppSpacing.md),
 
-                      // ── Category Selector Pills ─────────────────────────────
-                      _buildCategoryPillsRow(),
+                      // ── Programs Found Indicator ("14 Programs") ──────────
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        child: Row(
+                          children: [
+                            Text(
+                              '${_filteredCourses.length} Programs',
+                              style: GoogleFonts.outfit(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF475569),
+                              ),
+                            ),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: _openFilterSheet,
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.tune_rounded, size: 15, color: brandNavy),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Filter',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: brandNavy,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: AppSpacing.sm),
 
                       // ── Courses Content List ────────────────────────────────
                       _buildCoursesList(),
-
-                      const SizedBox(height: AppSpacing.lg),
-
-                      // ── Value Highlights ────────────────────────────────────
-                      _buildValueHighlights(),
 
                       const SizedBox(height: AppSpacing.md),
 
                       // ── Universal Scholarship Promo Banner ──────────────────
                       const ScholarshipPromoBanner(),
 
-                      // Bottom spacing for floating navigation dock
-                      const SizedBox(height: 80),
+                      // Bottom spacing for navigation dock
+                      const SizedBox(height: 90),
                     ],
                   ),
                 ),
@@ -441,214 +432,140 @@ class _CoursesPageState extends State<CoursesPage> {
     );
   }
 
-  // ── Top Header Row with dynamic count ──────────────────────────────────────
-  Widget _buildTopHeader() {
-    final count = _isLoading ? '...' : '${_filteredCourses.length}';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Courses & Programs',
-                style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.navyDark,
-                  height: 1.15,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '$count Programs Found',
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-            ],
+  // ── Floating Action Button for Web-style Filter Window ─────────────────────
+  Widget _buildFloatingFilterButton() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 60),
+      child: FloatingActionButton.extended(
+        onPressed: _openFilterSheet,
+        backgroundColor: brandNavy,
+        elevation: 4,
+        icon: const Icon(Icons.tune_rounded, color: brandGold, size: 19),
+        label: Text(
+          'Filter',
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
           ),
-          // Clean sort indicator trigger
-          GestureDetector(
-            onTap: _openFilterSheet,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceWhite,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.borderLight),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.sort_rounded, size: 16, color: AppColors.navyDark),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Sort',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.navyDark,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  // ── Search & Filter Bar ───────────────────────────────────────────────────
-  Widget _buildSearchAndFilterBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceWhite,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.borderLight),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.navyDark.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (_) => setState(_applyLocalFilterAndSort),
-                style: GoogleFonts.outfit(fontSize: 13.5, color: AppColors.navyDark),
-                decoration: InputDecoration(
-                  hintText: 'Search courses, topics...',
-                  hintStyle: GoogleFonts.outfit(fontSize: 13, color: AppColors.textTertiary),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textSecondary),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 16, color: AppColors.textSecondary),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(_applyLocalFilterAndSort);
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 11),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: _openFilterSheet,
-            child: Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: _filterState.hasActiveFilters ? AppColors.navyDark : AppColors.gold,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.gold.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.tune_rounded,
-                    size: 17,
-                    color: _filterState.hasActiveFilters ? AppColors.gold : const Color(0xFF071B36),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    'FILTER',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.5,
-                      color: _filterState.hasActiveFilters ? AppColors.gold : const Color(0xFF071B36),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+  // ── Store-Style Pastel Horizontal Category Slider ──────────────────────────
+  Widget _buildCategorySlider() {
+    final categoriesList = <_CourseCategoryDisplayData>[
+      _CourseCategoryDisplayData(
+        id: null,
+        name: 'All',
+        icon: Icons.grid_view_rounded,
+        bgColor: const Color(0xFFF1F5F9),
+        iconColor: brandNavy,
       ),
-    );
-  }
+    ];
 
-  // ── Category Pills Row ─────────────────────────────────────────────────────
-  Widget _buildCategoryPillsRow() {
-    final pills = _getCategoryPills();
+    for (final cat in _categories) {
+      final nameLower = cat.name.toLowerCase();
+      Color bg;
+      Color iconCol;
+      IconData icon;
+
+      if (nameLower.contains('quran') || nameLower.contains('tajweed')) {
+        bg = const Color(0xFFFEF3C7);
+        iconCol = const Color(0xFFD97706);
+        icon = Icons.auto_stories_rounded;
+      } else if (nameLower.contains('arabic') || nameLower.contains('lang')) {
+        bg = const Color(0xFFDCFCE7);
+        iconCol = const Color(0xFF16A34A);
+        icon = Icons.translate_rounded;
+      } else if (nameLower.contains('hadith') || nameLower.contains('sunnah')) {
+        bg = const Color(0xFFE0E7FF);
+        iconCol = const Color(0xFF4F46E5);
+        icon = Icons.menu_book_rounded;
+      } else if (nameLower.contains('fiqh') || nameLower.contains('life') || nameLower.contains('namaz')) {
+        bg = const Color(0xFFFCE7F3);
+        iconCol = const Color(0xFFDB2777);
+        icon = Icons.mosque_rounded;
+      } else {
+        bg = const Color(0xFFF3E8FF);
+        iconCol = const Color(0xFF9333EA);
+        icon = Icons.school_rounded;
+      }
+
+      categoriesList.add(
+        _CourseCategoryDisplayData(
+          id: cat.id,
+          name: cat.name,
+          icon: icon,
+          bgColor: bg,
+          iconColor: iconCol,
+        ),
+      );
+    }
+
     return SizedBox(
-      height: 42,
-      child: ListView.builder(
+      height: 78,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        itemCount: pills.length,
+        itemCount: categoriesList.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
-          final cat = pills[index];
-          final isSelected = (_selectedCategoryPillIndex ?? 0) == index;
+          final item = categoriesList[index];
+          final isSelected = _selectedCategoryId == item.id;
 
-          return Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: GestureDetector(
-              onTap: () => _onCategoryPillTapped(index),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.navyDark : AppColors.surfaceWhite,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected ? AppColors.navyDark : AppColors.borderLight,
-                    width: 1.0,
+          return GestureDetector(
+            onTap: () => _onCategorySelected(item.id),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 76,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? brandNavy : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSelected ? brandNavy : const Color(0xFFE2E8F0),
+                  width: isSelected ? 1.5 : 1.0,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isSelected ? brandNavy.withValues(alpha: 0.16) : Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.navyDark.withValues(alpha: isSelected ? 0.15 : 0.04),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.white.withValues(alpha: 0.15) : item.bgColor,
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      cat.icon,
-                      size: 15,
-                      color: isSelected ? AppColors.gold : cat.iconColor,
+                    child: Icon(
+                      item.icon,
+                      color: isSelected ? brandGold : item.iconColor,
+                      size: 18,
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      cat.label,
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                        color: isSelected ? AppColors.gold : AppColors.navyDark,
-                      ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                      color: isSelected ? Colors.white : const Color(0xFF334155),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           );
@@ -657,243 +574,102 @@ class _CoursesPageState extends State<CoursesPage> {
     );
   }
 
-  // ── Courses Content List ───────────────────────────────────────────────────
+  // ── Courses List ───────────────────────────────────────────────────────────
   Widget _buildCoursesList() {
-    if (_isLoading) {
-      return _buildCoursesSkeleton();
-    }
-
-    if (_errorMessage != null) {
-      return _buildCoursesError();
-    }
+    final wishlist = context.watch<WishlistController>();
 
     if (_filteredCourses.isEmpty) {
-      return _buildCoursesEmpty();
-    }
-
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      itemCount: _filteredCourses.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 18),
-      itemBuilder: (context, index) {
-        final course = _filteredCourses[index];
-        return _CourseCard(
-          course: course,
-          isFavorite: _favorites.contains(course.id),
-          onFavoriteToggle: () => _toggleFavorite(course.id),
-          onStartLearning: () => _onStartLearning(course),
-          onViewDetails: () => context.push('/courses/${course.id}'),
-          onAddToCart: () => _addCourseToCart(course),
-        );
-      },
-    );
-  }
-
-  Widget _buildCoursesSkeleton() {
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      itemCount: 4,
-      separatorBuilder: (context, index) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        return Container(
-          height: 320,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceWhite,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.borderLight),
-          ),
-          child: const Center(
-            child: SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.2,
-                color: AppColors.gold,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildCoursesError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          children: [
-            const Icon(Icons.wifi_off_rounded, size: 42, color: AppColors.textTertiary),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              _errorMessage ?? 'Error loading courses',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(fontSize: 13, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            ElevatedButton(
-              onPressed: _loadInitialData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.navyDark,
-                foregroundColor: AppColors.gold,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCoursesEmpty() {
-    return Center(
-      child: Padding(
+      return Container(
         padding: const EdgeInsets.all(AppSpacing.xxl),
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
         child: Column(
           children: [
-            const Icon(Icons.search_off_rounded, size: 44, color: AppColors.textTertiary),
-            const SizedBox(height: AppSpacing.sm),
+            const Icon(Icons.search_off_rounded, size: 48, color: Color(0xFF94A3B8)),
+            const SizedBox(height: 12),
             Text(
-              'No courses match your criteria',
-              style: GoogleFonts.poppins(
+              'No courses match your filter',
+              style: GoogleFonts.outfit(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: AppColors.navyDark,
+                color: brandNavy,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
-              'Try adjusting your search query or removing active filters.',
+              'Try changing your filters or selecting All categories.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(fontSize: 12.5, color: AppColors.textSecondary),
+              style: GoogleFonts.outfit(
+                fontSize: 12.5,
+                color: const Color(0xFF64748B),
+              ),
             ),
-            const SizedBox(height: AppSpacing.md),
-            OutlinedButton(
+            const SizedBox(height: 14),
+            ElevatedButton(
               onPressed: () {
-                _searchController.clear();
                 setState(() {
-                  _selectedCategoryPillIndex = null;
+                  _selectedCategoryId = null;
                   _filterState.reset();
-                  _applyLocalFilterAndSort();
                 });
+                _applyFilterAndSort();
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: brandNavy,
+                foregroundColor: brandGold,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
               child: const Text('Reset All Filters'),
             ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  // ── Value Proposition Highlights ───────────────────────────────────────────
-  Widget _buildValueHighlights() {
-    const items = [
-      _HighlightItem(
-        icon: Icons.school_outlined,
-        title: 'Expert Instructors',
-        desc: 'Learn from qualified scholars.',
-      ),
-      _HighlightItem(
-        icon: Icons.video_collection_outlined,
-        title: 'Live & Recorded',
-        desc: 'Classes & downloadable resources.',
-      ),
-      _HighlightItem(
-        icon: Icons.verified_outlined,
-        title: 'Certificate',
-        desc: 'Get certified upon completion.',
-      ),
-      _HighlightItem(
-        icon: Icons.all_inclusive_rounded,
-        title: 'Lifetime Access',
-        desc: 'Learn at your own pace.',
-      ),
-    ];
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _filteredCourses.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final course = _filteredCourses[index];
+        final isFav = wishlist.isWishlisted(course.id);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: _buildHighlightWidget(items[0])),
-              const SizedBox(width: 8),
-              Expanded(child: _buildHighlightWidget(items[1])),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: _buildHighlightWidget(items[2])),
-              const SizedBox(width: 8),
-              Expanded(child: _buildHighlightWidget(items[3])),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHighlightWidget(_HighlightItem item) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7F8FA),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(item.icon, size: 18, color: AppColors.navyDark),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item.title,
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navyDark,
-                ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                item.desc,
-                style: GoogleFonts.outfit(
-                  fontSize: 9.5,
-                  color: AppColors.textSecondary,
-                  height: 1.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+        return _CourseCard(
+          course: course,
+          isFavorite: isFav,
+          onFavoriteToggle: () => _toggleFavorite(course),
+          onStartLearning: () => _showQuickEnrollModal(course),
+          onViewDetails: () => context.push('/courses/${course.id}'),
+          onAddToCart: () => _addToCart(course),
+        );
+      },
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Course Category Display Data Helper ──────────────────────────────────────
+class _CourseCategoryDisplayData {
+  const _CourseCategoryDisplayData({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.bgColor,
+    required this.iconColor,
+  });
 
-/// Course Card matching the provided reference screenshots:
-/// - Course Banner with Top badges (Popular, Featured, New, Crash Course, EMI Available, Discount)
-/// - Bottom banner badges (Heart favorite, Star rating)
-/// - Content area (Title, Price, EMI note, Metadata chips)
-/// - Aligned bottom action buttons row ([Read More] [Quick Enroll] [Cart])
+  final int? id;
+  final String name;
+  final IconData icon;
+  final Color bgColor;
+  final Color iconColor;
+}
+
+// ── Course Card Widget ──────────────────────────────────────────────────────
 class _CourseCard extends StatelessWidget {
   const _CourseCard({
     required this.course,
@@ -911,30 +687,30 @@ class _CourseCard extends StatelessWidget {
   final VoidCallback onViewDetails;
   final VoidCallback onAddToCart;
 
+  static const Color brandGold = Color(0xFFC4A95B);
+  static const Color brandNavy = Color(0xFF112039);
+
   @override
   Widget build(BuildContext context) {
-    final thumbUrl = course.fullHeroBannerUrl ?? course.fullThumbnailUrl;
+    final thumbUrl = course.fullThumbnailUrl ?? course.fullHeroBannerUrl;
 
-    // Determine badges
+    final isBestseller = course.isBestseller;
     final isPopular = course.isPopular;
     final isFeatured = course.isFeatured;
     final isNew = course.isNew;
-    final isCrashCourse = course.isCrashCourse;
 
-    // Calculate discount percent
-    int? discountPercent;
-    if (course.discountPrice != null && course.discountPrice! > 0 && course.price > course.discountPrice!) {
-      discountPercent = (((course.price - course.discountPrice!) / course.price) * 100).round();
-    }
+    final discountPercent = course.discountPercent;
+    final originalPriceFormatted = course.formattedOriginalPrice;
+    final emiText = course.monthlyInstallmentText;
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.borderLight),
+        border: Border.all(color: const Color(0xFFE5E9F0)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF07192F).withValues(alpha: 0.08),
+            color: brandNavy.withValues(alpha: 0.08),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -944,216 +720,253 @@ class _CourseCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── 1. Top Course Banner Image ──────────────────────────────────────
-          Stack(
-            children: [
-              Container(
-                width: double.infinity,
-                height: 175,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF081D3A),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(17)),
-                ),
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
-                  child: thumbUrl != null && thumbUrl.isNotEmpty
-                      ? Image.network(
-                          thumbUrl,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                          loadingBuilder: (context, child, progress) {
-                            if (progress == null) return child;
-                            return const Center(
-                              child: SizedBox(
-                                width: 26,
-                                height: 26,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.gold,
+          // ── 1. Top Course Banner Image ────────────────────────────────────
+          GestureDetector(
+            onTap: onViewDetails,
+            child: Stack(
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: 195,
+                  decoration: const BoxDecoration(
+                    color: brandNavy,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(17)),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
+                    child: thumbUrl != null && thumbUrl.isNotEmpty
+                        ? Image.network(
+                            thumbUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return const Center(
+                                child: SizedBox(
+                                  width: 26,
+                                  height: 26,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: brandGold,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, _) => _buildLocalFallbackImage(),
-                        )
-                      : _buildLocalFallbackImage(),
-                ),
-              ),
-
-              // ── Top-Left Badges (POPULAR, FEATURED, NEW, CRASH COURSE) ──────
-              Positioned(
-                top: 10,
-                left: 10,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isPopular)
-                      _buildTagBadge('POPULAR', const Color(0xFF0D9488), Colors.white),
-                    if (isFeatured) ...[
-                      if (isPopular) const SizedBox(width: 5),
-                      _buildTagBadge('FEATURED', const Color(0xFFD97706), Colors.white),
-                    ],
-                    if (isNew) ...[
-                      if (isPopular || isFeatured) const SizedBox(width: 5),
-                      _buildTagBadge('NEW', Colors.white, const Color(0xFF07192F)),
-                    ],
-                    if (isCrashCourse) ...[
-                      if (isPopular || isFeatured || isNew) const SizedBox(width: 5),
-                      _buildTagBadge('CRASH COURSE', const Color(0xFF0284C7), Colors.white),
-                    ],
-                  ],
-                ),
-              ),
-
-              // ── Top-Right Badges (EMI Available, Discount %) ────────────────
-              Positioned(
-                top: 10,
-                right: 10,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildTagBadge('EMI Available', const Color(0xFF07192F).withValues(alpha: 0.85), Colors.white),
-                    if (discountPercent != null && discountPercent > 0) ...[
-                      const SizedBox(width: 5),
-                      _buildTagBadge('-$discountPercent%', const Color(0xFF10B981), Colors.white),
-                    ],
-                  ],
-                ),
-              ),
-
-              // ── Bottom-Left: Circular Favorite Heart Button ─────────────────
-              Positioned(
-                bottom: 10,
-                left: 10,
-                child: GestureDetector(
-                  onTap: onFavoriteToggle,
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF07192F).withValues(alpha: 0.65),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        size: 18,
-                        color: isFavorite ? const Color(0xFFEF4444) : Colors.white,
-                      ),
-                    ),
+                              );
+                            },
+                            errorBuilder: (context, error, _) => _buildLocalFallbackImage(),
+                          )
+                        : _buildLocalFallbackImage(),
                   ),
                 ),
-              ),
 
-              // ── Bottom-Right: Rating Badge ──────────────────────────────────
-              Positioned(
-                bottom: 10,
-                right: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF07192F).withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
-                  ),
+                // ── Top-Left Badges ──────────────────────────────────────────
+                Positioned(
+                  top: 10,
+                  left: 10,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.star_rounded, size: 14, color: AppColors.gold),
-                      const SizedBox(width: 4),
-                      Text(
-                        course.rating.toStringAsFixed(1),
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
+                      if (isPopular) ...[
+                        _buildTagBadge('POPULAR', const Color(0xFF00A884), Colors.white),
+                        const SizedBox(width: 5),
+                      ],
+                      if (isBestseller) ...[
+                        _buildTagBadge('BESTSELLER', brandNavy, Colors.white),
+                        const SizedBox(width: 5),
+                      ],
+                      if (isFeatured) ...[
+                        _buildTagBadge('FEATURED', brandGold, brandNavy),
+                        const SizedBox(width: 5),
+                      ],
+                      if (isNew) ...[
+                        _buildTagBadge('NEW', Colors.white, brandNavy),
+                      ],
                     ],
                   ),
                 ),
-              ),
-            ],
+
+                // ── Top-Right Badges ─────────────────────────────────────────
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildTagBadge('EMI Available', brandNavy, brandGold, isBordered: true),
+                      if (discountPercent != null) ...[
+                        const SizedBox(width: 5),
+                        _buildTagBadge('-$discountPercent%', const Color(0xFF00A884), Colors.white),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // ── Bottom-Left Wishlist Button: OFFICIAL GOLDEN COLOR #c4a95b ──
+                Positioned(
+                  bottom: 10,
+                  left: 10,
+                  child: GestureDetector(
+                    onTap: onFavoriteToggle,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: brandNavy.withValues(alpha: 0.75),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isFavorite ? brandGold : Colors.white.withValues(alpha: 0.4),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Icon(
+                        isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        color: isFavorite ? brandGold : Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ── Bottom-Right Rating Pill ─────────────────────────────────
+                Positioned(
+                  bottom: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: brandNavy.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star_rounded, size: 14, color: brandGold),
+                        const SizedBox(width: 4),
+                        Text(
+                          course.rating.toStringAsFixed(1),
+                          style: GoogleFonts.outfit(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
 
-          // ── 2. Content & Metadata Section ─────────────────────────────────
+          // ── 2. Card Content Area ───────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title & Price Row
+                // Title and Price Row
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Course Title
                     Expanded(
-                      child: Text(
-                        course.title,
-                        style: GoogleFonts.poppins(
-                          fontSize: 16.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.navyDark,
-                          height: 1.25,
+                      child: GestureDetector(
+                        onTap: onViewDetails,
+                        child: Text(
+                          course.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: brandNavy,
+                            height: 1.25,
+                          ),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 10),
-
-                    // Price Block
+                    const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
                           course.formattedPrice,
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.navyDark,
-                          ),
-                        ),
-                        Text(
-                          course.monthlyInstallmentText.isNotEmpty
-                              ? 'Starting ${course.monthlyInstallmentText}'
-                              : 'Starting from ₹250/mo EMI',
                           style: GoogleFonts.outfit(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF64748B),
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: brandNavy,
                           ),
                         ),
+                        if (originalPriceFormatted != null)
+                          Text(
+                            originalPriceFormatted,
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              color: const Color(0xFF94A3B8),
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
                       ],
                     ),
                   ],
                 ),
 
+                // EMI Note
+                if (emiText.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      emiText,
+                      style: GoogleFonts.outfit(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 10),
 
-                // Metadata Row 1: Instructor · Lessons · Duration
-                Row(
-                  children: [
-                    if (course.instructorName != null && course.instructorName!.isNotEmpty) ...[
-                      _buildMetaInline(Icons.person_outline_rounded, course.instructorName!),
+                // Instructor line
+                if (course.instructorName != null && course.instructorName!.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.person_outline_rounded, size: 13, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 4),
+                      Text(
+                        course.instructorName!,
+                        style: GoogleFonts.outfit(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
                       _buildDot(),
+                      _buildMetaInline(Icons.menu_book_rounded, course.lessonsDisplay),
+                      _buildDot(),
+                      _buildMetaInline(Icons.access_time_rounded, course.duration),
                     ],
-                    _buildMetaInline(Icons.menu_book_outlined, course.lessonsDisplay),
-                    _buildDot(),
-                    _buildMetaInline(Icons.access_time_rounded, course.duration),
-                  ],
-                ),
-
-                const SizedBox(height: 6),
+                  ),
+                  const SizedBox(height: 5),
+                ] else ...[
+                  Row(
+                    children: [
+                      _buildMetaInline(Icons.menu_book_rounded, course.lessonsDisplay),
+                      _buildDot(),
+                      _buildMetaInline(Icons.access_time_rounded, course.duration),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                ],
 
                 // Metadata Row 2: Level · Language
                 Row(
                   children: [
                     _buildMetaInline(Icons.signal_cellular_alt_rounded, course.level),
                     _buildDot(),
-                    _buildMetaInline(Icons.translate_rounded, course.language),
+                    _buildMetaInline(Icons.translate_rounded, course.languagesDisplay),
                   ],
                 ),
 
@@ -1164,58 +977,80 @@ class _CourseCard extends StatelessWidget {
                 // ── 3. Bottom Action Buttons Row ([Read More] [Quick Enroll] [Cart])
                 Row(
                   children: [
-                    // Read More Button (Gold/Amber style)
+                    // Read More Button (Golden style: #c4a95b)
                     Expanded(
-                      flex: 4,
+                      flex: 6,
                       child: SizedBox(
                         height: 42,
-                        child: ElevatedButton.icon(
+                        child: ElevatedButton(
                           onPressed: onViewDetails,
-                          icon: const Icon(Icons.menu_book_rounded, size: 16),
-                          label: Text(
-                            'Read More',
-                            style: GoogleFonts.outfit(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFD4A346),
-                            foregroundColor: const Color(0xFF071B36),
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            backgroundColor: brandGold,
+                            foregroundColor: brandNavy,
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
                             elevation: 0,
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const _LucideBookOpenIcon(size: 16, color: brandNavy),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Read More',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: brandNavy,
+                                    letterSpacing: 0.1,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
 
-                    // Quick Enroll Button (Dark Navy style)
+                    // Quick Enroll Button (Dark Navy style: #112039)
                     Expanded(
-                      flex: 5,
+                      flex: 7,
                       child: SizedBox(
                         height: 42,
-                        child: ElevatedButton.icon(
+                        child: ElevatedButton(
                           onPressed: onStartLearning,
-                          icon: const Icon(Icons.bolt_rounded, size: 16),
-                          label: Text(
-                            'Quick Enroll',
-                            style: GoogleFonts.outfit(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF071B36),
+                            backgroundColor: brandNavy,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
                             elevation: 0,
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.bolt_rounded, size: 17, color: Colors.white),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Quick Enroll',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: 0.1,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1229,7 +1064,7 @@ class _CourseCard extends StatelessWidget {
                       child: OutlinedButton(
                         onPressed: onAddToCart,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.navyDark,
+                          foregroundColor: brandNavy,
                           backgroundColor: Colors.white,
                           side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
                           padding: EdgeInsets.zero,
@@ -1250,12 +1085,13 @@ class _CourseCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTagBadge(String text, Color bg, Color textCol) {
+  Widget _buildTagBadge(String text, Color bg, Color textCol, {bool isBordered = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(6),
+        border: isBordered ? Border.all(color: brandGold, width: 1.0) : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.15),
@@ -1282,12 +1118,15 @@ class _CourseCard extends StatelessWidget {
       children: [
         Icon(icon, size: 13, color: const Color(0xFF94A3B8)),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: GoogleFonts.outfit(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFF64748B),
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF64748B),
+            ),
           ),
         ),
       ],
@@ -1343,37 +1182,351 @@ class _CourseArtworkFallback extends StatelessWidget {
         child: Icon(
           Icons.auto_stories_rounded,
           size: 40,
-          color: AppColors.gold,
+          color: Color(0xFFC4A95B),
         ),
       ),
     );
   }
 }
 
-class _CategoryPillData {
-  const _CategoryPillData({
-    required this.label,
-    this.categoryId,
-    required this.tintColor,
-    required this.iconColor,
-    required this.icon,
+// ── Web-Style Quick Enroll Bottom Sheet ──────────────────────────────────────
+class _QuickEnrollSheet extends StatefulWidget {
+  const _QuickEnrollSheet({
+    required this.course,
+    required this.onEnrollNow,
+    required this.onAddToCart,
   });
 
-  final String label;
-  final int? categoryId;
-  final Color tintColor;
-  final Color iconColor;
-  final IconData icon;
+  final CourseApiModel course;
+  final Function(String plan) onEnrollNow;
+  final VoidCallback onAddToCart;
+
+  @override
+  State<_QuickEnrollSheet> createState() => _QuickEnrollSheetState();
 }
 
-class _HighlightItem {
-  const _HighlightItem({
-    required this.icon,
-    required this.title,
-    required this.desc,
-  });
+class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
+  int _selectedPlanIndex = 0; // 0: Pay in Full, 1: Monthly
+  static const Color brandGold = Color(0xFFC4A95B);
+  static const Color brandNavy = Color(0xFF112039);
+  static const Color brandNavyDark = Color(0xFF0D1B2E);
+  static const Color brandNavyCard = Color(0xFF162744);
 
-  final IconData icon;
-  final String title;
-  final String desc;
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.course;
+    final fullPrice = c.effectivePrice.toInt();
+    final originalPrice = (c.price > c.effectivePrice ? c.price : c.effectivePrice * 1.5).toInt();
+    final savings = (originalPrice - fullPrice).clamp(0, originalPrice);
+
+    final installmentAmount = c.paymentOptions.length > 1 && c.paymentOptions[1].installmentAmount != null
+        ? c.paymentOptions[1].installmentAmount!.toInt()
+        : (fullPrice / 6).ceil();
+
+    final isMonthly = _selectedPlanIndex == 1;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: brandNavyDark,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag Handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Header Row: Course Title & Close
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'QUICK ENROLLMENT',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.0,
+                          color: brandGold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        c.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Payment Plan Options (Side-by-side tabs)
+            Row(
+              children: [
+                // Plan 1: Pay in Full
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _selectedPlanIndex = 0);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: !isMonthly ? brandGold : brandNavyCard,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: !isMonthly ? brandGold : Colors.white.withValues(alpha: 0.1),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Pay in Full',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: !isMonthly ? brandNavy : Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '₹$fullPrice',
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: !isMonthly ? brandNavy : const Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+
+                // Plan 2: Monthly
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _selectedPlanIndex = 1);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: isMonthly ? brandGold : brandNavyCard,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isMonthly ? brandGold : Colors.white.withValues(alpha: 0.1),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Monthly',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: isMonthly ? brandNavy : Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '₹$installmentAmount/mo',
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isMonthly ? brandNavy : const Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Plan Summary Box
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: brandNavyCard,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: brandGold.withValues(alpha: 0.4)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Amount Payable Today:',
+                        style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFFCBD5E1)),
+                      ),
+                      Text(
+                        '₹${isMonthly ? installmentAmount : fullPrice}',
+                        style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: brandGold),
+                      ),
+                    ],
+                  ),
+                  if (!isMonthly && savings > 0) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'You Save:',
+                          style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF00A884)),
+                        ),
+                        Text(
+                          '₹$savings (One-time offer)',
+                          style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF00A884)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: () => widget.onEnrollNow(isMonthly ? 'monthly' : 'full'),
+                      icon: const Icon(Icons.bolt_rounded, size: 20, color: brandNavy),
+                      label: Text(
+                        'Proceed to Pay',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: brandGold,
+                        foregroundColor: brandNavy,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: widget.onAddToCart,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: brandGold,
+                      side: const BorderSide(color: brandGold, width: 1.2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: EdgeInsets.zero,
+                    ),
+                    child: const Icon(Icons.shopping_cart_outlined, size: 20, color: brandGold),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Exact Lucide Book-Open Icon implementation
+class _LucideBookOpenIcon extends StatelessWidget {
+  const _LucideBookOpenIcon({this.size = 18, this.color = const Color(0xFF112039)});
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: _LucideBookOpenPainter(color),
+    );
+  }
+}
+
+class _LucideBookOpenPainter extends CustomPainter {
+  final Color color;
+  _LucideBookOpenPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 24.0;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    // Center spine: M12 5v16
+    final p1 = Path();
+    p1.moveTo(12 * scale, 5 * scale);
+    p1.lineTo(12 * scale, 21 * scale);
+    canvas.drawPath(p1, paint);
+
+    // Left page
+    final pLeft = Path();
+    pLeft.moveTo(12 * scale, 5 * scale);
+    pLeft.cubicTo(10 * scale, 3 * scale, 6 * scale, 3 * scale, 4 * scale, 3 * scale);
+    pLeft.lineTo(2 * scale, 5 * scale);
+    pLeft.lineTo(2 * scale, 17 * scale);
+    pLeft.lineTo(4 * scale, 19 * scale);
+    pLeft.cubicTo(6 * scale, 19 * scale, 10 * scale, 21 * scale, 12 * scale, 21 * scale);
+    canvas.drawPath(pLeft, paint);
+
+    // Right page
+    final pRight = Path();
+    pRight.moveTo(12 * scale, 5 * scale);
+    pRight.cubicTo(14 * scale, 3 * scale, 18 * scale, 3 * scale, 20 * scale, 3 * scale);
+    pRight.lineTo(22 * scale, 5 * scale);
+    pRight.lineTo(22 * scale, 17 * scale);
+    pRight.lineTo(20 * scale, 19 * scale);
+    pRight.cubicTo(18 * scale, 19 * scale, 14 * scale, 21 * scale, 12 * scale, 21 * scale);
+    canvas.drawPath(pRight, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LucideBookOpenPainter oldDelegate) => oldDelegate.color != color;
 }

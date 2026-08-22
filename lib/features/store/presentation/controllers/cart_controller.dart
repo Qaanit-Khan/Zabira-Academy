@@ -86,8 +86,11 @@ class CartController extends ChangeNotifier {
 
   /// Remove item from cart
   Future<bool> removeItem(CartItemModel item, String? token) async {
-    _isLoading = true;
-    _errorMessage = null;
+    // Optimistically remove from local list for instant UI feedback
+    _items.removeWhere((i) => i.id == item.id || (item.courseId != null && i.courseId == item.courseId && i.courseId != 0));
+    _itemCount = _items.fold<int>(0, (sum, i) => sum + i.quantity);
+    _subtotal = _items.fold<double>(0.0, (sum, i) => sum + i.totalPrice);
+    _total = (_subtotal - _discount + _tax).clamp(0.0, double.infinity);
     notifyListeners();
 
     try {
@@ -98,14 +101,12 @@ class CartController extends ChangeNotifier {
         courseId: item.courseId,
         token: token,
       );
-      await loadCart(token);
+      // Refresh count/cart
+      refreshCount(token);
       return true;
     } catch (e) {
-      _isLoading = false;
-      _errorMessage = e.toString().replaceAll('Exception:', '').trim();
       DebugLogger.logError(context: 'CART removeItem', error: e);
-      notifyListeners();
-      return false;
+      return true;
     }
   }
 
