@@ -1,45 +1,185 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../features/courses/presentation/controllers/wishlist_controller.dart';
+import '../../features/store/presentation/controllers/cart_controller.dart';
+import '../../features/auth/auth_controller.dart';
+import '../../features/auth/presentation/widgets/auth_bottom_sheet.dart';
 
 /// Modal dialogs and bottom sheets for auxiliary navigation links.
 abstract final class ZabiraMenuModals {
-  /// Show Wishlist Sheet
+  static const Color brandGold = Color(0xFFC4A95B);
+  static const Color brandNavy = Color(0xFF112039);
+
+  /// Show Wishlist Sheet with real data
   static void showWishlist(BuildContext context) {
     _showModalSheet(
       context,
       title: 'My Wishlist',
       icon: Icons.favorite_rounded,
-      iconColor: AppColors.gold,
-      child: Column(
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Column(
+      iconColor: brandGold,
+      child: Consumer<WishlistController>(
+        builder: (context, wishlist, _) {
+          if (wishlist.isEmpty) {
+            return Column(
               children: [
-                Icon(Icons.favorite_border_rounded, size: 48, color: AppColors.gold.withValues(alpha: 0.7)),
                 const SizedBox(height: 12),
-                Text(
-                  'Your Wishlist is Empty',
-                  style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.navyDark),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.favorite_border_rounded, size: 52, color: brandGold),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Your Wishlist is Empty',
+                        style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: brandNavy),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Save your favorite courses, books, and Islamic resources to access them anytime.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF64748B), height: 1.4),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Save your favorite courses, books, and Islamic resources to access them anytime.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF64748B), height: 1.4),
-                ),
+                const SizedBox(height: 20),
               ],
-            ),
-          ),
-          const SizedBox(height: 20),
-        ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              Text(
+                '${wishlist.count} Saved Items',
+                style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 12),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: wishlist.items.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final item = wishlist.items[index];
+                  return Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: brandNavy.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: 60,
+                            height: 60,
+                            color: brandNavy,
+                            child: item.resolvedImage != null && item.resolvedImage!.isNotEmpty
+                                ? Image.network(
+                                    item.resolvedImage!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => const Center(
+                                      child: Icon(Icons.auto_stories_rounded, color: brandGold, size: 22),
+                                    ),
+                                  )
+                                : const Center(
+                                    child: Icon(Icons.auto_stories_rounded, color: brandGold, size: 22),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: brandNavy,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '₹${item.price.toInt()}',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: brandGold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Add to Cart
+                        IconButton(
+                          icon: const Icon(Icons.shopping_cart_outlined, color: brandNavy, size: 19),
+                          tooltip: 'Add to Cart',
+                          onPressed: () {
+                            final auth = context.read<AuthController>();
+                            if (!auth.isAuthenticated) {
+                              Navigator.pop(context);
+                              showAuthBottomSheet(context);
+                              return;
+                            }
+                            context.read<CartController>().addItem(
+                              itemData: {
+                                'course_id': item.id,
+                                'product_type': item.type,
+                                'quantity': '1',
+                                'price': item.price,
+                              },
+                              token: auth.currentToken,
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Added "${item.title}" to cart'),
+                                backgroundColor: brandNavy,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        ),
+                        // Remove from Wishlist
+                        IconButton(
+                          icon: const Icon(Icons.favorite_rounded, color: brandGold, size: 20),
+                          tooltip: 'Remove from Wishlist',
+                          onPressed: () {
+                            wishlist.removeItem(item.id);
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          );
+        },
       ),
     );
   }
