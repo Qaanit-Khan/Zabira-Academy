@@ -94,8 +94,12 @@ void main() {
     expect(find.text('Kids Portal'), findsOneWidget);
     expect(find.text('Scholarship'), findsOneWidget);
 
-    // Verify SUPPORT section header and items
+    // Verify SUPPORT section header and expand it
     expect(find.text('SUPPORT'), findsOneWidget);
+    await tester.tap(find.text('SUPPORT'));
+    await tester.pumpAndSettle();
+
+    // Verify expanded SUPPORT items
     expect(find.text('FAQs'), findsOneWidget);
     expect(find.text('Blogs'), findsOneWidget);
     expect(find.text('Careers'), findsOneWidget);
@@ -158,8 +162,10 @@ void main() {
     expect(find.text('Media'), findsOneWidget);
     expect(find.text('Events'), findsOneWidget);
 
-    // Verify SUPPORT items
+    // Verify SUPPORT expandable header
     expect(find.text('SUPPORT'), findsOneWidget);
+    await tester.tap(find.text('SUPPORT'), warnIfMissed: false);
+    await tester.pumpAndSettle();
     expect(find.text('FAQs'), findsOneWidget);
 
     // Verify fixed red Logout button

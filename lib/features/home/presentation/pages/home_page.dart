@@ -24,6 +24,7 @@ import '../widgets/home_bottom_nav.dart';
 import '../widgets/from_zabira_store_section.dart';
 import '../../data/models/daily_supplement_model.dart';
 import '../../../nasheed/data/services/nasheed_api_service.dart';
+import '../../../../shared/widgets/scholarship_promo_banner.dart';
 
 /// Zabira Academy — Home Page
 class HomePage extends StatefulWidget {
@@ -207,8 +208,13 @@ class _HomePageState extends State<HomePage> {
                       // 6. From Zabira Store — dynamic live products from official API
                       const FromZabiraStoreSection(),
 
+                      const SizedBox(height: AppSpacing.lg),
+
+                      // 7. Scholarship Promotional Banner
+                      const ScholarshipPromoBanner(),
+
                       // Bottom breathing room above floating nav bar
-                      const SizedBox(height: 75),
+                      const SizedBox(height: 80),
                     ],
                   ),
                 ),

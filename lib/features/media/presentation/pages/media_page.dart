@@ -9,6 +9,8 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
 import '../../../../features/store/presentation/controllers/cart_controller.dart';
 import '../../../../shared/widgets/app_drawer.dart';
+import '../../../../features/home/data/repositories/hero_banner_repository.dart';
+import '../../../../features/home/presentation/widgets/hero_carousel.dart';
 import '../../../../features/home/presentation/widgets/home_header.dart';
 import '../../../../shared/loaders/zabira_loader.dart';
 import '../../../../shared/widgets/scholarship_promo_banner.dart';
@@ -135,7 +137,20 @@ class _MediaPageState extends State<MediaPage> {
                       children: [
                         const SizedBox(height: 4),
 
-                        // 1. Hero Card
+                        // 1. Global Hero Banner Carousel
+                        HeroCarousel(
+                          banners: HeroBannerRepository.getBannersForSection(
+                            section: HeroBannerSection.media,
+                            onCoursesTap: () => context.push(AppRoutes.courses),
+                            onKidsPortalTap: () => context.push(AppRoutes.kids),
+                            onStoreTap: () => context.push(AppRoutes.store),
+                            onHero4Tap: () => context.push(AppRoutes.courses),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // 2. Media Hero Card
                         MediaHeroCard(
                           onExploreTap: () {
                             // scroll down or filter
@@ -238,7 +253,7 @@ class _MediaPageState extends State<MediaPage> {
                         // 5. Promotional Banner
                         const ScholarshipPromoBanner(),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 80),
                       ],
                     ),
                   ),

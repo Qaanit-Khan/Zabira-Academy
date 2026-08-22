@@ -31,17 +31,17 @@ class ZabiraBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int>? onItemTapped;
 
-  // ── Final footer dimensions ─────────────────────────────────────────────────
-  static const double _btnDiameter = 46.0;   // circle diameter
-  static const double _notchGap    = 4.0;    // snug gap between button edge and notch arc (Apple dock style)
-  static const double _barHeight   = 52.0;   // bar thickness
-  static const double _buttonRise  = 23.0;   // = diameter/2 → center exactly at bar top
-  static const double _totalHeight = _barHeight + _buttonRise;
-  static const double _cornerRadius = 0.0;   // flat full-width bar
+  // ── Footer dimensions ───────────────────────────────────────────────────────
+  static const double _btnDiameter  = 48.0;   // circle diameter
+  static const double _notchGap     = 8.0;    // distinct clean gap between floating button and footer notch
+  static const double _barHeight    = 54.0;   // bar thickness
+  static const double _buttonRise   = 32.0;   // elevated button height above the footer
+  static const double _totalHeight  = _barHeight + _buttonRise;
+  static const double _cornerRadius = 0.0;    // flat full-width bar
 
   static const Color _activeGold    = Color(0xFFDC8C1A);
-  static const Color _inactiveColor  = Color(0xFF1A2332); // rich dark — readable without being harsh
-  static const Color _navyBtn        = Color(0xFF092540);
+  static const Color _inactiveColor = Color(0xFF1A2332); // rich dark readable
+  static const Color _navyBtn       = Color(0xFF092540);
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +69,7 @@ class ZabiraBottomNav extends StatelessWidget {
                   // notchR = button_radius + gap
                   notchR: _btnDiameter / 2 + _notchGap,
                   // btnCenterY in bar coords: negative = above bar top
-                  btnCenterY: _btnDiameter / 2 - _buttonRise,
+                  btnCenterY: (_btnDiameter + 14) / 2 - _buttonRise,
                   cornerRadius: _cornerRadius,
                 ),
               ),
@@ -302,15 +302,29 @@ class _NotchedBarPainter extends CustomPainter {
     path.lineTo(cr, 0);
     path.close();
 
-    // Top shadow effect on the notched footer bar
+    // ── 1. Distinct Top Upward Shadow (Layered ambient blur above the footer) ──
+    final shadowPaint1 = Paint()
+      ..color = const Color(0xFF07192F).withValues(alpha: 0.11)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+    final shadowPaint2 = Paint()
+      ..color = const Color(0xFF07192F).withValues(alpha: 0.07)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+    canvas.save();
+    canvas.translate(0, -4);
+    canvas.drawPath(path, shadowPaint1);
+    canvas.drawPath(path, shadowPaint2);
+    canvas.restore();
+
+    // ── 2. Structural Elevation Shadow ──
     canvas.drawShadow(
       path,
-      const Color(0x33000000),
-      6.0,
+      const Color(0x35000000),
+      8.0,
       false,
     );
 
-    // White bar fill (smooth concave Apple dock cutout)
+    // ── 3. White bar fill (smooth concave Apple dock cutout) ──
     canvas.drawPath(
       path,
       Paint()
@@ -510,101 +524,114 @@ class _CenterHomeButtonState extends State<_CenterHomeButton>
 
   @override
   Widget build(BuildContext context) {
+    // Rigid outer bounding box ensures the button position NEVER shifts vertically or horizontally
     return Semantics(
       button: true,
       selected: widget.isActive,
-      label: 'Home',
+      label: 'Home and Islamic AI Assistant',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: _onTapDown,
         onTapUp: _onTapUp,
         onTapCancel: _onTapCancel,
-        child: AnimatedScale(
-          scale: _pressed ? 0.93 : 1.0,
-          duration: const Duration(milliseconds: 100),
+        child: SizedBox(
+          width: widget.diameter + 14,
+          height: widget.diameter + 14,
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
             children: [
-              // ── Periodic AI Discovery Rainbow / Iridescent Halo ──
+              // ── 1. Periodic AI Discovery Rainbow / Iridescent Halo (Non-shifting overlay) ──
               if (!_pressed)
-                AnimatedBuilder(
-                  animation: _discoveryAnimController,
-                  builder: (context, child) {
-                    final opacity = _discoveryOpacity.value;
-                    if (opacity <= 0.01) return const SizedBox.shrink();
+                Positioned.fill(
+                  child: AnimatedBuilder(
+                    animation: _discoveryAnimController,
+                    builder: (context, child) {
+                      final opacity = _discoveryOpacity.value;
+                      if (opacity <= 0.01) return const SizedBox.shrink();
 
-                    return Transform.rotate(
-                      angle: _discoveryAnimController.value * 2 * math.pi,
-                      child: Container(
+                      return Center(
+                        child: Transform.rotate(
+                          angle: _discoveryAnimController.value * 2 * math.pi,
+                          child: Container(
+                            width: widget.diameter + 8,
+                            height: widget.diameter + 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: SweepGradient(
+                                colors: [
+                                  const Color(0xFFDC8C1A).withValues(alpha: opacity),
+                                  const Color(0xFF38BDF8).withValues(alpha: opacity * 0.8),
+                                  const Color(0xFFA855F7).withValues(alpha: opacity * 0.9),
+                                  const Color(0xFF10B981).withValues(alpha: opacity * 0.8),
+                                  const Color(0xFFDC8C1A).withValues(alpha: opacity),
+                                ],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFDC8C1A).withValues(alpha: opacity * 0.45),
+                                  blurRadius: 10,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+              // ── 2. 3-Second Hold Golden Progress Ring (Non-shifting overlay) ──
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _holdAnimController,
+                  builder: (context, child) {
+                    if (_holdAnimController.value <= 0.01) {
+                      return const SizedBox.shrink();
+                    }
+                    return Center(
+                      child: SizedBox(
                         width: widget.diameter + 8,
                         height: widget.diameter + 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: SweepGradient(
-                            colors: [
-                              const Color(0xFFDC8C1A).withValues(alpha: opacity),
-                              const Color(0xFF38BDF8).withValues(alpha: opacity * 0.8),
-                              const Color(0xFFA855F7).withValues(alpha: opacity * 0.9),
-                              const Color(0xFF10B981).withValues(alpha: opacity * 0.8),
-                              const Color(0xFFDC8C1A).withValues(alpha: opacity),
-                            ],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFDC8C1A).withValues(alpha: opacity * 0.5),
-                              blurRadius: 10,
-                              spreadRadius: 1,
-                            ),
-                          ],
+                        child: CircularProgressIndicator(
+                          value: _holdAnimController.value,
+                          strokeWidth: 2.8,
+                          valueColor: AlwaysStoppedAnimation<Color>(widget.goldColor),
+                          backgroundColor: widget.goldColor.withValues(alpha: 0.2),
                         ),
                       ),
                     );
                   },
                 ),
-
-              // ── 3-Second Hold Golden Progress Ring ──
-              AnimatedBuilder(
-                animation: _holdAnimController,
-                builder: (context, child) {
-                  if (_holdAnimController.value <= 0.01) {
-                    return const SizedBox.shrink();
-                  }
-                  return SizedBox(
-                    width: widget.diameter + 8,
-                    height: widget.diameter + 8,
-                    child: CircularProgressIndicator(
-                      value: _holdAnimController.value,
-                      strokeWidth: 2.8,
-                      valueColor: AlwaysStoppedAnimation<Color>(widget.goldColor),
-                      backgroundColor: widget.goldColor.withValues(alpha: 0.2),
-                    ),
-                  );
-                },
               ),
 
-              // ── Center Home Button ──
-              Container(
-                width: widget.diameter,
-                height: widget.diameter,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.navyColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      blurRadius: 7,
-                      offset: const Offset(0, 3),
-                      spreadRadius: -2,
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: CustomPaint(
-                    size: const Size(27, 27),
-                    painter: _HomeIconPainter(
-                      color: widget.isActive ? widget.goldColor : Colors.white,
-                      strokeWidth: 2.0,
+              // ── 3. Fixed Center Home / AI Button (Rigid anchor) ──
+              AnimatedScale(
+                scale: _pressed ? 0.94 : 1.0,
+                duration: const Duration(milliseconds: 100),
+                child: Container(
+                  width: widget.diameter,
+                  height: widget.diameter,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.navyColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.22),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                        spreadRadius: -1,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: CustomPaint(
+                      size: const Size(27, 27),
+                      painter: _HomeIconPainter(
+                        color: widget.isActive ? widget.goldColor : Colors.white,
+                        strokeWidth: 2.0,
+                      ),
                     ),
                   ),
                 ),

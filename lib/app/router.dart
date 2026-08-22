@@ -16,11 +16,15 @@ import '../features/events/presentation/pages/event_details_page.dart';
 import '../features/events/presentation/pages/events_page.dart';
 import '../features/home/presentation/pages/home_page.dart';
 import '../features/kids/data/models/kids_models.dart';
+import '../features/kids/presentation/pages/kids_duas_page.dart';
 import '../features/kids/presentation/pages/kids_game_detail_page.dart';
 import '../features/kids/presentation/pages/kids_game_page.dart';
+import '../features/kids/presentation/pages/kids_games_page.dart';
 import '../features/kids/presentation/pages/kids_portal_page.dart';
 import '../features/kids/presentation/pages/kids_quiz_detail_page.dart';
 import '../features/kids/presentation/pages/kids_quiz_page.dart';
+import '../features/kids/presentation/pages/kids_quizzes_page.dart';
+import '../features/kids/presentation/pages/kids_stories_page.dart';
 import '../features/kids/presentation/pages/kids_story_detail_page.dart';
 import '../features/library/presentation/pages/library_item_details_page.dart';
 import '../features/library/presentation/pages/library_page.dart';
@@ -205,7 +209,10 @@ GoRouter buildRouter(BuildContext context) {
         },
       ),
       GoRoute(path: AppRoutes.kids, builder: (context, state) => const KidsPortalPage()),
-      GoRoute(path: '/kids/quizzes', builder: (context, state) => const KidsPortalPage()),
+      GoRoute(path: '/kids/duas', builder: (context, state) => const KidsDuasPage()),
+      GoRoute(path: '/kids/stories', builder: (context, state) => const KidsStoriesPage()),
+      GoRoute(path: '/kids/games', builder: (context, state) => const KidsGamesPage()),
+      GoRoute(path: '/kids/quizzes', builder: (context, state) => const KidsQuizzesPage()),
       GoRoute(path: AppRoutes.scholarship, builder: (context, state) => const ScholarshipPage()),
       GoRoute(
         path: '/kids/quiz-detail/:id',

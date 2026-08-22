@@ -176,16 +176,27 @@ class AuthApiService {
     String? city,
     bool acceptTerms = true,
   }) async {
+    final nameParts = fullName.trim().split(' ');
+    final firstName = nameParts.isNotEmpty ? nameParts.first : fullName.trim();
+    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
     final body = <String, dynamic>{
+      'first_name': firstName,
+      'last_name': lastName,
       'full_name': fullName.trim(),
       'fullName': fullName.trim(),
+      'name': fullName.trim(),
       'email': email.trim(),
       'password': password,
+      'confirm_password': confirmPassword,
+      'confirmPassword': confirmPassword,
+      'password_confirmation': confirmPassword,
       'country': (country != null && country.isNotEmpty) ? country : 'India',
-      'state': (state != null && state.isNotEmpty) ? state : 'State',
-      'city': (city != null && city.isNotEmpty) ? city : 'City',
+      'state': (state != null && state.isNotEmpty) ? state : '',
+      'city': (city != null && city.isNotEmpty) ? city : '',
       'accept_terms': acceptTerms ? '1' : '0',
-      'acceptTerms': acceptTerms ? '1' : '0',
+      'acceptTerms': acceptTerms ? 1 : 0,
+      'portal': 'student',
     };
 
     if (mobile != null && mobile.isNotEmpty) {
@@ -199,6 +210,7 @@ class AuthApiService {
     if (dateOfBirth != null && dateOfBirth.isNotEmpty) {
       body['date_of_birth'] = dateOfBirth;
       body['dateOfBirth'] = dateOfBirth;
+      body['dob'] = dateOfBirth;
     }
 
     return _post(ApiConfig.authRegister, body: body);
@@ -244,15 +256,32 @@ class AuthApiService {
   Future<Map<String, dynamic>> googleAuth({
     required String idToken,
     String portal = 'student',
+    String? email,
+    String? name,
+    String? googleId,
+    String? avatar,
   }) async {
-    return _post(
-      ApiConfig.authGoogleAuth,
-      body: {
-        'id_token': idToken,
-        'credential': idToken,
-        'portal': portal,
-      },
-    );
+    final body = <String, dynamic>{
+      'id_token': idToken,
+      'credential': idToken,
+      'token': idToken,
+      'portal': portal,
+    };
+    if (email != null && email.isNotEmpty) body['email'] = email;
+    if (name != null && name.isNotEmpty) {
+      body['name'] = name;
+      body['full_name'] = name;
+    }
+    if (googleId != null && googleId.isNotEmpty) {
+      body['google_id'] = googleId;
+      body['sub'] = googleId;
+    }
+    if (avatar != null && avatar.isNotEmpty) {
+      body['avatar'] = avatar;
+      body['photo_url'] = avatar;
+    }
+
+    return _post(ApiConfig.authGoogleAuth, body: body);
   }
 
   /// `GET /student/dashboard.php`

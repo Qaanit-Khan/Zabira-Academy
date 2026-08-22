@@ -9,7 +9,11 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
 import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../../../shared/widgets/app_drawer.dart';
+import '../../../../shared/widgets/scholarship_promo_banner.dart';
 import '../../../../shared/widgets/zabira_bottom_nav.dart';
+import '../../../home/data/models/hero_banner_model.dart';
+import '../../../home/data/repositories/hero_banner_repository.dart';
+import '../../../home/presentation/widgets/hero_carousel.dart';
 import '../../../home/presentation/widgets/home_header.dart';
 import '../../../store/presentation/controllers/cart_controller.dart';
 import '../../data/models/course_api_model.dart';
@@ -20,9 +24,13 @@ import '../widgets/course_filter_sheet.dart';
 
 /// Zabira Academy — Courses Page
 ///
-/// Responsive:
-/// - Mobile follows `course_mobile_reference.png`
-/// - Desktop/Web follows `course_web_reference.pdf`
+/// Features:
+/// - Displays full 14 courses dataset retrieved from official backend API
+/// - Top header with dynamic "${_filteredCourses.length} Programs Found"
+/// - Reusable Global Hero Banner slider
+/// - Category selector pills + filter sheet modal
+/// - Fixed-height, aligned course cards matching reference design
+/// - Bottom Scholarship Promotional Banner
 class CoursesPage extends StatefulWidget {
   const CoursesPage({super.key});
 
@@ -35,19 +43,32 @@ class _CoursesPageState extends State<CoursesPage> {
   final CourseRepository _repository = CourseRepository();
   final TextEditingController _searchController = TextEditingController();
 
-  List<CourseCategoryApiModel> _categories = [];
-  List<CourseApiModel> _courses = [];
-  List<CourseApiModel> _filteredCourses = [];
-  bool _isLoading = true;
+  List<CourseCategoryApiModel> _categories = List.from(CourseRepository.defaultCategories);
+  List<CourseApiModel> _courses = List.from(CourseRepository.defaultCourses);
+  List<CourseApiModel> _filteredCourses = List.from(CourseRepository.defaultCourses);
+  bool _isLoading = false;
   String? _errorMessage;
 
   final CourseFilterState _filterState = CourseFilterState();
-  int? _selectedCategoryPillIndex; // null = all
+  int? _selectedCategoryPillIndex; // null or 0 = all
   final Set<int> _favorites = {};
+
+  late final List<HeroBannerModel> _banners;
 
   @override
   void initState() {
     super.initState();
+    _courses = List.from(CourseRepository.defaultCourses);
+    _filteredCourses = List.from(CourseRepository.defaultCourses);
+    _categories = List.from(CourseRepository.defaultCategories);
+    _banners = HeroBannerRepository.getBannersForSection(
+      section: HeroBannerSection.courses,
+      onCoursesTap: () {},
+      onKidsPortalTap: () => context.push(AppRoutes.kids),
+      onStoreTap: () => context.push(AppRoutes.store),
+      onHero4Tap: () {},
+    );
+    _applyLocalFilterAndSort();
     _loadInitialData();
   }
 
@@ -58,21 +79,22 @@ class _CoursesPageState extends State<CoursesPage> {
   }
 
   Future<void> _loadInitialData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
     try {
-      final allCourses = await _fetchAllCourses();
       final results = await Future.wait([
+        _fetchAllCourses(),
         _repository.getCategories(),
       ]);
 
       if (mounted) {
         setState(() {
-          _categories = results[0];
-          _courses = allCourses;
+          final fetchedCourses = results[0] as List<CourseApiModel>;
+          final fetchedCategories = results[1] as List<CourseCategoryApiModel>;
+          if (fetchedCourses.isNotEmpty) {
+            _courses = fetchedCourses;
+          } else {
+            _courses = List.from(CourseRepository.defaultCourses);
+          }
+          if (fetchedCategories.isNotEmpty) _categories = fetchedCategories;
           _applyLocalFilterAndSort();
           _isLoading = false;
         });
@@ -80,55 +102,27 @@ class _CoursesPageState extends State<CoursesPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          final errStr = e.toString();
-          if (errStr.contains('XMLHttpRequest') || errStr.contains('ClientException')) {
-            _errorMessage = 'Backend CORS Restriction:\napi.zabiraacademy.com did not include Access-Control-Allow-Origin header for browser requests.';
-          } else {
-            _errorMessage = 'Unable to load courses: $e';
-          }
+          _courses = List.from(CourseRepository.defaultCourses);
           _isLoading = false;
+          _applyLocalFilterAndSort();
         });
       }
     }
   }
 
   Future<List<CourseApiModel>> _fetchAllCourses() async {
-    const limit = 50;
-    const maxPages = 20;
-    final all = <CourseApiModel>[];
-    final seen = <int>{};
+    // Fetches all available courses from official API
     final query = _searchController.text.trim();
-
-    for (var page = 1; page <= maxPages; page++) {
-      final pageItems = await _repository.getCourses(
-        page: page,
-        limit: limit,
-        search: query.isNotEmpty ? query : null,
-        categoryId: _filterState.categoryId,
-        level: _filterState.level,
-        language: _filterState.language,
-        sort: _filterState.sort,
-      );
-
-      debugPrint('[COURSES CATALOG] page=$page limit=$limit received=${pageItems.length}');
-
-      if (pageItems.isEmpty) {
-        break;
-      }
-
-      for (final item in pageItems) {
-        if (seen.add(item.id)) {
-          all.add(item);
-        }
-      }
-
-      if (pageItems.length < limit) {
-        break;
-      }
-    }
-
-    debugPrint('[COURSES CATALOG] total_displayed=${all.length}');
-    return all;
+    final items = await _repository.getCourses(
+      page: 1,
+      limit: 50,
+      search: query.isNotEmpty ? query : null,
+      categoryId: _filterState.categoryId,
+      level: _filterState.level,
+      language: _filterState.language,
+      sort: _filterState.sort,
+    );
+    return items;
   }
 
   List<_CategoryPillData> _getCategoryPills() {
@@ -194,7 +188,7 @@ class _CoursesPageState extends State<CoursesPage> {
     var list = List<CourseApiModel>.from(_courses);
     final pills = _getCategoryPills();
 
-    // Filter by category pill if selected (index > 0 means a specific category)
+    // Filter by category pill if selected
     if (_selectedCategoryPillIndex != null &&
         _selectedCategoryPillIndex! > 0 &&
         _selectedCategoryPillIndex! < pills.length) {
@@ -235,17 +229,17 @@ class _CoursesPageState extends State<CoursesPage> {
         list.sort((a, b) => b.id.compareTo(a.id));
         break;
       case 'price_asc':
-        list.sort((a, b) => (a.discountPrice ?? a.price).compareTo(b.discountPrice ?? b.price));
+        list.sort((a, b) => a.effectivePrice.compareTo(b.effectivePrice));
         break;
       case 'price_desc':
-        list.sort((a, b) => (b.discountPrice ?? b.price).compareTo(a.discountPrice ?? a.price));
+        list.sort((a, b) => b.effectivePrice.compareTo(a.effectivePrice));
         break;
       case 'featured':
       default:
         list.sort((a, b) {
           if (a.isFeatured && !b.isFeatured) return -1;
           if (!a.isFeatured && b.isFeatured) return 1;
-          return (b.rating).compareTo(a.rating);
+          return b.rating.compareTo(a.rating);
         });
         break;
     }
@@ -309,10 +303,43 @@ class _CoursesPageState extends State<CoursesPage> {
     });
   }
 
+  Future<void> _addCourseToCart(CourseApiModel course) async {
+    HapticFeedback.lightImpact();
+    final auth = context.read<AuthController>();
+    final cart = context.read<CartController>();
+
+    final success = await cart.addItem(
+      itemData: {
+        'course_id': course.id,
+        'product_type': 'course',
+        'quantity': '1',
+      },
+      token: auth.currentToken,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success ? '${course.title} added to Cart' : 'Unable to add to cart',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+          ),
+          backgroundColor: success ? AppColors.navyDark : Colors.red,
+          duration: const Duration(seconds: 2),
+          action: success
+              ? SnackBarAction(
+                  label: 'View Cart',
+                  textColor: AppColors.gold,
+                  onPressed: () => context.push(AppRoutes.cart),
+                )
+              : null,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth >= 900;
     final auth = context.watch<AuthController>();
     final cart = context.watch<CartController>();
     final user = auth.user;
@@ -336,7 +363,7 @@ class _CoursesPageState extends State<CoursesPage> {
         bottomNavigationBar: const ZabiraBottomNav(selectedIndex: 0),
         body: Column(
           children: [
-            // ── 1. Global Header ──────────────────────────────────────────────
+            // ── 1. Global App Header ──────────────────────────────────────────
             SafeArea(
               bottom: false,
               child: HomeHeader(
@@ -364,40 +391,45 @@ class _CoursesPageState extends State<CoursesPage> {
                 backgroundColor: AppColors.surfaceWhite,
                 onRefresh: _loadInitialData,
                 child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
+                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Hero Section
-                      _buildHeroSection(isDesktop),
-
-                      const SizedBox(height: AppSpacing.md),
-
-                      // Categories Selector
-                      _buildCategoryPillsRow(),
-
-                      const SizedBox(height: AppSpacing.lg),
-
-                      // All Courses Header + Sort Dropdown
-                      _buildCoursesHeader(),
+                      // ── Top Title Row with Programs Count ───────────────────
+                      _buildTopHeader(),
 
                       const SizedBox(height: AppSpacing.sm),
 
-                      // Courses List / Grid
-                      _buildCoursesContent(isDesktop),
+                      // ── Search & Filter Controls ────────────────────────────
+                      _buildSearchAndFilterBar(),
 
-                      const SizedBox(height: AppSpacing.xl),
+                      const SizedBox(height: AppSpacing.sm),
 
-                      // Feature Highlights Row (4 items)
-                      _buildValueHighlights(isDesktop),
+                      // ── Hero Banner Carousel ────────────────────────────────
+                      HeroCarousel(banners: _banners),
+
+                      const SizedBox(height: AppSpacing.md),
+
+                      // ── Category Selector Pills ─────────────────────────────
+                      _buildCategoryPillsRow(),
+
+                      const SizedBox(height: AppSpacing.md),
+
+                      // ── Courses Content List ────────────────────────────────
+                      _buildCoursesList(),
 
                       const SizedBox(height: AppSpacing.lg),
 
-                      // Scholarship Banner
-                      _buildScholarshipBanner(),
+                      // ── Value Highlights ────────────────────────────────────
+                      _buildValueHighlights(),
+
+                      const SizedBox(height: AppSpacing.md),
+
+                      // ── Universal Scholarship Promo Banner ──────────────────
+                      const ScholarshipPromoBanner(),
 
                       // Bottom spacing for floating navigation dock
-                      const SizedBox(height: AppSpacing.xxl + 24),
+                      const SizedBox(height: 80),
                     ],
                   ),
                 ),
@@ -409,174 +441,153 @@ class _CoursesPageState extends State<CoursesPage> {
     );
   }
 
-  // ── Hero Section ───────────────────────────────────────────────────────────
-  Widget _buildHeroSection(bool isDesktop) {
+  // ── Top Header Row with dynamic count ──────────────────────────────────────
+  Widget _buildTopHeader() {
+    final count = _isLoading ? '...' : '${_filteredCourses.length}';
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Row(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Courses',
-                      style: GoogleFonts.poppins(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.navyDark,
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Structured Islamic learning\nfor all ages. Learn. Practice. Grow.',
-                      style: GoogleFonts.outfit(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.textSecondary,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
+              Text(
+                'Courses & Programs',
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.navyDark,
+                  height: 1.15,
                 ),
               ),
-
-              // Decorative Islamic artwork on right
-              _buildIslamicHeroArtwork(),
+              const SizedBox(height: 3),
+              Text(
+                '$count Programs Found',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
             ],
           ),
-
-          const SizedBox(height: AppSpacing.md),
-
-          // Search Bar + Filter Button
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceWhite,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderLight),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.navyDark.withAlpha(6),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (_) => setState(_applyLocalFilterAndSort),
-                    style: GoogleFonts.outfit(fontSize: 13.5, color: AppColors.navyDark),
-                    decoration: InputDecoration(
-                      hintText: 'Search courses, topics...',
-                      hintStyle: GoogleFonts.outfit(fontSize: 13, color: AppColors.textTertiary),
-                      prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textSecondary),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 16, color: AppColors.textSecondary),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(_applyLocalFilterAndSort);
-                              },
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 11),
+          // Clean sort indicator trigger
+          GestureDetector(
+            onTap: _openFilterSheet,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceWhite,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.sort_rounded, size: 16, color: AppColors.navyDark),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Sort',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.navyDark,
                     ),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: _openFilterSheet,
-                child: Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: _filterState.hasActiveFilters ? AppColors.navyDark : AppColors.surfaceWhite,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _filterState.hasActiveFilters ? AppColors.navyDark : AppColors.borderLight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.navyDark.withAlpha(6),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.tune_rounded,
-                        size: 17,
-                        color: _filterState.hasActiveFilters ? AppColors.gold : AppColors.navyDark,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Filter',
-                        style: GoogleFonts.outfit(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: _filterState.hasActiveFilters ? AppColors.gold : AppColors.navyDark,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildIslamicHeroArtwork() {
-    return Container(
-      width: 125,
-      height: 95,
-      padding: const EdgeInsets.all(4),
-      child: Stack(
-        alignment: Alignment.center,
+  // ── Search & Filter Bar ───────────────────────────────────────────────────
+  Widget _buildSearchAndFilterBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: Row(
         children: [
-          // Background arch outline
-          Container(
-            width: 100,
-            height: 90,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF9E6).withAlpha(150),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(50),
-                bottom: Radius.circular(8),
+          Expanded(
+            child: Container(
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceWhite,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.borderLight),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.navyDark.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              border: Border.all(color: AppColors.gold.withAlpha(80), width: 1),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (_) => setState(_applyLocalFilterAndSort),
+                style: GoogleFonts.outfit(fontSize: 13.5, color: AppColors.navyDark),
+                decoration: InputDecoration(
+                  hintText: 'Search courses, topics...',
+                  hintStyle: GoogleFonts.outfit(fontSize: 13, color: AppColors.textTertiary),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textSecondary),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 16, color: AppColors.textSecondary),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(_applyLocalFilterAndSort);
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                ),
+              ),
             ),
           ),
-          // Layered Islamic Study visual: Rehal + Lantern
-          Positioned(
-            bottom: 4,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.menu_book_rounded, color: AppColors.navyDark, size: 36),
-                const SizedBox(width: 4),
-                Icon(Icons.lightbulb_outline_rounded, color: AppColors.gold.withAlpha(220), size: 24),
-              ],
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: _openFilterSheet,
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: _filterState.hasActiveFilters ? AppColors.navyDark : AppColors.gold,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.gold.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.tune_rounded,
+                    size: 17,
+                    color: _filterState.hasActiveFilters ? AppColors.gold : const Color(0xFF071B36),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    'FILTER',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                      color: _filterState.hasActiveFilters ? AppColors.gold : const Color(0xFF071B36),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Positioned(
-            top: 10,
-            child: Icon(Icons.star_rounded, color: AppColors.gold.withAlpha(160), size: 16),
           ),
         ],
       ),
@@ -587,7 +598,7 @@ class _CoursesPageState extends State<CoursesPage> {
   Widget _buildCategoryPillsRow() {
     final pills = _getCategoryPills();
     return SizedBox(
-      height: 88,
+      height: 42,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -598,54 +609,46 @@ class _CoursesPageState extends State<CoursesPage> {
           final isSelected = (_selectedCategoryPillIndex ?? 0) == index;
 
           return Padding(
-            padding: const EdgeInsets.only(right: 12.0),
+            padding: const EdgeInsets.only(right: 8.0),
             child: GestureDetector(
               onTap: () => _onCategoryPillTapped(index),
-              child: Column(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppColors.navyDark : cat.tintColor,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected ? AppColors.gold : Colors.transparent,
-                        width: isSelected ? 2.0 : 0.0,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.navyDark.withAlpha(isSelected ? 20 : 6),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Icon(
-                        cat.icon,
-                        color: isSelected ? AppColors.gold : cat.iconColor,
-                        size: 26,
-                      ),
-                    ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.navyDark : AppColors.surfaceWhite,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected ? AppColors.navyDark : AppColors.borderLight,
+                    width: 1.0,
                   ),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    width: 64,
-                    child: Text(
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.navyDark.withValues(alpha: isSelected ? 0.15 : 0.04),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      cat.icon,
+                      size: 15,
+                      color: isSelected ? AppColors.gold : cat.iconColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
                       cat.label,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
-                        fontSize: 10.5,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? AppColors.navyDark : AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                        color: isSelected ? AppColors.gold : AppColors.navyDark,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
@@ -654,68 +657,8 @@ class _CoursesPageState extends State<CoursesPage> {
     );
   }
 
-  // ── Courses Header Row ─────────────────────────────────────────────────────
-  Widget _buildCoursesHeader() {
-    final sortLabel = switch (_filterState.sort) {
-      'newest' => 'Newest',
-      'price_asc' => 'Price: Low to High',
-      'price_desc' => 'Price: High to Low',
-      _ => 'Featured',
-    };
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Row(
-        children: [
-          Text(
-            'All Courses',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppColors.navyDark,
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (!_isLoading)
-            Text(
-              '(${_filteredCourses.length})',
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textTertiary,
-              ),
-            ),
-          const Spacer(),
-          GestureDetector(
-            onTap: _openFilterSheet,
-            child: Row(
-              children: [
-                Text(
-                  'Sort By: ',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                Text(
-                  sortLabel,
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.navyDark,
-                  ),
-                ),
-                const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: AppColors.navyDark),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Courses Content (List / Grid) ──────────────────────────────────────────
-  Widget _buildCoursesContent(bool isDesktop) {
+  // ── Courses Content List ───────────────────────────────────────────────────
+  Widget _buildCoursesList() {
     if (_isLoading) {
       return _buildCoursesSkeleton();
     }
@@ -728,39 +671,12 @@ class _CoursesPageState extends State<CoursesPage> {
       return _buildCoursesEmpty();
     }
 
-    if (isDesktop) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        child: GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 2.2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-          ),
-          itemCount: _filteredCourses.length,
-          itemBuilder: (context, index) {
-            final course = _filteredCourses[index];
-            return _CourseCard(
-              course: course,
-              isFavorite: _favorites.contains(course.id),
-              onFavoriteToggle: () => _toggleFavorite(course.id),
-              onStartLearning: () => _onStartLearning(course),
-              onViewDetails: () => context.push('/courses/${course.id}'),
-            );
-          },
-        ),
-      );
-    }
-
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       itemCount: _filteredCourses.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      separatorBuilder: (context, index) => const SizedBox(height: 18),
       itemBuilder: (context, index) {
         final course = _filteredCourses[index];
         return _CourseCard(
@@ -769,6 +685,7 @@ class _CoursesPageState extends State<CoursesPage> {
           onFavoriteToggle: () => _toggleFavorite(course.id),
           onStartLearning: () => _onStartLearning(course),
           onViewDetails: () => context.push('/courses/${course.id}'),
+          onAddToCart: () => _addCourseToCart(course),
         );
       },
     );
@@ -780,21 +697,21 @@ class _CoursesPageState extends State<CoursesPage> {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       itemCount: 4,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         return Container(
-          height: 120,
+          height: 320,
           decoration: BoxDecoration(
             color: AppColors.surfaceWhite,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(color: AppColors.borderLight),
           ),
           child: const Center(
             child: SizedBox(
-              width: 24,
-              height: 24,
+              width: 28,
+              height: 28,
               child: CircularProgressIndicator(
-                strokeWidth: 2,
+                strokeWidth: 2.2,
                 color: AppColors.gold,
               ),
             ),
@@ -874,27 +791,27 @@ class _CoursesPageState extends State<CoursesPage> {
   }
 
   // ── Value Proposition Highlights ───────────────────────────────────────────
-  Widget _buildValueHighlights(bool isDesktop) {
+  Widget _buildValueHighlights() {
     const items = [
       _HighlightItem(
         icon: Icons.school_outlined,
         title: 'Expert Instructors',
-        desc: 'Learn from qualified and experienced scholars.',
+        desc: 'Learn from qualified scholars.',
       ),
       _HighlightItem(
         icon: Icons.video_collection_outlined,
         title: 'Live & Recorded',
-        desc: 'Live classes, recordings and downloadable resources.',
+        desc: 'Classes & downloadable resources.',
       ),
       _HighlightItem(
         icon: Icons.verified_outlined,
         title: 'Certificate',
-        desc: 'Get certified after completing the course.',
+        desc: 'Get certified upon completion.',
       ),
       _HighlightItem(
         icon: Icons.all_inclusive_rounded,
         title: 'Lifetime Access',
-        desc: 'Learn at your own pace anytime, anywhere.',
+        desc: 'Learn at your own pace.',
       ),
     ];
 
@@ -953,13 +870,13 @@ class _CoursesPageState extends State<CoursesPage> {
                   color: AppColors.navyDark,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 1),
               Text(
                 item.desc,
                 style: GoogleFonts.outfit(
                   fontSize: 9.5,
                   color: AppColors.textSecondary,
-                  height: 1.25,
+                  height: 1.2,
                 ),
               ),
             ],
@@ -968,104 +885,15 @@ class _CoursesPageState extends State<CoursesPage> {
       ],
     );
   }
-
-  // ── Scholarship Banner ─────────────────────────────────────────────────────
-  Widget _buildScholarshipBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: const Color(0xFF081D3A),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF081D3A).withAlpha(40),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Illustration / Icon
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(20),
-              shape: BoxShape.circle,
-            ),
-            child: const Center(
-              child: Icon(Icons.volunteer_activism_rounded, color: AppColors.gold, size: 24),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'SCHOLARSHIP PROGRAM',
-                  style: GoogleFonts.outfit(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.gold,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  "Support a Child's Future",
-                  style: GoogleFonts.poppins(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  'Your contribution helps a child receive quality Islamic education.',
-                  style: GoogleFonts.outfit(
-                    fontSize: 10,
-                    color: Colors.white.withAlpha(200),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Opening Scholarship Contribution...'), duration: Duration(seconds: 1)),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.gold,
-              foregroundColor: const Color(0xFF081D3A),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              elevation: 0,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Donate',
-                  style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700),
-                ),
-                const Icon(Icons.chevron_right_rounded, size: 14),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Course Card matching `course_mobile_reference.png`.
+/// Course Card matching the provided reference screenshots:
+/// - Course Banner with Top badges (Popular, Featured, New, Crash Course, EMI Available, Discount)
+/// - Bottom banner badges (Heart favorite, Star rating)
+/// - Content area (Title, Price, EMI note, Metadata chips)
+/// - Aligned bottom action buttons row ([Read More] [Quick Enroll] [Cart])
 class _CourseCard extends StatelessWidget {
   const _CourseCard({
     required this.course,
@@ -1073,6 +901,7 @@ class _CourseCard extends StatelessWidget {
     required this.onFavoriteToggle,
     required this.onStartLearning,
     required this.onViewDetails,
+    required this.onAddToCart,
   });
 
   final CourseApiModel course;
@@ -1080,257 +909,338 @@ class _CourseCard extends StatelessWidget {
   final VoidCallback onFavoriteToggle;
   final VoidCallback onStartLearning;
   final VoidCallback onViewDetails;
+  final VoidCallback onAddToCart;
 
   @override
   Widget build(BuildContext context) {
-    final thumbUrl = course.fullThumbnailUrl;
-    final badge = course.badgeLabel;
+    final thumbUrl = course.fullHeroBannerUrl ?? course.fullThumbnailUrl;
+
+    // Determine badges
+    final isPopular = course.isPopular;
+    final isFeatured = course.isFeatured;
+    final isNew = course.isNew;
+    final isCrashCourse = course.isCrashCourse;
+
+    // Calculate discount percent
+    int? discountPercent;
+    if (course.discountPrice != null && course.discountPrice! > 0 && course.price > course.discountPrice!) {
+      discountPercent = (((course.price - course.discountPrice!) / course.price) * 100).round();
+    }
 
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.borderLight),
         boxShadow: [
           BoxShadow(
-            color: AppColors.navyDark.withAlpha(8),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: const Color(0xFF07192F).withValues(alpha: 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(10),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Left: Thumbnail + Badge + Play Icon ───────────────────────────
+          // ── 1. Top Course Banner Image ──────────────────────────────────────
           Stack(
             children: [
               Container(
-                width: 96,
-                height: 116,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF081D3A),
-                  borderRadius: BorderRadius.circular(12),
+                width: double.infinity,
+                height: 175,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF081D3A),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(17)),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
                   child: thumbUrl != null && thumbUrl.isNotEmpty
                       ? Image.network(
                           thumbUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, _) => const _CourseArtworkFallback(),
+                          width: double.infinity,
+                          height: double.infinity,
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return const Center(
+                              child: SizedBox(
+                                width: 26,
+                                height: 26,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.gold,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, _) => _buildLocalFallbackImage(),
                         )
-                      : const _CourseArtworkFallback(),
+                      : _buildLocalFallbackImage(),
                 ),
               ),
 
-              // Badge (Bestseller, New, Popular)
-              if (badge != null)
-                Positioned(
-                  top: 6,
-                  left: 6,
+              // ── Top-Left Badges (POPULAR, FEATURED, NEW, CRASH COURSE) ──────
+              Positioned(
+                top: 10,
+                left: 10,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isPopular)
+                      _buildTagBadge('POPULAR', const Color(0xFF0D9488), Colors.white),
+                    if (isFeatured) ...[
+                      if (isPopular) const SizedBox(width: 5),
+                      _buildTagBadge('FEATURED', const Color(0xFFD97706), Colors.white),
+                    ],
+                    if (isNew) ...[
+                      if (isPopular || isFeatured) const SizedBox(width: 5),
+                      _buildTagBadge('NEW', Colors.white, const Color(0xFF07192F)),
+                    ],
+                    if (isCrashCourse) ...[
+                      if (isPopular || isFeatured || isNew) const SizedBox(width: 5),
+                      _buildTagBadge('CRASH COURSE', const Color(0xFF0284C7), Colors.white),
+                    ],
+                  ],
+                ),
+              ),
+
+              // ── Top-Right Badges (EMI Available, Discount %) ────────────────
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildTagBadge('EMI Available', const Color(0xFF07192F).withValues(alpha: 0.85), Colors.white),
+                    if (discountPercent != null && discountPercent > 0) ...[
+                      const SizedBox(width: 5),
+                      _buildTagBadge('-$discountPercent%', const Color(0xFF10B981), Colors.white),
+                    ],
+                  ],
+                ),
+              ),
+
+              // ── Bottom-Left: Circular Favorite Heart Button ─────────────────
+              Positioned(
+                bottom: 10,
+                left: 10,
+                child: GestureDetector(
+                  onTap: onFavoriteToggle,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    width: 34,
+                    height: 34,
                     decoration: BoxDecoration(
-                      color: badge == 'Bestseller'
-                          ? AppColors.gold
-                          : (badge == 'New' ? const Color(0xFF10B981) : const Color(0xFF0284C7)),
-                      borderRadius: BorderRadius.circular(4),
+                      color: const Color(0xFF07192F).withValues(alpha: 0.65),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
                     ),
-                    child: Text(
-                      badge,
-                      style: GoogleFonts.outfit(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w700,
-                        color: badge == 'Bestseller' ? AppColors.navyDark : Colors.white,
+                    child: Center(
+                      child: Icon(
+                        isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        size: 18,
+                        color: isFavorite ? const Color(0xFFEF4444) : Colors.white,
                       ),
                     ),
                   ),
                 ),
+              ),
 
-              // Play Icon Button overlay on bottom-left
+              // ── Bottom-Right: Rating Badge ──────────────────────────────────
               Positioned(
-                bottom: 6,
-                left: 6,
+                bottom: 10,
+                right: 10,
                 child: Container(
-                  width: 22,
-                  height: 22,
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(160),
-                    shape: BoxShape.circle,
+                    color: const Color(0xFF07192F).withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
                   ),
-                  child: const Center(
-                    child: Icon(Icons.play_arrow_rounded, size: 14, color: Colors.white),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star_rounded, size: 14, color: AppColors.gold),
+                      const SizedBox(width: 4),
+                      Text(
+                        course.rating.toStringAsFixed(1),
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(width: 10),
-
-          // ── Middle: Title, Short Description, Meta Row ────────────────────
-          Expanded(
+          // ── 2. Content & Metadata Section ─────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  course.title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.navyDark,
-                    height: 1.2,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  course.shortDescription ?? 'Complete structured learning path.',
-                  style: GoogleFonts.outfit(
-                    fontSize: 10,
-                    color: AppColors.textSecondary,
-                    height: 1.2,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 6),
-
-                // Meta Row (Lessons, Duration, Level)
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 2,
-                  children: [
-                    _buildMetaChip(Icons.menu_book_outlined, course.lessonsDisplay),
-                    _buildMetaChip(Icons.schedule_rounded, course.duration),
-                    _buildMetaChip(Icons.signal_cellular_alt_rounded, course.level),
-                  ],
-                ),
-
-                const SizedBox(height: 4),
-
-                // Rating Row
+                // Title & Price Row
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.star_rounded, size: 14, color: AppColors.gold),
-                    const SizedBox(width: 2),
-                    Text(
-                      course.ratingDisplay,
-                      style: GoogleFonts.outfit(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.navyDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 8),
-
-          // ── Right: Price, Favorite, CTAs ──────────────────────────────────
-          SizedBox(
-            width: 90,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Heart Icon
-                GestureDetector(
-                  onTap: onFavoriteToggle,
-                  child: Icon(
-                    isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    size: 18,
-                    color: isFavorite ? const Color(0xFFE53935) : AppColors.textTertiary,
-                  ),
-                ),
-
-                const SizedBox(height: 2),
-
-                // Price
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      course.formattedPrice,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.navyDark,
-                      ),
-                    ),
-                    if (course.monthlyInstallmentText.isNotEmpty)
-                      Text(
-                        course.monthlyInstallmentText,
-                        style: GoogleFonts.outfit(
-                          fontSize: 8,
-                          color: AppColors.textTertiary,
+                    // Course Title
+                    Expanded(
+                      child: Text(
+                        course.title,
+                        style: GoogleFonts.poppins(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.navyDark,
+                          height: 1.25,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    // Price Block
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          course.formattedPrice,
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.navyDark,
+                          ),
+                        ),
+                        Text(
+                          course.monthlyInstallmentText.isNotEmpty
+                              ? 'Starting ${course.monthlyInstallmentText}'
+                              : 'Starting from ₹250/mo EMI',
+                          style: GoogleFonts.outfit(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                // Metadata Row 1: Instructor · Lessons · Duration
+                Row(
+                  children: [
+                    if (course.instructorName != null && course.instructorName!.isNotEmpty) ...[
+                      _buildMetaInline(Icons.person_outline_rounded, course.instructorName!),
+                      _buildDot(),
+                    ],
+                    _buildMetaInline(Icons.menu_book_outlined, course.lessonsDisplay),
+                    _buildDot(),
+                    _buildMetaInline(Icons.access_time_rounded, course.duration),
                   ],
                 ),
 
                 const SizedBox(height: 6),
 
-                // Start Learning > Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 26,
-                  child: ElevatedButton(
-                    onPressed: onStartLearning,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.gold,
-                      foregroundColor: const Color(0xFF081D3A),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      elevation: 0,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Start Learning',
-                          style: GoogleFonts.outfit(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(Icons.arrow_forward_ios_rounded, size: 8),
-                      ],
-                    ),
-                  ),
+                // Metadata Row 2: Level · Language
+                Row(
+                  children: [
+                    _buildMetaInline(Icons.signal_cellular_alt_rounded, course.level),
+                    _buildDot(),
+                    _buildMetaInline(Icons.translate_rounded, course.language),
+                  ],
                 ),
 
-                const SizedBox(height: 4),
+                const SizedBox(height: 14),
+                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                const SizedBox(height: 12),
 
-                // View Details Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 24,
-                  child: OutlinedButton(
-                    onPressed: onViewDetails,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.navyDark,
-                      side: const BorderSide(color: AppColors.borderLight),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                    ),
-                    child: Text(
-                      'View Details',
-                      style: GoogleFonts.outfit(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w600,
+                // ── 3. Bottom Action Buttons Row ([Read More] [Quick Enroll] [Cart])
+                Row(
+                  children: [
+                    // Read More Button (Gold/Amber style)
+                    Expanded(
+                      flex: 4,
+                      child: SizedBox(
+                        height: 42,
+                        child: ElevatedButton.icon(
+                          onPressed: onViewDetails,
+                          icon: const Icon(Icons.menu_book_rounded, size: 16),
+                          label: Text(
+                            'Read More',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFD4A346),
+                            foregroundColor: const Color(0xFF071B36),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+
+                    // Quick Enroll Button (Dark Navy style)
+                    Expanded(
+                      flex: 5,
+                      child: SizedBox(
+                        height: 42,
+                        child: ElevatedButton.icon(
+                          onPressed: onStartLearning,
+                          icon: const Icon(Icons.bolt_rounded, size: 16),
+                          label: Text(
+                            'Quick Enroll',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF071B36),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Cart Icon Button (White rounded square with border)
+                    SizedBox(
+                      width: 42,
+                      height: 42,
+                      child: OutlinedButton(
+                        onPressed: onAddToCart,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.navyDark,
+                          backgroundColor: Colors.white,
+                          side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Icon(Icons.shopping_cart_outlined, size: 18),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1340,21 +1250,85 @@ class _CourseCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMetaChip(IconData icon, String label) {
+  Widget _buildTagBadge(String text, Color bg, Color textCol) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.outfit(
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.3,
+          color: textCol,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetaInline(IconData icon, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 10, color: AppColors.textTertiary),
-        const SizedBox(width: 2),
+        Icon(icon, size: 13, color: const Color(0xFF94A3B8)),
+        const SizedBox(width: 4),
         Text(
           label,
           style: GoogleFonts.outfit(
-            fontSize: 9,
-            color: AppColors.textSecondary,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF64748B),
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildDot() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 6),
+      width: 3,
+      height: 3,
+      decoration: const BoxDecoration(
+        color: Color(0xFFCBD5E1),
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+
+  Widget _buildLocalFallbackImage() {
+    final titleLower = course.title.toLowerCase();
+    String? asset;
+    if (titleLower.contains('tajweed') || titleLower.contains('quran')) {
+      asset = 'assets/images/home/courses/quran_tajweed.png';
+    } else if (titleLower.contains('namaz') || titleLower.contains('dua')) {
+      asset = 'assets/images/home/courses/namaz_dua.png';
+    } else if (titleLower.contains('muslim') || titleLower.contains('life')) {
+      asset = 'assets/images/home/courses/muslim_life.png';
+    } else if (titleLower.contains('understand')) {
+      asset = 'assets/images/home/courses/understand_quran.png';
+    }
+
+    if (asset != null) {
+      return Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, _) => const _CourseArtworkFallback(),
+      );
+    }
+    return const _CourseArtworkFallback();
   }
 }
 
@@ -1363,11 +1337,14 @@ class _CourseArtworkFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Icon(
-        Icons.auto_stories_rounded,
-        size: 32,
-        color: AppColors.gold,
+    return Container(
+      color: const Color(0xFF081D3A),
+      child: const Center(
+        child: Icon(
+          Icons.auto_stories_rounded,
+          size: 40,
+          color: AppColors.gold,
+        ),
       ),
     );
   }

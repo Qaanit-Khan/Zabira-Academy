@@ -49,13 +49,40 @@ void main() {
       }
     }
 
-    // 4. Test preview media and student lesson
-    final previewResp = await client.get(Uri.parse('https://api.zabiraacademy.com/api/courses/preview_media.php?lesson_id=1'));
-    print('--- PREVIEW MEDIA lesson_id=1 --- Status: ${previewResp.statusCode}');
-    print('Body: ${previewResp.body}');
+    // 5. Test Register API validation
+    final regResp = await client.post(
+      Uri.parse('https://api.zabiraacademy.com/api/auth/register.php'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'first_name': 'Test',
+        'last_name': 'User',
+        'full_name': 'Test User',
+        'email': 'testuser_${DateTime.now().millisecondsSinceEpoch}@example.com',
+        'password': 'Password123!',
+        'confirm_password': 'Password123!',
+        'mobile': '9876543210',
+        'phone': '9876543210',
+        'gender': 'Male',
+        'date_of_birth': '2000-01-01',
+        'country': 'India',
+        'state': 'Maharashtra',
+        'city': 'Mumbai',
+        'accept_terms': '1',
+      }),
+    );
+    print('--- REGISTER RESPONSE --- Status: ${regResp.statusCode}');
+    print('Body: ${regResp.body}');
 
-    final lessonResp = await client.get(Uri.parse('https://api.zabiraacademy.com/api/student/lesson.php?lesson_id=1'));
-    print('--- STUDENT LESSON lesson_id=1 (unauthenticated) --- Status: ${lessonResp.statusCode}');
-    print('Body: ${lessonResp.body}');
-  });
+    // 6. Test Google Auth endpoint
+    final gAuthResp = await client.post(
+      Uri.parse('https://api.zabiraacademy.com/api/auth/google_auth.php'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'id_token': 'dummy_test_token',
+        'portal': 'student',
+      }),
+    );
+    print('--- GOOGLE AUTH RESPONSE --- Status: ${gAuthResp.statusCode}');
+    print('Body: ${gAuthResp.body}');
+  }, timeout: const Timeout(Duration(minutes: 2)));
 }

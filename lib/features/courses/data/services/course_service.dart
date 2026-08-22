@@ -77,7 +77,7 @@ class CourseService {
   /// `GET /courses/public_list`
   Future<Map<String, dynamic>> getCourses({
     int page = 1,
-    int limit = 20,
+    int limit = 100,
     String? search,
     int? categoryId,
     String? level,
@@ -98,7 +98,10 @@ class CourseService {
     if (level != null && level.isNotEmpty) queryParams['level'] = level;
     if (language != null && language.isNotEmpty) queryParams['language'] = language;
     if (price != null && price > 0) queryParams['price'] = price.toString();
-    if (sort != null && sort.isNotEmpty) queryParams['sort'] = sort;
+    // Note: 'featured' sort is handled client-side so backend returns ALL courses (including new ones added by admin) instead of filtering to only 4 featured courses.
+    if (sort != null && sort.isNotEmpty && sort != 'featured') {
+      queryParams['sort'] = sort;
+    }
 
     return _getWithFallback(ApiConfig.courseList, queryParams: queryParams);
   }

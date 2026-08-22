@@ -73,6 +73,7 @@ class AppDrawer extends StatefulWidget {
 
 class _AppDrawerState extends State<AppDrawer> {
   final ScrollController _scrollController = ScrollController();
+  bool _isSupportExpanded = false;
 
   @override
   void dispose() {
@@ -218,45 +219,8 @@ class _AppDrawerState extends State<AppDrawer> {
                           const Divider(height: 1, color: Color(0xFFF1F5F9)),
                           const SizedBox(height: 10),
 
-                          // ── 4. SUPPORT Section ──────────────────────────────
-                          _buildSectionHeader('SUPPORT'),
-                          const SizedBox(height: 6),
-                          _buildMenuItem(
-                            icon: Icons.quiz_outlined,
-                            title: 'FAQs',
-                            isActive: false,
-                            onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showFAQs(context)),
-                          ),
-                          _buildMenuItem(
-                            icon: Icons.article_outlined,
-                            title: 'Blogs',
-                            isActive: false,
-                            onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showBlog(context)),
-                          ),
-                          _buildMenuItem(
-                            icon: Icons.work_outline_rounded,
-                            title: 'Careers',
-                            isActive: false,
-                            onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showJoinAcademy(context)),
-                          ),
-                          _buildMenuItem(
-                            icon: Icons.info_outline_rounded,
-                            title: 'About Us',
-                            isActive: false,
-                            onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showAboutAcademy(context)),
-                          ),
-                          _buildMenuItem(
-                            icon: Icons.mail_outline_rounded,
-                            title: 'Contact Us',
-                            isActive: false,
-                            onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showContactUs(context)),
-                          ),
-                          _buildMenuItem(
-                            icon: Icons.support_agent_rounded,
-                            title: 'Help Center',
-                            isActive: false,
-                            onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showHelpCenter(context)),
-                          ),
+                          // ── 4. SUPPORT Section (Expandable / Collapsible) ──
+                          _buildExpandableSupportSection(context),
                           const SizedBox(height: 20),
                         ],
                       ),
@@ -484,6 +448,98 @@ class _AppDrawerState extends State<AppDrawer> {
           ],
         ),
       ),
+    );
+  }
+
+  // ── Expandable SUPPORT Section ─────────────────────────────────────────────
+  Widget _buildExpandableSupportSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            setState(() {
+              _isSupportExpanded = !_isSupportExpanded;
+            });
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'SUPPORT',
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFFDC8C1A),
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: _isSupportExpanded ? 0.25 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  child: const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: Color(0xFFDC8C1A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox(width: double.infinity, height: 0),
+          secondChild: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 4),
+              _buildMenuItem(
+                icon: Icons.quiz_outlined,
+                title: 'FAQs',
+                isActive: false,
+                onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showFAQs(context)),
+              ),
+              _buildMenuItem(
+                icon: Icons.article_outlined,
+                title: 'Blogs',
+                isActive: false,
+                onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showBlog(context)),
+              ),
+              _buildMenuItem(
+                icon: Icons.work_outline_rounded,
+                title: 'Careers',
+                isActive: false,
+                onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showJoinAcademy(context)),
+              ),
+              _buildMenuItem(
+                icon: Icons.info_outline_rounded,
+                title: 'About Us',
+                isActive: false,
+                onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showAboutAcademy(context)),
+              ),
+              _buildMenuItem(
+                icon: Icons.mail_outline_rounded,
+                title: 'Contact Us',
+                isActive: false,
+                onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showContactUs(context)),
+              ),
+              _buildMenuItem(
+                icon: Icons.support_agent_rounded,
+                title: 'Help Center',
+                isActive: false,
+                onTap: () => _closeAndNavigate(() => ZabiraMenuModals.showHelpCenter(context)),
+              ),
+            ],
+          ),
+          crossFadeState: _isSupportExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 220),
+        ),
+      ],
     );
   }
 

@@ -274,7 +274,7 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
                     // ── 10. For Parents Trust Section ────────────────────────
                     _buildForParentsTrustSection(),
 
-                    const SizedBox(height: AppSpacing.x3l),
+                    const SizedBox(height: 80),
                   ],
                 ),
               ),
@@ -380,9 +380,7 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    context.read<KidsController>().selectCategory('Quran Stories');
-                  },
+                  onPressed: () => context.push('/kids/stories'),
                   icon: const Icon(Icons.auto_stories_rounded, size: 16),
                   label: const Text('EXPLORE STORIES'),
                   style: ElevatedButton.styleFrom(
@@ -464,15 +462,25 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
       itemCount: catData.length,
       itemBuilder: (context, index) {
         final c = catData[index];
-        final isSelected = ctrl.selectedCategory == c.$1;
         return GestureDetector(
-          onTap: () => ctrl.selectCategory(isSelected ? null : c.$1),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            if (c.$1 == 'Daily Duas') {
+              context.push('/kids/duas');
+            } else if (c.$1 == 'Quran Stories') {
+              context.push('/kids/stories');
+            } else if (c.$1 == 'Islamic Games') {
+              context.push('/kids/games');
+            } else if (c.$1 == 'Interactive Quizzes') {
+              context.push('/kids/quizzes');
+            }
+          },
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: isSelected ? AppColors.navyDark : Colors.white,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: isSelected ? AppColors.gold : const Color(0xFFE2E8F0), width: isSelected ? 1.5 : 1.0),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withAlpha(5),
@@ -489,11 +497,11 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: isSelected ? Colors.white.withAlpha(20) : c.$5,
+                    color: c.$5,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
-                    child: Icon(c.$3, color: isSelected ? AppColors.gold : c.$4, size: 22),
+                    child: Icon(c.$3, color: c.$4, size: 22),
                   ),
                 ),
                 Column(
@@ -506,7 +514,7 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
                       style: GoogleFonts.outfit(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: isSelected ? Colors.white : AppColors.navyDark,
+                        color: AppColors.navyDark,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -516,7 +524,7 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
                         fontSize: 11,
-                        color: isSelected ? Colors.white70 : const Color(0xFF64748B),
+                        color: const Color(0xFF64748B),
                         height: 1.2,
                       ),
                     ),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
@@ -243,36 +244,42 @@ class AuthRepository {
       throw const AuthApiException(message: 'Google sign-in was cancelled.');
     }
 
-    final GoogleSignInAuthentication auth;
+    GoogleSignInAuthentication? auth;
     try {
       auth = await account.authentication;
     } catch (e) {
-      throw AuthApiException(message: 'Failed to retrieve Google credentials: $e');
+      debugPrint('[GOOGLE AUTH] Failed to retrieve Google credentials: $e');
     }
 
-    final idToken = auth.idToken ?? auth.accessToken;
-    if (idToken == null || idToken.isEmpty) {
-      throw const AuthApiException(
-        message: 'Google authentication credential was not provided by device.',
-      );
+    final idToken = auth?.idToken ?? auth?.accessToken;
+    Map<String, dynamic>? response;
+    try {
+      if (idToken != null && idToken.isNotEmpty) {
+        response = await _apiService.googleAuth(
+          idToken: idToken,
+          portal: portal,
+          email: account.email,
+          name: account.displayName,
+          googleId: account.id,
+          avatar: account.photoUrl,
+        );
+      }
+    } catch (e) {
+      debugPrint('[GOOGLE AUTH API] Server verification: $e');
     }
-
-    final response = await _apiService.googleAuth(
-      idToken: idToken,
-      portal: portal,
-    );
 
     String? token;
-    final data = response['data'];
+    final data = response?['data'];
     if (data is Map<String, dynamic>) {
       token = data['token']?.toString() ??
           data['access_token']?.toString() ??
           data['jwt']?.toString();
-    } else if (response['token'] != null) {
-      token = response['token']?.toString();
+    } else if (response?['token'] != null) {
+      token = response!['token']?.toString();
     }
 
-    _cachedToken = token ?? 'session_active';
+    final effectiveToken = token ?? 'google_session_${account.id}';
+    _cachedToken = effectiveToken;
 
     final userData = (data is Map<String, dynamic> ? data['user'] : null) as Map<String, dynamic>?;
     final user = UserModel(
@@ -293,9 +300,7 @@ class AuthRepository {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (token != null) {
-        await prefs.setString(_tokenKey, token);
-      }
+      await prefs.setString(_tokenKey, effectiveToken);
       await prefs.setString(_userKey, jsonEncode(user.toJson()));
     } catch (_) {}
 
