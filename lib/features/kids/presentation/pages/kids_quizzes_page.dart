@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/zabira_bottom_nav.dart';
-import '../../data/models/kids_models.dart';
 import '../controllers/kids_controller.dart';
 
 class KidsQuizzesPage extends StatelessWidget {
