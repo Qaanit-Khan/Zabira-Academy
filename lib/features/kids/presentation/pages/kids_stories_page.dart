@@ -17,7 +17,6 @@ class KidsStoriesPage extends StatefulWidget {
 
 class _KidsStoriesPageState extends State<KidsStoriesPage> {
   final TextEditingController _searchCtrl = TextEditingController();
-  String? _selectedCategory;
 
   @override
   void dispose() {

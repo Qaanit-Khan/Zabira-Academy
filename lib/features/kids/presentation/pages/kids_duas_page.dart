@@ -7,7 +7,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/zabira_bottom_nav.dart';
 import '../../../../core/audio/global_audio_controller.dart';
-import '../controllers/kids_controller.dart';
 
 class _DuaItemData {
   const _DuaItemData({
