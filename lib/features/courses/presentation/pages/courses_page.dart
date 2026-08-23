@@ -329,6 +329,7 @@ class _CoursesPageState extends State<CoursesPage> {
         drawer: const AppDrawer(),
         backgroundColor: const Color(0xFFF8FAFC),
         bottomNavigationBar: const ZabiraBottomNav(selectedIndex: 0),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         floatingActionButton: _buildFloatingFilterButton(),
         body: Column(
           children: [
@@ -435,11 +436,24 @@ class _CoursesPageState extends State<CoursesPage> {
   // ── Floating Action Button for Web-style Filter Window ─────────────────────
   Widget _buildFloatingFilterButton() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 75),
+      margin: const EdgeInsets.only(bottom: 72, right: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: brandGold, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: brandNavy.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: FloatingActionButton.extended(
         onPressed: _openFilterSheet,
         backgroundColor: brandNavy,
-        elevation: 4,
+        elevation: 0,
+        highlightElevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         icon: const Icon(Icons.tune_rounded, color: brandGold, size: 18),
         label: Text(
           'Filter',

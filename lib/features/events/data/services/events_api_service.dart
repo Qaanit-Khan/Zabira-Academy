@@ -130,6 +130,20 @@ class EventsApiService {
     return null;
   }
 
+  /// `GET /events/public_details` returning complete roadmap and faqs
+  Future<EventFullDetailsModel?> getFullEventDetails({int? id, String? slug}) async {
+    final queryParams = <String, String>{};
+    if (id != null && id > 0) queryParams['id'] = id.toString();
+    if (slug != null && slug.isNotEmpty) queryParams['slug'] = slug;
+
+    final json = await _getWithFallback(ApiConfig.eventsDetails, queryParams: queryParams);
+    final data = json['data'];
+    if (data != null && data is Map<String, dynamic>) {
+      return EventFullDetailsModel.fromJson(data);
+    }
+    return null;
+  }
+
   /// `POST /events/register`
   Future<Map<String, dynamic>> registerForEvent({
     required int eventId,

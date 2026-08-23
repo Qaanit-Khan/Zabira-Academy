@@ -52,7 +52,7 @@ class _StorePageState extends State<StorePage> {
   bool _isLoading = true;
   String? _errorMessage;
   int? _selectedCategoryId; // null = "All"
-  String _searchQuery = '';
+  final String _searchQuery = '';
 
   late final List<HeroBannerModel> _banners;
 
@@ -138,13 +138,6 @@ class _StorePageState extends State<StorePage> {
         });
       }
     }
-  }
-
-  void _onSearchChanged(String query) {
-    setState(() {
-      _searchQuery = query.trim();
-    });
-    _fetchFilteredProducts();
   }
 
   void _toggleFavorite(StoreProductModel product) {
@@ -302,39 +295,6 @@ class _StorePageState extends State<StorePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Title & Subtitle ──────────────────────────────────
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, 0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Store',
-                              style: GoogleFonts.poppins(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.navyDark,
-                                height: 1.15,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              'Quality products that inspire faith, productivity and a better lifestyle.',
-                              style: GoogleFonts.outfit(
-                                fontSize: 13,
-                                color: const Color(0xFF64748B),
-                                height: 1.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: AppSpacing.sm),
-
-                      // ── Search & Filter Bar ───────────────────────────────
-                      _buildSearchBar(),
-
                       const SizedBox(height: AppSpacing.sm),
 
                       // ── Hero Banner Carousel ──────────────────────────────
@@ -455,99 +415,6 @@ class _StorePageState extends State<StorePage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // ── Search & Filter Bar ───────────────────────────────────────────────────
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceWhite,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.borderLight),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.navyDark.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: _searchController,
-                onSubmitted: _onSearchChanged,
-                textInputAction: TextInputAction.search,
-                style: GoogleFonts.outfit(
-                  fontSize: 13.5,
-                  color: AppColors.navyDark,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Search products...',
-                  hintStyle: GoogleFonts.outfit(
-                    fontSize: 13,
-                    color: AppColors.textTertiary,
-                  ),
-                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 16, color: AppColors.textSecondary),
-                          onPressed: () {
-                            _searchController.clear();
-                            _onSearchChanged('');
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 11),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: () {
-              // Open filter or toggle category
-            },
-            child: Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceWhite,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.borderLight),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.navyDark.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.tune_rounded, size: 16, color: AppColors.navyDark),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Filter',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.navyDark,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

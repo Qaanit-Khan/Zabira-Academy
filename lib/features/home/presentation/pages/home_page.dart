@@ -23,6 +23,8 @@ import '../widgets/latest_launch_card.dart';
 import '../widgets/home_bottom_nav.dart';
 import '../widgets/from_zabira_store_section.dart';
 import '../../data/models/daily_supplement_model.dart';
+import '../../data/models/hero_banner_model.dart';
+import '../../data/repositories/hero_banner_repository.dart';
 import '../../../nasheed/data/services/nasheed_api_service.dart';
 import '../../../../shared/widgets/scholarship_promo_banner.dart';
 
@@ -38,12 +40,21 @@ class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedNavIndex = 2;
   final _nasheedService = NasheedApiService();
+  final _heroRepo = HeroBannerRepository();
   DailySupplementModel _dailySupplement = HomeMockRepository.getDailySupplementInfo();
+  List<HeroBannerModel> _banners = [];
 
   @override
   void initState() {
     super.initState();
-    _loadDailyNasheed();
+    _banners = HomeMockRepository.getHeroBanners(
+      onCoursesTap: _onCoursesTap,
+      onKidsPortalTap: _onKidsPortalTap,
+      onStoreTap: _onStoreTap,
+      onLibraryTap: _onLibraryTap,
+      onEventsTap: _onEventsTap,
+    );
+    _loadInitialContent();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = context.read<AuthController>();
       if (auth.isAuthenticated) {
@@ -51,6 +62,28 @@ class _HomePageState extends State<HomePage> {
         context.read<CartController>().loadCart(auth.currentToken);
       }
     });
+  }
+
+  Future<void> _loadInitialContent() async {
+    await Future.wait([
+      _loadDailyNasheed(),
+      _loadHeroBanners(),
+    ]);
+  }
+
+  Future<void> _loadHeroBanners() async {
+    try {
+      final banners = await _heroRepo.fetchHomeBanners(
+        onCoursesTap: _onCoursesTap,
+        onKidsPortalTap: _onKidsPortalTap,
+        onStoreTap: _onStoreTap,
+        onLibraryTap: _onLibraryTap,
+        onEventsTap: _onEventsTap,
+      );
+      if (mounted && banners.isNotEmpty) {
+        setState(() => _banners = banners);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadDailyNasheed() async {
@@ -66,14 +99,9 @@ class _HomePageState extends State<HomePage> {
   void _onCoursesTap() => context.push(AppRoutes.courses);
   void _onKidsPortalTap() => context.push('/kids');
   void _onStoreTap() => context.push(AppRoutes.store);
-  void _onHero4Tap() => context.push(AppRoutes.courses);
+  void _onLibraryTap() => context.push(AppRoutes.library);
+  void _onEventsTap() => context.push(AppRoutes.events);
 
-  late final _banners = HomeMockRepository.getHeroBanners(
-    onCoursesTap: _onCoursesTap,
-    onKidsPortalTap: _onKidsPortalTap,
-    onStoreTap: _onStoreTap,
-    onHero4Tap: _onHero4Tap,
-  );
   final _categories = HomeMockRepository.getQuickAccessItems();
   final _latestLaunches = HomeMockRepository.getLatestLaunches();
 
@@ -154,9 +182,13 @@ class _HomePageState extends State<HomePage> {
                       context.read<EnrollmentController>().loadMyCourses(auth.currentToken, forceRefresh: true),
                       context.read<CartController>().loadCart(auth.currentToken),
                       _loadDailyNasheed(),
+                      _loadHeroBanners(),
                     ]);
                   } else {
-                    await _loadDailyNasheed();
+                    await Future.wait([
+                      _loadDailyNasheed(),
+                      _loadHeroBanners(),
+                    ]);
                   }
                 },
                 child: SingleChildScrollView(

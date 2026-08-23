@@ -89,6 +89,19 @@ class NasheedApiService {
     return const [];
   }
 
+  String _formatDurationValue(dynamic raw) {
+    if (raw == null) return '03:42';
+    final str = raw.toString().trim();
+    if (str.contains(':')) return str;
+    final sec = int.tryParse(str);
+    if (sec != null && sec > 0) {
+      final m = (sec ~/ 60).toString().padLeft(2, '0');
+      final s = (sec % 60).toString().padLeft(2, '0');
+      return '$m:$s';
+    }
+    return str.isNotEmpty ? str : '03:42';
+  }
+
   Future<DailySupplementModel> getDailyNasheed() async {
     // 1. Primary mobile endpoint connected directly to Admin Daily Audio
     try {
@@ -110,23 +123,31 @@ class NasheedApiService {
           if (item is Map<String, dynamic> && item.isNotEmpty) {
             final title = item['title']?.toString() ?? item['name']?.toString() ?? 'Daily Nasheed';
             final artist = item['artist']?.toString() ?? item['reciter']?.toString() ?? 'Zabira Audio';
-            final rawDuration = item['duration']?.toString() ?? item['duration_formatted']?.toString() ?? '04:12';
+            final rawDuration = _formatDurationValue(item['duration'] ?? item['duration_formatted']);
             final cover = item['cover_image']?.toString() ??
                 item['thumbnail']?.toString() ??
                 item['image']?.toString() ??
                 item['image_url']?.toString();
-            final audio = item['audio_url']?.toString() ?? item['file_url']?.toString() ?? item['stream_url']?.toString();
+            final audio = item['audio_url']?.toString() ??
+                item['file_url']?.toString() ??
+                item['stream_url']?.toString() ??
+                item['audio']?.toString() ??
+                item['path']?.toString();
 
-            return DailySupplementModel(
-              sectionLabel: 'DAILY NASHEED',
-              contentTitle: title,
-              contentType: artist,
-              duration: rawDuration,
-              progress: 0.35,
-              artType: DailySupplementArtType.nasheed,
-              imageUrl: ApiConfig.resolveImageUrl(cover),
-              audioUrl: audio,
-            );
+            final resolvedAudio = ApiConfig.resolveMediaUrl(audio);
+
+            if (resolvedAudio != null && resolvedAudio.isNotEmpty) {
+              return DailySupplementModel(
+                sectionLabel: 'DAILY NASHEED',
+                contentTitle: title,
+                contentType: artist,
+                duration: rawDuration,
+                progress: 0.35,
+                artType: DailySupplementArtType.nasheed,
+                imageUrl: ApiConfig.resolveImageUrl(cover),
+                audioUrl: resolvedAudio,
+              );
+            }
           }
         }
       }
@@ -156,9 +177,11 @@ class NasheedApiService {
             final item = list.first as Map<String, dynamic>;
             final title = item['title']?.toString() ?? item['name']?.toString() ?? 'Daily Nasheed';
             final artist = item['artist']?.toString() ?? item['reciter']?.toString() ?? 'Zabira Audio';
-            final rawDuration = item['duration']?.toString() ?? item['duration_formatted']?.toString() ?? '04:12';
+            final rawDuration = _formatDurationValue(item['duration'] ?? item['duration_formatted']);
             final cover = item['cover_image']?.toString() ?? item['thumbnail']?.toString() ?? item['image']?.toString() ?? item['image_url']?.toString();
             final audio = item['audio_url']?.toString() ?? item['file_url']?.toString() ?? item['stream_url']?.toString();
+
+            final resolvedAudio = ApiConfig.resolveMediaUrl(audio);
 
             return DailySupplementModel(
               sectionLabel: 'DAILY NASHEED',
@@ -168,7 +191,7 @@ class NasheedApiService {
               progress: 0.35,
               artType: DailySupplementArtType.nasheed,
               imageUrl: ApiConfig.resolveImageUrl(cover),
-              audioUrl: audio,
+              audioUrl: resolvedAudio,
             );
           }
         }
@@ -185,6 +208,7 @@ class NasheedApiService {
       duration: '03:42',
       progress: 0.42,
       artType: DailySupplementArtType.nasheed,
+      audioUrl: 'https://api.zabiraacademy.com/uploads/audio/Dua-Ki-Taakat-by-Zabira-Academy.mp3',
     );
   }
 }

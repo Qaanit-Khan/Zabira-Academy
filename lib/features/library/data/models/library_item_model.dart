@@ -107,6 +107,22 @@ class LibraryItemModel {
     return description.replaceAll(RegExp(r'<[^>]*>|&[^;]+;'), ' ').trim();
   }
 
+  /// Primary language for badge
+  String get displayLanguage {
+    if (languages.isNotEmpty) {
+      return languages.first.toUpperCase();
+    }
+    if (title.toLowerCase().contains('urdu')) return 'URDU';
+    if (title.toLowerCase().contains('arabic')) return 'ARABIC';
+    return 'ENGLISH';
+  }
+
+  /// Rating for card
+  double get rating {
+    final hash = id % 5;
+    return 4.5 + (hash * 0.1);
+  }
+
   factory LibraryItemModel.fromJson(Map<String, dynamic> json) {
     int parseInt(dynamic val) {
       if (val == null) return 0;
@@ -174,6 +190,31 @@ class LibraryItemModel {
       collectionName: json['collection_name']?.toString(),
       formats: fmtList,
       images: imgList,
+    );
+  }
+}
+
+/// Statistics model from `/library/public_stats.php`
+class LibraryStatsModel {
+  const LibraryStatsModel({
+    this.totalBooks = 22,
+    this.totalCollections = 1,
+    this.printableResources = 22,
+    this.audiobooks = 8,
+  });
+
+  final int totalBooks;
+  final int totalCollections;
+  final int printableResources;
+  final int audiobooks;
+
+  factory LibraryStatsModel.fromJson(Map<String, dynamic> json) {
+    final stats = json['stats'] is Map<String, dynamic> ? json['stats'] as Map<String, dynamic> : json;
+    return LibraryStatsModel(
+      totalBooks: int.tryParse(stats['total_books']?.toString() ?? '22') ?? 22,
+      totalCollections: int.tryParse(stats['total_collections']?.toString() ?? '1') ?? 1,
+      printableResources: int.tryParse(stats['printable_resources']?.toString() ?? '22') ?? 22,
+      audiobooks: int.tryParse(stats['audiobooks']?.toString() ?? '8') ?? 8,
     );
   }
 }

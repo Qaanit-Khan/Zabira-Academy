@@ -205,7 +205,8 @@ GoRouter buildRouter(BuildContext context) {
         builder: (context, state) {
           final idParam = state.pathParameters['id'];
           final id = int.tryParse(idParam ?? '') ?? 0;
-          return EventDetailsPage(eventId: id);
+          final scrollToRegister = state.uri.queryParameters['register'] == 'true' || state.extra == true;
+          return EventDetailsPage(eventId: id, scrollToRegister: scrollToRegister);
         },
       ),
       GoRoute(path: AppRoutes.kids, builder: (context, state) => const KidsPortalPage()),

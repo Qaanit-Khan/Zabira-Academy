@@ -148,6 +148,67 @@ class CartApiService {
     }
   }
 
+  /// Helper for DELETE requests with automatic .php fallback
+  Future<Map<String, dynamic>> _deleteWithFallback(
+    String path, {
+    Map<String, String>? queryParams,
+    Map<String, dynamic>? body,
+    String? token,
+    int timeoutSeconds = 12,
+  }) async {
+    final headers = Map<String, String>.from(_headers);
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    final jsonBody = body != null ? jsonEncode(body) : null;
+    final primaryUri = Uri.parse('${ApiConfig.baseUrl}$path').replace(queryParameters: queryParams);
+    if (kDebugMode) debugPrint('[CART API] DELETE $primaryUri');
+
+    try {
+      final response = await _client.delete(
+        primaryUri,
+        headers: headers,
+        body: jsonBody,
+      ).timeout(Duration(seconds: timeoutSeconds));
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return _parseSuccess(response.body);
+      }
+
+      if (response.statusCode == 404 && !path.endsWith('.php')) {
+        final fallbackUri = Uri.parse('${ApiConfig.baseUrl}$path.php').replace(queryParameters: queryParams);
+        if (kDebugMode) debugPrint('[CART API RETRY] DELETE $fallbackUri');
+
+        final fallbackResp = await _client.delete(
+          fallbackUri,
+          headers: headers,
+          body: jsonBody,
+        ).timeout(Duration(seconds: timeoutSeconds));
+        if (fallbackResp.statusCode == 200 || fallbackResp.statusCode == 204) {
+          return _parseSuccess(fallbackResp.body);
+        }
+      }
+
+      if (kDebugMode) {
+        debugPrint('[CART API DELETE ERROR BODY] ${response.body}');
+      }
+      throw _httpError(
+        method: 'DELETE',
+        uri: primaryUri,
+        statusCode: response.statusCode,
+        body: response.body,
+      );
+    } on TimeoutException {
+      throw Exception('Cart request timed out. Please check your internet connection.');
+    } on SocketException {
+      throw Exception('Unable to reach Zabira Academy server.');
+    } catch (e) {
+      if (kDebugMode) debugPrint('[CART API ERROR] DELETE $primaryUri -> $e');
+      rethrow;
+    }
+  }
+
   /// `GET /cart/list`
   Future<CartSummaryModel> getCartList({String? token}) async {
     final response = await _getWithFallback(ApiConfig.cartList, token: token);
@@ -173,7 +234,7 @@ class CartApiService {
     return _postWithFallback(ApiConfig.cartAdd, body: itemData, token: token);
   }
 
-  /// `GET /cart/remove`
+  /// `DELETE /cart/remove`
   Future<Map<String, dynamic>> removeFromCart({
     int? cartId,
     int? bookId,
@@ -187,12 +248,24 @@ class CartApiService {
     if (format != null && format.isNotEmpty) queryParams['format'] = format;
     if (courseId != null && courseId > 0) queryParams['course_id'] = courseId.toString();
 
-    return _getWithFallback(ApiConfig.cartRemove, queryParams: queryParams, token: token);
+    final bodyPayload = <String, dynamic>{
+      if (cartId != null && cartId > 0) 'cart_id': cartId,
+      if (bookId != null && bookId > 0) 'book_id': bookId,
+      if (format != null && format.isNotEmpty) 'format': format,
+      if (courseId != null && courseId > 0) 'course_id': courseId,
+    };
+
+    return _deleteWithFallback(
+      ApiConfig.cartRemove,
+      queryParams: queryParams.isEmpty ? null : queryParams,
+      body: bodyPayload.isEmpty ? null : bodyPayload,
+      token: token,
+    );
   }
 
-  /// `POST /cart/clear`
+  /// `DELETE /cart/clear`
   Future<Map<String, dynamic>> clearCart({String? token}) async {
-    return _postWithFallback(ApiConfig.cartClear, body: {}, token: token);
+    return _deleteWithFallback(ApiConfig.cartClear, body: {}, token: token);
   }
 
   /// `POST /cart/checkout`
