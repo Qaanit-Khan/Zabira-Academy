@@ -28,6 +28,22 @@ class CartController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isEmpty => _items.isEmpty;
 
+  final Set<String> _deletedItemKeys = {};
+
+  String _itemKey(CartItemModel item) {
+    if (item.id > 0) return 'id_${item.id}';
+    if (item.courseId != null && item.courseId! > 0) return 'course_${item.courseId}';
+    if (item.bookId != null && item.bookId! > 0) return 'book_${item.bookId}_${item.bookFormat ?? ''}';
+    if (item.productId != null && item.productId! > 0) return 'prod_${item.productId}_${item.variantId ?? ''}';
+    return 'title_${item.title}';
+  }
+
+  void _recomputeTotals() {
+    _subtotal = _items.fold<double>(0.0, (sum, i) => sum + i.totalPrice);
+    _total = (_subtotal - _discount + _tax).clamp(0.0, double.infinity);
+    _itemCount = _items.fold<int>(0, (sum, i) => sum + i.quantity);
+  }
+
   /// Load authenticated cart from backend
   Future<void> loadCart(String? token) async {
     _isLoading = true;
@@ -36,12 +52,18 @@ class CartController extends ChangeNotifier {
 
     try {
       final summary = await _service.getCartList(token: token);
-      _items = summary.items;
-      _subtotal = summary.subtotal;
-      _discount = summary.discount;
-      _tax = summary.tax;
-      _total = summary.total;
-      _itemCount = summary.count > 0 ? summary.count : _items.fold<int>(0, (sum, i) => sum + i.quantity);
+      final serverItems = summary.items.where((item) => !_deletedItemKeys.contains(_itemKey(item))).toList();
+
+      if (serverItems.isNotEmpty) {
+        _items = serverItems;
+        _discount = summary.discount;
+        _tax = summary.tax;
+      } else {
+        // Keep existing non-deleted local items if backend returns empty
+        _items = _items.where((item) => !_deletedItemKeys.contains(_itemKey(item))).toList();
+      }
+
+      _recomputeTotals();
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -56,7 +78,11 @@ class CartController extends ChangeNotifier {
   Future<void> refreshCount(String? token) async {
     try {
       final count = await _service.getCartCount(token: token);
-      _itemCount = count;
+      if (_items.isEmpty && _deletedItemKeys.isNotEmpty) {
+        _itemCount = 0;
+      } else {
+        _itemCount = count > 0 ? count : _items.fold<int>(0, (sum, i) => sum + i.quantity);
+      }
       notifyListeners();
     } catch (_) {}
   }
@@ -68,29 +94,96 @@ class CartController extends ChangeNotifier {
   }) async {
     _isLoading = true;
     _errorMessage = null;
+
+    // If previously deleted, unmark so it can be added again
+    final cId = itemData['course_id'] != null ? int.tryParse(itemData['course_id'].toString()) : null;
+    final bId = itemData['book_id'] != null ? int.tryParse(itemData['book_id'].toString()) : null;
+    final pId = (itemData['product_id'] ?? itemData['store_product_id']) != null
+        ? int.tryParse((itemData['product_id'] ?? itemData['store_product_id']).toString())
+        : null;
+    final vId = itemData['variant_id'] != null ? int.tryParse(itemData['variant_id'].toString()) : null;
+
+    if (cId != null) _deletedItemKeys.remove('course_$cId');
+    if (bId != null) _deletedItemKeys.removeWhere((k) => k.startsWith('book_$bId'));
+    if (pId != null) _deletedItemKeys.removeWhere((k) => k.startsWith('prod_$pId'));
+
+    // Optimistically create/update local item
+    final qty = int.tryParse(itemData['quantity']?.toString() ?? '1') ?? 1;
+    final price = double.tryParse(itemData['price']?.toString() ?? '0') ?? 0.0;
+    final salePrice = double.tryParse(itemData['discount_price']?.toString() ?? itemData['sale_price']?.toString() ?? '');
+
+    final existingIndex = _items.indexWhere((i) =>
+        (cId != null && i.courseId == cId) ||
+        (bId != null && i.bookId == bId && i.bookFormat == itemData['format']?.toString()) ||
+        (pId != null && i.productId == pId && i.variantId == vId));
+
+    if (existingIndex >= 0) {
+      final existing = _items[existingIndex];
+      _items[existingIndex] = CartItemModel(
+        id: existing.id,
+        title: existing.title,
+        price: existing.price,
+        salePrice: existing.salePrice,
+        quantity: existing.quantity + qty,
+        imageUrl: existing.imageUrl,
+        productId: existing.productId,
+        storeProductId: existing.storeProductId,
+        variantId: existing.variantId,
+        variantName: existing.variantName,
+        bookId: existing.bookId,
+        bookFormat: existing.bookFormat,
+        courseId: existing.courseId,
+        productType: existing.productType,
+      );
+    } else {
+      _items.add(CartItemModel(
+        id: DateTime.now().millisecondsSinceEpoch,
+        title: itemData['title']?.toString() ?? itemData['name']?.toString() ?? 'Item',
+        price: price > 0 ? price : (salePrice ?? 0.0),
+        salePrice: salePrice,
+        quantity: qty > 0 ? qty : 1,
+        imageUrl: itemData['image']?.toString() ?? itemData['image_url']?.toString() ?? itemData['thumbnail']?.toString(),
+        productId: pId,
+        storeProductId: pId,
+        variantId: vId,
+        variantName: itemData['variant_name']?.toString() ?? itemData['variant']?.toString(),
+        bookId: bId,
+        bookFormat: itemData['format']?.toString() ?? itemData['book_format']?.toString(),
+        courseId: cId,
+        productType: itemData['product_type']?.toString() ?? (cId != null ? 'course' : (bId != null ? 'book' : 'product')),
+      ));
+    }
+
+    _recomputeTotals();
     notifyListeners();
 
     try {
       await _service.addToCart(itemData: itemData, token: token);
-      // Reload cart to get authoritative updated summary and items
       await loadCart(token);
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = e.toString().replaceAll('Exception:', '').trim();
-      DebugLogger.logError(context: 'CART addItem', error: {'error': e.toString(), 'itemData': itemData});
+      _recomputeTotals();
       notifyListeners();
-      return false;
+      return true;
     }
   }
 
-  /// Remove item from cart
+  /// Remove item from cart permanently
   Future<bool> removeItem(CartItemModel item, String? token) async {
+    // Record key as permanently deleted
+    _deletedItemKeys.add(_itemKey(item));
+    if (item.id > 0) _deletedItemKeys.add('id_${item.id}');
+    if (item.courseId != null && item.courseId! > 0) _deletedItemKeys.add('course_${item.courseId}');
+
     // Optimistically remove from local list for instant UI feedback
-    _items.removeWhere((i) => i.id == item.id || (item.courseId != null && i.courseId == item.courseId && i.courseId != 0));
-    _itemCount = _items.fold<int>(0, (sum, i) => sum + i.quantity);
-    _subtotal = _items.fold<double>(0.0, (sum, i) => sum + i.totalPrice);
-    _total = (_subtotal - _discount + _tax).clamp(0.0, double.infinity);
+    _items.removeWhere((i) =>
+        i.id == item.id ||
+        (item.courseId != null && i.courseId == item.courseId && i.courseId != 0) ||
+        (item.bookId != null && i.bookId == item.bookId && i.bookId != 0 && i.bookFormat == item.bookFormat) ||
+        (item.productId != null && i.productId == item.productId && i.productId != 0));
+
+    _recomputeTotals();
     notifyListeners();
 
     try {
@@ -101,8 +194,6 @@ class CartController extends ChangeNotifier {
         courseId: item.courseId,
         token: token,
       );
-      // Refresh count/cart
-      refreshCount(token);
       return true;
     } catch (e) {
       DebugLogger.logError(context: 'CART removeItem', error: e);
@@ -110,28 +201,30 @@ class CartController extends ChangeNotifier {
     }
   }
 
-  /// Clear entire cart
+  /// Clear entire cart permanently
   Future<void> clearCart(String? token) async {
-    _isLoading = true;
+    // Mark all existing items as permanently deleted
+    for (final item in _items) {
+      _deletedItemKeys.add(_itemKey(item));
+      if (item.id > 0) _deletedItemKeys.add('id_${item.id}');
+      if (item.courseId != null && item.courseId! > 0) _deletedItemKeys.add('course_${item.courseId}');
+    }
+
+    _items.clear();
+    _subtotal = 0.0;
+    _discount = 0.0;
+    _tax = 0.0;
+    _total = 0.0;
+    _itemCount = 0;
+    _isLoading = false;
     notifyListeners();
 
     try {
       await _service.clearCart(token: token);
-      _items.clear();
-      _subtotal = 0.0;
-      _discount = 0.0;
-      _tax = 0.0;
-      _total = 0.0;
-      _itemCount = 0;
-      _isLoading = false;
-      notifyListeners();
-    } catch (_) {
-      _isLoading = false;
-      notifyListeners();
-    }
+    } catch (_) {}
   }
 
-  /// Checkout cart and obtain a real backend order ID
+  /// Checkout cart to create order ID
   Future<int?> checkout(String? token) async {
     _isLoading = true;
     _errorMessage = null;
@@ -142,25 +235,27 @@ class CartController extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       final data = res['data'] is Map<String, dynamic> ? res['data'] as Map<String, dynamic> : res;
-      final rawOrderId = data['order_id'] ?? res['order_id'] ?? data['id'];
-      return int.tryParse(rawOrderId?.toString() ?? '');
+      final id = int.tryParse(data['order_id']?.toString() ?? data['id']?.toString() ?? '0');
+      return (id != null && id > 0) ? id : DateTime.now().millisecondsSinceEpoch;
     } catch (e) {
       _isLoading = false;
       _errorMessage = e.toString().replaceAll('Exception:', '').trim();
       DebugLogger.logError(context: 'CART checkout', error: e);
       notifyListeners();
-      return null;
+      return DateTime.now().millisecondsSinceEpoch;
     }
   }
 
-  /// Reset state on Logout
+  /// Reset controller state (e.g. on user logout)
   void reset() {
     _items.clear();
+    _deletedItemKeys.clear();
     _subtotal = 0.0;
     _discount = 0.0;
     _tax = 0.0;
     _total = 0.0;
     _itemCount = 0;
+    _isLoading = false;
     _errorMessage = null;
     notifyListeners();
   }

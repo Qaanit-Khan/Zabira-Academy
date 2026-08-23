@@ -295,15 +295,19 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                     if (!mounted) return;
 
                     if (success) {
+                      messenger.clearSnackBars();
                       messenger.showSnackBar(
                         SnackBar(
                           content: Text('Added "${item.title}" to cart!'),
                           backgroundColor: AppColors.navyDark,
-                          duration: const Duration(seconds: 3),
+                          duration: const Duration(milliseconds: 2500),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           action: SnackBarAction(
                             label: 'View Cart',
                             textColor: AppColors.gold,
                             onPressed: () {
+                              messenger.clearSnackBars();
                               if (mounted) {
                                 context.push(AppRoutes.cart);
                               }
@@ -312,10 +316,12 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                         ),
                       );
                     } else {
+                      messenger.clearSnackBars();
                       messenger.showSnackBar(
                         SnackBar(
                           content: Text(cart.errorMessage ?? 'Could not add book to cart.'),
                           backgroundColor: AppColors.error,
+                          duration: const Duration(milliseconds: 2500),
                         ),
                       );
                     }

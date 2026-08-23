@@ -39,9 +39,9 @@ class ZabiraBottomNav extends StatelessWidget {
   static const double _totalHeight  = _barHeight + _buttonRise;
   static const double _cornerRadius = 0.0;    // flat full-width bar
 
-  static const Color _activeGold    = Color(0xFFDC8C1A);
-  static const Color _inactiveColor = Color(0xFF1A2332); // rich dark readable
-  static const Color _navyBtn       = Color(0xFF092540);
+  static const Color _activeGold    = Color(0xFFC9A84C);
+  static const Color _inactiveColor = Color(0xFF112039); // rich dark navy
+  static const Color _navyBtn       = Color(0xFF112039);
 
   @override
   Widget build(BuildContext context) {
@@ -560,16 +560,16 @@ class _CenterHomeButtonState extends State<_CenterHomeButton>
                               shape: BoxShape.circle,
                               gradient: SweepGradient(
                                 colors: [
-                                  const Color(0xFFDC8C1A).withValues(alpha: opacity),
+                                  const Color(0xFFC9A84C).withValues(alpha: opacity),
                                   const Color(0xFF38BDF8).withValues(alpha: opacity * 0.8),
                                   const Color(0xFFA855F7).withValues(alpha: opacity * 0.9),
                                   const Color(0xFF10B981).withValues(alpha: opacity * 0.8),
-                                  const Color(0xFFDC8C1A).withValues(alpha: opacity),
+                                  const Color(0xFFC9A84C).withValues(alpha: opacity),
                                 ],
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFDC8C1A).withValues(alpha: opacity * 0.45),
+                                  color: const Color(0xFFC9A84C).withValues(alpha: opacity * 0.45),
                                   blurRadius: 10,
                                   spreadRadius: 1,
                                 ),

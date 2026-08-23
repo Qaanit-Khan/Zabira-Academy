@@ -90,6 +90,50 @@ class NasheedApiService {
   }
 
   Future<DailySupplementModel> getDailyNasheed() async {
+    // 1. Primary mobile endpoint connected directly to Admin Daily Audio
+    try {
+      final primaryUri = Uri.parse('${ApiConfig.baseUrl}/mobile/daily_audio.php');
+      debugPrint('[NASHEED API] GET $primaryUri');
+      final res = await _client.get(
+        primaryUri,
+        headers: {'Accept': 'application/json', 'User-Agent': 'ZabiraAcademy-Flutter/1.0'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        if (decoded is Map<String, dynamic>) {
+          final data = decoded['data'];
+          final item = (data is Map<String, dynamic> ? data['item'] : null) ??
+              (data is Map<String, dynamic> ? data : null) ??
+              (decoded['item'] is Map<String, dynamic> ? decoded['item'] : null);
+
+          if (item is Map<String, dynamic> && item.isNotEmpty) {
+            final title = item['title']?.toString() ?? item['name']?.toString() ?? 'Daily Nasheed';
+            final artist = item['artist']?.toString() ?? item['reciter']?.toString() ?? 'Zabira Audio';
+            final rawDuration = item['duration']?.toString() ?? item['duration_formatted']?.toString() ?? '04:12';
+            final cover = item['cover_image']?.toString() ??
+                item['thumbnail']?.toString() ??
+                item['image']?.toString() ??
+                item['image_url']?.toString();
+            final audio = item['audio_url']?.toString() ?? item['file_url']?.toString() ?? item['stream_url']?.toString();
+
+            return DailySupplementModel(
+              sectionLabel: 'DAILY NASHEED',
+              contentTitle: title,
+              contentType: artist,
+              duration: rawDuration,
+              progress: 0.35,
+              artType: DailySupplementArtType.nasheed,
+              imageUrl: ApiConfig.resolveImageUrl(cover),
+              audioUrl: audio,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[NASHEED API EXCEPTION daily_audio.php] $e');
+    }
+
     final candidates = [
       Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list.php?limit=1'),
       Uri.parse('${ApiConfig.baseUrl}/nasheed/public_list?limit=1'),

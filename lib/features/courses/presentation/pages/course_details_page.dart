@@ -42,7 +42,7 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
   int _selectedLanguageIndex = 0; // 0: English, 1: Roman English, 2: Urdu
   int _expandedFaqIndex = -1;
 
-  static const Color brandGold = Color(0xFFC4A95B);
+  static const Color brandGold = Color(0xFFC9A84C);
   static const Color brandNavy = Color(0xFF112039);
   static const Color brandNavyDark = Color(0xFF0D1B2E);
   static const Color brandNavyCard = Color(0xFF162744);
@@ -149,6 +149,124 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
     return en;
   }
 
+  String _translateCurriculumTitle(String title) {
+    final lang = _getLangCode();
+    if (lang == 'en') return title;
+
+    final lower = title.toLowerCase().trim();
+
+    if (lower.contains('module 1') || lower.contains('introduction to the quran') || lower.contains('arabic basics')) {
+      return lang == 'ur'
+          ? 'ماڈیول 1 - قرآن اور عربی کے بنیادی اصولوں کا تعارف'
+          : 'Module 1 - Quran Aur Arabic Ke Bunyadi Usool';
+    }
+    if (lower.contains('module 2') || lower.contains('makharij') || lower.contains('pronunciation')) {
+      return lang == 'ur'
+          ? 'ماڈیول 2 - مخارج اور حروف کا صحیح تلفظ'
+          : 'Module 2 - Sahi Makharij Aur Talaffuz Ke Usool';
+    }
+    if (lower.contains('module 3') || lower.contains('noon sakinah') || lower.contains('tanween')) {
+      return lang == 'ur'
+          ? 'ماڈیول 3 - نون ساکنہ اور تنوین کے احکام و قواعد'
+          : 'Module 3 - Noon Sakinah Aur Tanween Ke Ahkaam';
+    }
+    if (lower.contains('module 4') || lower.contains('meem sakinah')) {
+      return lang == 'ur'
+          ? 'ماڈیول 4 - میم ساکنہ کے احکام اور قواعد'
+          : 'Module 4 - Meem Sakinah Ke Qawaid Aur Ahkaam';
+    }
+    if (lower.contains('module 5') || lower.contains('madd') || lower.contains('prolongation')) {
+      return lang == 'ur'
+          ? 'ماڈیول 5 - مد کے قواعد اور اس کی اقسام'
+          : 'Module 5 - Madd Ke Qawaid Aur Uski Aqsaam';
+    }
+    if (lower.contains('module 6') || lower.contains('tafkheem') || lower.contains('tarqeeq') || lower.contains('heavy and light')) {
+      return lang == 'ur'
+          ? 'ماڈیول 6 - تفخیم اور ترقیق (موٹے اور باریک حروف)'
+          : 'Module 6 - Tafkheem Aur Tarqeeq (Mote Aur Bareek Huroof)';
+    }
+    if (lower.contains('module 7') || lower.contains('waqf') || lower.contains('stopping rules')) {
+      return lang == 'ur'
+          ? 'ماڈیول 7 - وقف کے قواعد اور رموز و اوقاف'
+          : 'Module 7 - Waqf Ke Qawaid Aur Romooz o Auqaaf';
+    }
+    if (lower.contains('module 8') || lower.contains('practical recitation') || lower.contains('recitation with tajweed')) {
+      return lang == 'ur'
+          ? 'ماڈیول 8 - تجوید کے ساتھ عملی تلاوت کی مشق'
+          : 'Module 8 - Tajweed Ke Sath Tilawat Ki Amali Mashq';
+    }
+    if (lower.contains('module 9') || lower.contains('memorization') || lower.contains('selected surahs')) {
+      return lang == 'ur'
+          ? 'ماڈیول 9 - منتخب سورتوں کا حفظ اور ترتیل'
+          : 'Module 9 - Muntakhab Suraton Ka Hifz Aur Tarteel';
+    }
+    if (lower.contains('module 10') || lower.contains('daily adhkar') || lower.contains('duas')) {
+      return lang == 'ur'
+          ? 'ماڈیول 10 - مسنون اذکار اور روزمرہ کی دعائیں'
+          : 'Module 10 - Masnoon Azkaar Aur Rozmarrah Ki Duayein';
+    }
+    if (lower.contains('module 11') || lower.contains('final revision') || lower.contains('assessment')) {
+      return lang == 'ur'
+          ? 'ماڈیول 11 - حتمی دہرائی اور جامع امتحان'
+          : 'Module 11 - Final Revision Aur Imtehan';
+    }
+    if (lower.contains('module 12') || lower.contains('certification') || lower.contains('ijazah')) {
+      return lang == 'ur'
+          ? 'ماڈیول 12 - سند اور اجازت نامے کی تیاری'
+          : 'Module 12 - Sanad Aur Ijazah Ki Tayyari';
+    }
+
+    final moduleMatch = RegExp(r'Module\s*(\d+)[\s\-:]*(.*)', caseSensitive: false).firstMatch(title);
+    if (moduleMatch != null) {
+      final num = moduleMatch.group(1);
+      final rest = moduleMatch.group(2) ?? '';
+      if (lang == 'ur') {
+        return 'ماڈیول $num ${rest.isNotEmpty ? '- $rest' : ''}';
+      } else {
+        return 'Module $num ${rest.isNotEmpty ? '- $rest' : ''}';
+      }
+    }
+
+    return title;
+  }
+
+  String _translateLessonTitle(String title) {
+    final lang = _getLangCode();
+    if (lang == 'en') return title;
+
+    final lower = title.toLowerCase().trim();
+    if (lower.contains('lesson 1') || lower.contains('arabic alphabet')) {
+      return lang == 'ur' ? 'سبق 1: عربی حروف تہجی کی شناخت اور ادائیگی' : 'Sabaq 1: Arabic Huroof Tahajji Ki Pehchan';
+    }
+    if (lower.contains('lesson 2') || lower.contains('vowels') || lower.contains('harakat')) {
+      return lang == 'ur' ? 'سبق 2: حرکات (زبر، زیر، پیش) اور تنوین' : 'Sabaq 2: Harakaat Aur Tanween Ka Bayaan';
+    }
+    if (lower.contains('lesson 3') || lower.contains('sukoon') || lower.contains('shaddah')) {
+      return lang == 'ur' ? 'سبق 3: جزم (سکون) اور تشدید کے قواعد' : 'Sabaq 3: Jazm Aur Tashdeed Ke Qawaid';
+    }
+    if (lower.contains('lesson 4') || lower.contains('makharij') || lower.contains('throat')) {
+      return lang == 'ur' ? 'سبق 4: حلقی حروف کے مخارج' : 'Sabaq 4: Halqi Huroof Ke Makharij';
+    }
+    if (lower.contains('lesson 5') || lower.contains('tongue letters')) {
+      return lang == 'ur' ? 'سبق 5: لسانی حروف کے مخارج اور مشق' : 'Sabaq 5: Lisani Huroof Ke Makharij';
+    }
+    if (lower.contains('lesson 6') || lower.contains('lip letters')) {
+      return lang == 'ur' ? 'سبق 6: شفوی حروف (لبوں سے ادا ہونے والے حروف)' : 'Sabaq 6: Shafwi Huroof Ke Makharij';
+    }
+    if (lower.contains('lesson 7') || lower.contains('quiz') || lower.contains('test')) {
+      return lang == 'ur' ? 'سبق 7: عملی جانچ اور ٹیسٹ' : 'Sabaq 7: Amali Jaanch Aur Test';
+    }
+
+    final sabaqMatch = RegExp(r'Lesson\s*(\d+)[\s\-:]*(.*)', caseSensitive: false).firstMatch(title);
+    if (sabaqMatch != null) {
+      final num = sabaqMatch.group(1);
+      final rest = sabaqMatch.group(2) ?? '';
+      return lang == 'ur' ? 'سبق $num: $rest' : 'Sabaq $num: $rest';
+    }
+
+    return title;
+  }
+
   Future<void> _addToCart() async {
     HapticFeedback.mediumImpact();
     final c = _course;
@@ -184,8 +302,8 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
 
     if (!mounted) return;
 
-    // Fast 2-second auto-dismissing toast with plan-specific price
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    // Fast auto-dismissing toast with plan-specific price
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -207,12 +325,12 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
         backgroundColor: brandNavy,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(milliseconds: 2000),
+        duration: const Duration(milliseconds: 2500),
         action: SnackBarAction(
           label: 'View Cart',
           textColor: brandGold,
           onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).clearSnackBars();
             context.push(AppRoutes.cart);
           },
         ),
@@ -638,22 +756,15 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
 
           const SizedBox(height: 14),
 
-          // ── 2. 3-Language Converter Pill (with Lucide Book Open Icon for Urdu)
+          // ── 2. Standard 3-Language Converter Segmented Control
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(32),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 14,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
               ),
               child: Row(
                 children: [
@@ -661,7 +772,11 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                   Expanded(
                     child: _buildExactLangTab(
                       index: 0,
-                      iconWidget: const Icon(Icons.translate_rounded, size: 16),
+                      iconWidget: Icon(
+                        Icons.translate_rounded,
+                        size: 15,
+                        color: _selectedLanguageIndex == 0 ? Colors.white : const Color(0xFF64748B),
+                      ),
                       label: 'English',
                     ),
                   ),
@@ -669,7 +784,11 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                   Expanded(
                     child: _buildExactLangTab(
                       index: 1,
-                      iconWidget: const Icon(Icons.text_fields_rounded, size: 16),
+                      iconWidget: Icon(
+                        Icons.text_fields_rounded,
+                        size: 15,
+                        color: _selectedLanguageIndex == 1 ? Colors.white : const Color(0xFF64748B),
+                      ),
                       label: 'Roman English',
                     ),
                   ),
@@ -678,7 +797,7 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                     child: _buildExactLangTab(
                       index: 2,
                       iconWidget: _LucideBookOpenIcon(
-                        size: 16,
+                        size: 15,
                         color: _selectedLanguageIndex == 2 ? brandGold : const Color(0xFF64748B),
                       ),
                       label: 'اردو',
@@ -933,8 +1052,8 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      if (c.categoryName != null) _buildSkillTag(c.categoryName!),
-                      _buildSkillTag(c.title),
+                      if (c.categoryName != null) _buildSkillTag(_tr(c.categoryName!, re: c.categoryName, ur: c.categoryName == 'Quran Studies' ? 'قرآنی علوم' : (c.categoryName == 'Islamic Essentials' ? 'اسلامی ضروریات' : c.categoryName))),
+                      _buildSkillTag(_getActiveTitle(c)),
                       _buildSkillTag(_tr('Islamic Knowledge', re: 'Islami Ilm', ur: 'اسلامی علم')),
                       _buildSkillTag(_tr('Sunnah & Ethics', re: 'Sunnah & Ethics', ur: 'سنت اور اخلاق')),
                       _buildSkillTag(_tr('Accredited Certification', re: 'Official Certificate', ur: 'منظور شدہ سرٹیفکیٹ')),
@@ -985,6 +1104,7 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                     ),
                     const SizedBox(height: 12),
                     ...c.curriculum.map((section) {
+                      final translatedSectionTitle = _translateCurriculumTitle(section.title);
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
@@ -996,7 +1116,7 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                           child: ExpansionTile(
                             title: Text(
-                              section.title,
+                              translatedSectionTitle,
                               style: GoogleFonts.outfit(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w700,
@@ -1013,6 +1133,7 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                                   )
                                 : null,
                             children: section.lessons.map((lesson) {
+                              final translatedLessonTitle = _translateLessonTitle(lesson.title);
                               return ListTile(
                                 dense: true,
                                 onTap: () {
@@ -1034,7 +1155,7 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                                 },
                                 leading: const Icon(Icons.play_circle_outline_rounded, size: 18, color: brandGold),
                                 title: Text(
-                                  lesson.title,
+                                  translatedLessonTitle,
                                   style: GoogleFonts.outfit(fontSize: 12.5, color: brandNavy),
                                 ),
                                 trailing: lesson.isPreview
@@ -1045,7 +1166,7 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(
-                                          'Preview',
+                                          _tr('Preview', re: 'Preview', ur: 'جھلک'),
                                           style: GoogleFonts.outfit(
                                             fontSize: 9.5,
                                             fontWeight: FontWeight.w700,
@@ -2011,23 +2132,39 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
         setState(() => _selectedLanguageIndex = index);
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
         decoration: BoxDecoration(
           color: isSelected ? brandNavy : Colors.transparent,
-          borderRadius: BorderRadius.circular(25),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: brandNavy.withValues(alpha: 0.25),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             iconWidget,
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: GoogleFonts.outfit(
-                fontSize: 12.5,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? Colors.white : const Color(0xFF475569),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? Colors.white : const Color(0xFF475569),
+                ),
               ),
             ),
           ],
@@ -2204,21 +2341,16 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
     );
   }
 
-  // ── Bottom Fixed Action Bar ────────────────────────────────────────────────
+  // ── Bottom Fixed Action Bar: Wishlist - Quick Enroll - Add to Cart ──────────
   Widget _buildBottomBar() {
     final c = _course!;
-    final isMonthly = _selectedPaymentPlanIndex == 1;
-    final planPrice = isMonthly
-        ? (c.paymentOptions.length > 1 && c.paymentOptions[1].installmentAmount != null
-            ? c.paymentOptions[1].installmentAmount!
-            : (c.effectivePrice / 6).ceilToDouble())
-        : c.effectivePrice;
-
     final enrollment = context.watch<EnrollmentController>();
+    final wishlist = context.watch<WishlistController>();
     final isEnrolled = enrollment.isEnrolled(widget.courseId);
+    final isWishlisted = wishlist.isWishlisted(c.id);
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom + 8 : 14),
       decoration: BoxDecoration(
         color: Colors.white,
         border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
@@ -2232,41 +2364,58 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
       ),
       child: Row(
         children: [
-          // Price Info
-          if (!isEnrolled) ...[
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Price',
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    color: const Color(0xFF94A3B8),
+          // 1. Wishlist Button (Left)
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: OutlinedButton(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                final added = wishlist.toggleCourse(c);
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      added ? 'Saved to Wishlist ⭐' : 'Removed from Wishlist',
+                      style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                    backgroundColor: brandNavy,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    duration: const Duration(milliseconds: 1500),
                   ),
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: isWishlisted ? brandGold : brandNavy,
+                backgroundColor: isWishlisted ? const Color(0xFFFFFBEB) : Colors.white,
+                side: BorderSide(
+                  color: isWishlisted ? brandGold : const Color(0xFFCBD5E1),
+                  width: 1.2,
                 ),
-                Text(
-                  '₹${planPrice.toInt()}${isMonthly ? '/mo' : ''}',
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: brandNavy,
-                  ),
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
+              ),
+              child: Icon(
+                isWishlisted ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                color: isWishlisted ? const Color(0xFFDC2626) : brandNavy,
+                size: 22,
+              ),
             ),
-            const SizedBox(width: 14),
-          ],
+          ),
+          const SizedBox(width: 10),
 
-          // Quick Enroll / Start Learning Button
+          // 2. Quick Enroll / Start Learning Button (Center)
           Expanded(
             child: SizedBox(
-              height: 46,
+              height: 48,
               child: ElevatedButton.icon(
                 onPressed: enrollment.isLoading ? null : _onEnrollAction,
                 icon: Icon(
                   isEnrolled ? Icons.play_circle_outline_rounded : Icons.bolt_rounded,
-                  size: 18,
+                  size: 19,
                   color: Colors.white,
                 ),
                 style: ElevatedButton.styleFrom(
@@ -2282,7 +2431,7 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                       ? 'Continue Learning'
                       : (enrollment.isLoading ? 'Processing...' : 'Quick Enroll'),
                   style: GoogleFonts.outfit(
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -2290,12 +2439,12 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
             ),
           ),
 
+          // 3. Add to Cart Button (Right)
           if (!isEnrolled) ...[
             const SizedBox(width: 10),
-            // Cart Button
             SizedBox(
-              width: 46,
-              height: 46,
+              width: 48,
+              height: 48,
               child: OutlinedButton(
                 onPressed: _addToCart,
                 style: OutlinedButton.styleFrom(
@@ -2307,7 +2456,7 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Icon(Icons.shopping_cart_outlined, size: 20),
+                child: const Icon(Icons.shopping_cart_outlined, size: 21, color: brandNavy),
               ),
             ),
           ],

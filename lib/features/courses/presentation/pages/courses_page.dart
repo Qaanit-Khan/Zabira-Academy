@@ -42,7 +42,7 @@ class _CoursesPageState extends State<CoursesPage> {
 
   late final List<HeroBannerModel> _banners;
 
-  static const Color brandGold = Color(0xFFC4A95B);
+  static const Color brandGold = Color(0xFFC9A84C);
   static const Color brandNavy = Color(0xFF112039);
 
   @override
@@ -155,26 +155,6 @@ class _CoursesPageState extends State<CoursesPage> {
     _applyFilterAndSort();
   }
 
-  void _toggleFavorite(CourseApiModel course) {
-    HapticFeedback.selectionClick();
-    final wishlist = context.read<WishlistController>();
-    final added = wishlist.toggleCourse(course);
-
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          added ? 'Added to Wishlist ⭐' : 'Removed from Wishlist',
-          style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
-        ),
-        backgroundColor: brandNavy,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(milliseconds: 1500),
-      ),
-    );
-  }
-
   Future<void> _addToCart(CourseApiModel course) async {
     HapticFeedback.mediumImpact();
     final cart = context.read<CartController>();
@@ -189,6 +169,9 @@ class _CoursesPageState extends State<CoursesPage> {
     final success = await cart.addItem(
       itemData: {
         'course_id': course.id,
+        'title': course.title,
+        'name': course.title,
+        'image': course.fullThumbnailUrl ?? course.fullHeroBannerUrl,
         'product_type': 'course',
         'quantity': '1',
         'price': course.effectivePrice,
@@ -199,8 +182,8 @@ class _CoursesPageState extends State<CoursesPage> {
 
     if (!mounted) return;
 
-    // Fast 2-second auto-dismissing toast
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    // Fast auto-dismissing toast
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -220,15 +203,32 @@ class _CoursesPageState extends State<CoursesPage> {
         backgroundColor: brandNavy,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(milliseconds: 2000),
+        duration: const Duration(milliseconds: 1800),
         action: SnackBarAction(
           label: 'View Cart',
           textColor: brandGold,
           onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).clearSnackBars();
             context.push(AppRoutes.cart);
           },
         ),
+      ),
+    );
+  }
+
+  void _toggleFavorite(CourseApiModel course) {
+    HapticFeedback.lightImpact();
+    final wishlist = context.read<WishlistController>();
+    final added = wishlist.toggleCourse(course);
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          added ? 'Saved to Wishlist ⭐' : 'Removed from Wishlist',
+          style: GoogleFonts.outfit(color: Colors.white),
+        ),
+        backgroundColor: brandNavy,
+        duration: const Duration(milliseconds: 1800),
       ),
     );
   }
@@ -435,12 +435,12 @@ class _CoursesPageState extends State<CoursesPage> {
   // ── Floating Action Button for Web-style Filter Window ─────────────────────
   Widget _buildFloatingFilterButton() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 60),
+      margin: const EdgeInsets.only(bottom: 75),
       child: FloatingActionButton.extended(
         onPressed: _openFilterSheet,
         backgroundColor: brandNavy,
         elevation: 4,
-        icon: const Icon(Icons.tune_rounded, color: brandGold, size: 19),
+        icon: const Icon(Icons.tune_rounded, color: brandGold, size: 18),
         label: Text(
           'Filter',
           style: GoogleFonts.outfit(
@@ -687,7 +687,7 @@ class _CourseCard extends StatelessWidget {
   final VoidCallback onViewDetails;
   final VoidCallback onAddToCart;
 
-  static const Color brandGold = Color(0xFFC4A95B);
+  static const Color brandGold = Color(0xFFC9A84C);
   static const Color brandNavy = Color(0xFF112039);
 
   @override
@@ -1177,12 +1177,12 @@ class _CourseArtworkFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF081D3A),
+      color: const Color(0xFF112039),
       child: const Center(
         child: Icon(
           Icons.auto_stories_rounded,
           size: 40,
-          color: Color(0xFFC4A95B),
+          color: Color(0xFFC9A84C),
         ),
       ),
     );
@@ -1207,7 +1207,7 @@ class _QuickEnrollSheet extends StatefulWidget {
 
 class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
   int _selectedPlanIndex = 0; // 0: Pay in Full, 1: Monthly
-  static const Color brandGold = Color(0xFFC4A95B);
+  static const Color brandGold = Color(0xFFC9A84C);
   static const Color brandNavy = Color(0xFF112039);
   static const Color brandNavyDark = Color(0xFF0D1B2E);
   static const Color brandNavyCard = Color(0xFF162744);

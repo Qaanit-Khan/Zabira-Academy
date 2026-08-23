@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/api_config.dart';
 import '../../data/models/course_api_model.dart';
+import '../../../store/data/models/store_product_model.dart';
+import '../../../library/data/models/library_item_model.dart';
 
 /// Wishlist Item Model
 class WishlistItem {
@@ -38,6 +40,32 @@ class WishlistItem {
     );
   }
 
+  factory WishlistItem.fromStoreProduct(StoreProductModel product) {
+    return WishlistItem(
+      id: product.id,
+      title: product.name,
+      type: 'store',
+      price: product.effectivePrice,
+      originalPrice: product.hasDiscount ? product.price : null,
+      imageUrl: product.fullThumbnailUrl,
+      subtitle: product.categoryName ?? 'Zabira Store',
+    );
+  }
+
+  factory WishlistItem.fromBook(LibraryItemModel book) {
+    final effectivePrice = (book.salePrice != null && book.salePrice! > 0) ? book.salePrice! : book.price;
+    final hasDiscount = book.salePrice != null && book.salePrice! > 0 && book.salePrice! < book.price;
+    return WishlistItem(
+      id: book.id,
+      title: book.title,
+      type: 'book',
+      price: effectivePrice,
+      originalPrice: hasDiscount ? book.price : null,
+      imageUrl: book.coverImage,
+      subtitle: book.author.isNotEmpty ? book.author : 'Zabira Library',
+    );
+  }
+
   factory WishlistItem.fromJson(Map<String, dynamic> json) {
     return WishlistItem(
       id: json['id'] is int ? json['id'] as int : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
@@ -67,20 +95,24 @@ class WishlistController extends ChangeNotifier {
     _loadFromPrefs();
   }
 
-  final Map<int, WishlistItem> _items = {};
+  final Map<String, WishlistItem> _items = {};
 
   List<WishlistItem> get items => _items.values.toList();
   int get count => _items.length;
   bool get isEmpty => _items.isEmpty;
 
-  bool isWishlisted(int id) => _items.containsKey(id);
+  String _genKey(int id, String type) => '${type}_$id';
 
-  static const String _storageKey = 'zabira_wishlist_items';
+  bool isWishlisted(int id, {String type = 'course'}) {
+    return _items.containsKey(_genKey(id, type)) || _items.containsKey(id.toString());
+  }
+
+  static const String _storageKey = 'zabira_wishlist_items_v2';
 
   Future<void> _loadFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_storageKey);
+      final raw = prefs.getString(_storageKey) ?? prefs.getString('zabira_wishlist_items');
       if (raw != null && raw.isNotEmpty) {
         final decoded = jsonDecode(raw);
         if (decoded is List) {
@@ -88,7 +120,7 @@ class WishlistController extends ChangeNotifier {
           for (final item in decoded) {
             if (item is Map<String, dynamic>) {
               final w = WishlistItem.fromJson(item);
-              _items[w.id] = w;
+              _items[_genKey(w.id, w.type)] = w;
             }
           }
           notifyListeners();
@@ -106,13 +138,44 @@ class WishlistController extends ChangeNotifier {
   }
 
   bool toggleCourse(CourseApiModel course) {
-    if (_items.containsKey(course.id)) {
-      _items.remove(course.id);
+    final key = _genKey(course.id, 'course');
+    if (_items.containsKey(key)) {
+      _items.remove(key);
       _saveToPrefs();
       notifyListeners();
       return false;
     } else {
-      _items[course.id] = WishlistItem.fromCourse(course);
+      _items[key] = WishlistItem.fromCourse(course);
+      _saveToPrefs();
+      notifyListeners();
+      return true;
+    }
+  }
+
+  bool toggleStoreProduct(StoreProductModel product) {
+    final key = _genKey(product.id, 'store');
+    if (_items.containsKey(key)) {
+      _items.remove(key);
+      _saveToPrefs();
+      notifyListeners();
+      return false;
+    } else {
+      _items[key] = WishlistItem.fromStoreProduct(product);
+      _saveToPrefs();
+      notifyListeners();
+      return true;
+    }
+  }
+
+  bool toggleBook(LibraryItemModel book) {
+    final key = _genKey(book.id, 'book');
+    if (_items.containsKey(key)) {
+      _items.remove(key);
+      _saveToPrefs();
+      notifyListeners();
+      return false;
+    } else {
+      _items[key] = WishlistItem.fromBook(book);
       _saveToPrefs();
       notifyListeners();
       return true;
@@ -120,25 +183,26 @@ class WishlistController extends ChangeNotifier {
   }
 
   bool toggleItem(WishlistItem item) {
-    if (_items.containsKey(item.id)) {
-      _items.remove(item.id);
+    final key = _genKey(item.id, item.type);
+    if (_items.containsKey(key)) {
+      _items.remove(key);
       _saveToPrefs();
       notifyListeners();
       return false;
     } else {
-      _items[item.id] = item;
+      _items[key] = item;
       _saveToPrefs();
       notifyListeners();
       return true;
     }
   }
 
-  void removeItem(int id) {
-    if (_items.containsKey(id)) {
-      _items.remove(id);
-      _saveToPrefs();
-      notifyListeners();
-    }
+  void removeItem(int id, {String type = 'course'}) {
+    final key = _genKey(id, type);
+    _items.remove(key);
+    _items.remove(id.toString());
+    _saveToPrefs();
+    notifyListeners();
   }
 
   void clear() {

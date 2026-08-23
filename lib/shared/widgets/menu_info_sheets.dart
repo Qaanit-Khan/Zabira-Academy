@@ -9,7 +9,7 @@ import '../../features/auth/presentation/widgets/auth_bottom_sheet.dart';
 
 /// Modal dialogs and bottom sheets for auxiliary navigation links.
 abstract final class ZabiraMenuModals {
-  static const Color brandGold = Color(0xFFC4A95B);
+  static const Color brandGold = Color(0xFFC9A84C);
   static const Color brandNavy = Color(0xFF112039);
 
   /// Show Wishlist Sheet with real data
@@ -145,30 +145,45 @@ abstract final class ZabiraMenuModals {
                               showAuthBottomSheet(context);
                               return;
                             }
+                            final itemPayload = <String, dynamic>{
+                              'quantity': '1',
+                              'price': item.price,
+                              'title': item.title,
+                              'name': item.title,
+                              'image': item.imageUrl,
+                            };
+                            if (item.type == 'store') {
+                              itemPayload['product_id'] = item.id;
+                              itemPayload['store_product_id'] = item.id;
+                              itemPayload['product_type'] = 'product';
+                            } else if (item.type == 'book') {
+                              itemPayload['book_id'] = item.id;
+                              itemPayload['product_type'] = 'book';
+                            } else {
+                              itemPayload['course_id'] = item.id;
+                              itemPayload['product_type'] = 'course';
+                            }
+
                             context.read<CartController>().addItem(
-                              itemData: {
-                                'course_id': item.id,
-                                'product_type': item.type,
-                                'quantity': '1',
-                                'price': item.price,
-                              },
+                              itemData: itemPayload,
                               token: auth.currentToken,
                             );
+                            ScaffoldMessenger.of(context).clearSnackBars();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Added "${item.title}" to cart'),
+                                content: Text('Added "${item.title}" to cart', style: GoogleFonts.outfit(color: Colors.white)),
                                 backgroundColor: brandNavy,
-                                duration: const Duration(seconds: 2),
+                                duration: const Duration(milliseconds: 1800),
                               ),
                             );
                           },
                         ),
                         // Remove from Wishlist
                         IconButton(
-                          icon: const Icon(Icons.favorite_rounded, color: brandGold, size: 20),
+                          icon: const Icon(Icons.favorite_rounded, color: Color(0xFFEF4444), size: 20),
                           tooltip: 'Remove from Wishlist',
                           onPressed: () {
-                            wishlist.removeItem(item.id);
+                            wishlist.removeItem(item.id, type: item.type);
                           },
                         ),
                       ],
