@@ -258,7 +258,7 @@ class _AppDrawerState extends State<AppDrawer> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.favorite_border_rounded, size: 17, color: Color(0xFFDC8C1A)),
+                  const Icon(Icons.favorite_border_rounded, size: 17, color: Color(0xFFC9A84C)),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
@@ -552,7 +552,7 @@ class _AppDrawerState extends State<AppDrawer> {
         style: GoogleFonts.outfit(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: const Color(0xFFDC8C1A),
+          color: const Color(0xFFC9A84C),
           letterSpacing: 1.0,
         ),
       ),
@@ -568,14 +568,14 @@ class _AppDrawerState extends State<AppDrawer> {
     String? badgeText,
     Color? iconColor,
   }) {
-    final activeGold = const Color(0xFFDC8C1A);
-    final inactiveNavy = const Color(0xFF0B1628);
-    final inactiveIcon = const Color(0xFF64748B);
+    const activeGold = Color(0xFFC9A84C);
+    const inactiveNavy = Color(0xFF112039);
+    const inactiveIcon = Color(0xFF64748B);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       child: Material(
-        color: isActive ? activeGold.withValues(alpha: 0.10) : Colors.transparent,
+        color: isActive ? activeGold.withValues(alpha: 0.12) : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: ListTile(
           dense: true,
