@@ -1,11 +1,15 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/network/debug_logger.dart';
 import '../../data/models/cart_item_model.dart';
 import '../../data/services/cart_api_service.dart';
 
 /// Zabira Academy — Global Cart Controller
 class CartController extends ChangeNotifier {
-  CartController({CartApiService? service}) : _service = service ?? CartApiService();
+  CartController({CartApiService? service}) : _service = service ?? CartApiService() {
+    _initPersistence();
+  }
 
   final CartApiService _service;
 
@@ -30,6 +34,45 @@ class CartController extends ChangeNotifier {
 
   final Set<String> _deletedItemKeys = {};
 
+  static const String _prefDeletedKeys = 'zabira_deleted_cart_keys';
+  static const String _prefCartItems = 'zabira_local_cart_items';
+
+  Future<void> _initPersistence() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedDeleted = prefs.getStringList(_prefDeletedKeys);
+      if (savedDeleted != null && savedDeleted.isNotEmpty) {
+        _deletedItemKeys.addAll(savedDeleted);
+      }
+
+      final savedCartJson = prefs.getString(_prefCartItems);
+      if (savedCartJson != null && savedCartJson.isNotEmpty) {
+        final decoded = jsonDecode(savedCartJson);
+        if (decoded is List) {
+          final loadedItems = decoded
+              .whereType<Map<String, dynamic>>()
+              .map((j) => CartItemModel.fromJson(j))
+              .where((item) => !_deletedItemKeys.contains(_itemKey(item)))
+              .toList();
+          if (loadedItems.isNotEmpty && _items.isEmpty) {
+            _items = loadedItems;
+            _recomputeTotals();
+            notifyListeners();
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _savePersistence() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_prefDeletedKeys, _deletedItemKeys.toList());
+      final itemsJson = jsonEncode(_items.map((i) => i.toJson()).toList());
+      await prefs.setString(_prefCartItems, itemsJson);
+    } catch (_) {}
+  }
+
   String _itemKey(CartItemModel item) {
     if (item.id > 0) return 'id_${item.id}';
     if (item.courseId != null && item.courseId! > 0) return 'course_${item.courseId}';
@@ -51,8 +94,29 @@ class CartController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedDeleted = prefs.getStringList(_prefDeletedKeys);
+      if (savedDeleted != null && savedDeleted.isNotEmpty) {
+        _deletedItemKeys.addAll(savedDeleted);
+      }
+
       final summary = await _service.getCartList(token: token);
-      final serverItems = summary.items.where((item) => !_deletedItemKeys.contains(_itemKey(item))).toList();
+      final serverItems = summary.items.where((item) {
+        final key = _itemKey(item);
+        final idKey = 'id_${item.id}';
+        final courseKey = item.courseId != null ? 'course_${item.courseId}' : null;
+        final prodKey = item.productId != null ? 'prod_${item.productId}' : null;
+        final bookKey = item.bookId != null ? 'book_${item.bookId}' : null;
+
+        if (_deletedItemKeys.contains(key) ||
+            _deletedItemKeys.contains(idKey) ||
+            (courseKey != null && _deletedItemKeys.contains(courseKey)) ||
+            (prodKey != null && _deletedItemKeys.any((k) => k.startsWith(prodKey))) ||
+            (bookKey != null && _deletedItemKeys.any((k) => k.startsWith(bookKey)))) {
+          return false;
+        }
+        return true;
+      }).toList();
 
       if (serverItems.isNotEmpty) {
         _items = serverItems;
@@ -64,6 +128,7 @@ class CartController extends ChangeNotifier {
       }
 
       _recomputeTotals();
+      await _savePersistence();
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -155,6 +220,7 @@ class CartController extends ChangeNotifier {
     }
 
     _recomputeTotals();
+    await _savePersistence();
     notifyListeners();
 
     try {
@@ -175,6 +241,8 @@ class CartController extends ChangeNotifier {
     _deletedItemKeys.add(_itemKey(item));
     if (item.id > 0) _deletedItemKeys.add('id_${item.id}');
     if (item.courseId != null && item.courseId! > 0) _deletedItemKeys.add('course_${item.courseId}');
+    if (item.productId != null && item.productId! > 0) _deletedItemKeys.add('prod_${item.productId}');
+    if (item.bookId != null && item.bookId! > 0) _deletedItemKeys.add('book_${item.bookId}');
 
     // Optimistically remove from local list for instant UI feedback
     _items.removeWhere((i) =>
@@ -184,6 +252,7 @@ class CartController extends ChangeNotifier {
         (item.productId != null && i.productId == item.productId && i.productId != 0));
 
     _recomputeTotals();
+    await _savePersistence();
     notifyListeners();
 
     try {
@@ -208,6 +277,8 @@ class CartController extends ChangeNotifier {
       _deletedItemKeys.add(_itemKey(item));
       if (item.id > 0) _deletedItemKeys.add('id_${item.id}');
       if (item.courseId != null && item.courseId! > 0) _deletedItemKeys.add('course_${item.courseId}');
+      if (item.productId != null && item.productId! > 0) _deletedItemKeys.add('prod_${item.productId}');
+      if (item.bookId != null && item.bookId! > 0) _deletedItemKeys.add('book_${item.bookId}');
     }
 
     _items.clear();
@@ -217,6 +288,7 @@ class CartController extends ChangeNotifier {
     _total = 0.0;
     _itemCount = 0;
     _isLoading = false;
+    await _savePersistence();
     notifyListeners();
 
     try {
@@ -257,6 +329,7 @@ class CartController extends ChangeNotifier {
     _itemCount = 0;
     _isLoading = false;
     _errorMessage = null;
+    _savePersistence();
     notifyListeners();
   }
 }

@@ -167,6 +167,10 @@ class WishlistController extends ChangeNotifier {
     }
   }
 
+  bool isLibraryFavorite(int id) => isWishlisted(id, type: 'book');
+
+  bool toggleLibraryItem(LibraryItemModel book) => toggleBook(book);
+
   bool toggleBook(LibraryItemModel book) {
     final key = _genKey(book.id, 'book');
     if (_items.containsKey(key)) {

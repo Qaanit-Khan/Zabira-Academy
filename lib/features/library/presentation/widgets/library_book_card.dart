@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/zabira_network_image.dart';
 import '../../data/models/library_item_model.dart';
 
@@ -8,110 +8,349 @@ class LibraryBookCard extends StatelessWidget {
   const LibraryBookCard({
     super.key,
     required this.item,
-    this.onTap,
-    this.onAddToCart,
+    required this.onTap,
+    required this.onAddToCart,
+    this.onBuyNow,
+    this.onFavoriteToggle,
+    this.isFavorite = false,
   });
 
   final LibraryItemModel item;
-  final VoidCallback? onTap;
-  final VoidCallback? onAddToCart;
+  final VoidCallback onTap;
+  final VoidCallback onAddToCart;
+  final VoidCallback? onBuyNow;
+  final VoidCallback? onFavoriteToggle;
+  final bool isFavorite;
+
+  static const Color brandGold = Color(0xFFC9A84C);
+  static const Color brandNavy = Color(0xFF112039);
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(6),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: brandNavy.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Cover image
-              Expanded(
-                child: Center(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: ZabiraNetworkImage(
-                      imageUrl: item.resolvedCoverImage,
-                      fit: BoxFit.contain,
-                      fallbackIcon: Icons.menu_book_rounded,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Title
-              Text(
-                item.title,
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navyDark,
-                  height: 1.2,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 3),
-
-              // Short description
-              Text(
-                item.cleanDescription.isNotEmpty ? item.cleanDescription : 'Authentic Islamic resource.',
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  color: const Color(0xFF64748B),
-                  height: 1.25,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-
-              // Price & Cart Button row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // ── 1. Book Cover Image with Badges ─────────────────────────
+              Stack(
                 children: [
-                  Text(
-                    item.formattedPrice,
-                    style: GoogleFonts.outfit(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.navyDark,
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                    child: AspectRatio(
+                      aspectRatio: 3 / 4,
+                      child: item.resolvedCoverImage != null && item.resolvedCoverImage!.isNotEmpty
+                          ? ZabiraNetworkImage(
+                              imageUrl: item.resolvedCoverImage,
+                              fit: BoxFit.cover,
+                              fallbackIcon: Icons.menu_book_rounded,
+                            )
+                          : Container(
+                              color: const Color(0xFFF1F5F9),
+                              child: const Center(
+                                child: Icon(Icons.menu_book_rounded, color: brandNavy, size: 42),
+                              ),
+                            ),
                     ),
                   ),
-                  GestureDetector(
-                    onTap: onAddToCart ?? onTap,
+
+                  // Top Gradient Overlay for Badge Contrast
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 50,
                     child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFF081D3A),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.shopping_cart_outlined,
-                          color: Colors.white,
-                          size: 16,
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.4),
+                            Colors.transparent,
+                          ],
                         ),
                       ),
                     ),
                   ),
+
+                  // Top Left Badges: PREMIUM & NEW
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (item.premium) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: brandNavy,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: brandGold, width: 0.8),
+                            ),
+                            child: Text(
+                              'PREMIUM',
+                              style: GoogleFonts.outfit(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: brandGold,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: brandNavy,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'NEW',
+                            style: GoogleFonts.outfit(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Top Right Badge: Language (e.g. URDU, ENGLISH)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        item.displayLanguage,
+                        style: GoogleFonts.outfit(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: brandNavy,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Bottom Left: Floating Heart (Wishlist)
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        onFavoriteToggle?.call();
+                      },
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withValues(alpha: 0.55),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            size: 16,
+                            color: isFavorite ? const Color(0xFFEF4444) : Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Bottom Right: Rating Badge (★ 4.7)
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star_rounded, size: 12, color: brandGold),
+                          const SizedBox(width: 3),
+                          Text(
+                            item.rating.toStringAsFixed(1),
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
+              ),
+
+              // ── 2. Content Section ─────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title & Price Row
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: brandNavy,
+                              height: 1.25,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          item.formattedPrice,
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: brandNavy,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    // Short Description Snippet
+                    Text(
+                      item.cleanDescription.isNotEmpty
+                          ? item.cleanDescription
+                          : 'Carefully curated Islamic literature for young minds and families.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: const Color(0xFF64748B),
+                        height: 1.35,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // ── 3. Bottom Actions: Cart Icon + BUY NOW Button ─────────
+                    Row(
+                      children: [
+                        // Cart Outlined Button
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            onAddToCart();
+                          },
+                          child: Container(
+                            width: 38,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(color: const Color(0xFFCBD5E1)),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.shopping_cart_outlined,
+                                size: 16,
+                                color: brandNavy,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 6),
+
+                        // BUY NOW Button (Dark Navy #112039)
+                        Expanded(
+                          child: SizedBox(
+                            height: 36,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                HapticFeedback.mediumImpact();
+                                if (onBuyNow != null) {
+                                  onBuyNow!();
+                                } else {
+                                  onTap();
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: brandNavy,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: EdgeInsets.zero,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(9),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.bolt_rounded, size: 15, color: brandGold),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    'BUY NOW',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

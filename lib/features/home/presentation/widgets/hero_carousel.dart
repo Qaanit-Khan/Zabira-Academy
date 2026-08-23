@@ -138,24 +138,48 @@ class _HeroSlide extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.asset(
-              banner.imagePath,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              errorBuilder: (context, error, _) => Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFF081D3A),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.image_not_supported_outlined,
-                    color: AppColors.gold.withAlpha(150),
-                    size: 40,
-                  ),
-                ),
-              ),
-            ),
+            child: banner.imageUrl != null && banner.imageUrl!.isNotEmpty
+                ? Image.network(
+                    banner.imageUrl!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        color: const Color(0xFF081D3A),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.gold,
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, _) => _buildAssetFallback(),
+                  )
+                : _buildAssetFallback(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssetFallback() {
+    return Image.asset(
+      banner.imagePath,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (context, error, _) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF081D3A),
+        ),
+        child: Center(
+          child: Icon(
+            Icons.image_not_supported_outlined,
+            color: AppColors.gold.withAlpha(150),
+            size: 40,
           ),
         ),
       ),
