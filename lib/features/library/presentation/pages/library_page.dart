@@ -323,28 +323,33 @@ class _LibraryPageState extends State<LibraryPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: AppSpacing.sm),
 
-                          // ── 1. Four Stat Summary Boxes (2x2 Grid) ───────────
+                          // ── 1. Static Hero Banner (Single Banner) ───────────
+                          _buildStaticHeroBanner(),
+
+                          const SizedBox(height: AppSpacing.lg),
+
+                          // ── 2. Four Stat Summary Boxes (2x2 Grid) ───────────
                           _buildStatBoxes(_controller.stats),
 
                           const SizedBox(height: 24),
 
-                          // ── 2. "JUST PUBLISHED" / "New Releases" Header ─────
+                          // ── 3. "JUST PUBLISHED" / "New Releases" Header ─────
                           _buildSectionHeading(books.length),
 
                           const SizedBox(height: 14),
 
-                          // ── 3. 2-Column Book Cards Grid ──────────────────────
+                          // ── 4. 2-Column Book Cards Grid ──────────────────────
                           _buildBooksGrid(books),
 
                           const SizedBox(height: 24),
 
-                          // ── 4. Universal Scholarship Promo ──────────────────
+                          // ── 5. Universal Scholarship Promo ──────────────────
                           const ScholarshipPromoBanner(),
 
                           // Bottom navigation dock padding
-                          const SizedBox(height: 90),
+                          const SizedBox(height: 100),
                         ],
                       ),
                     ),
@@ -353,6 +358,69 @@ class _LibraryPageState extends State<LibraryPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // ── Static Hero Banner (Same size as Home Hero Banner, Single Banner) ──────
+  Widget _buildStaticHeroBanner() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bannerHeight = (screenWidth * 0.50).clamp(170.0, 210.0);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: Container(
+        height: bannerHeight,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(40),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.asset(
+            'assets/images/home/hero/hero_4.png',
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (context, error, _) => Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF071B36), Color(0xFF0F2C59)],
+                ),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.auto_stories_rounded,
+                      color: brandGold,
+                      size: 38,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Zabira Academy Library',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -557,7 +625,7 @@ class _LibraryPageState extends State<LibraryPage> {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 16,
-          childAspectRatio: 0.53,
+          childAspectRatio: 0.46,
         ),
         itemCount: books.length,
         itemBuilder: (context, index) {
@@ -580,7 +648,7 @@ class _LibraryPageState extends State<LibraryPage> {
   // ── Floating Action Button for Filter ──────────────────────────────────────
   Widget _buildFloatingFilterButton() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 72, right: 2),
+      margin: const EdgeInsets.only(bottom: 76, right: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         boxShadow: [

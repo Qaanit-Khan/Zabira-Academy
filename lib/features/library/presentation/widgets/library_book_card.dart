@@ -40,6 +40,7 @@ class LibraryBookCard extends StatelessWidget {
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -47,6 +48,7 @@ class LibraryBookCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               // ── 1. Book Cover Image with Badges ─────────────────────────
               Stack(
@@ -54,7 +56,7 @@ class LibraryBookCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
                     child: AspectRatio(
-                      aspectRatio: 3 / 4,
+                      aspectRatio: 3 / 3.8,
                       child: item.resolvedCoverImage != null && item.resolvedCoverImage!.isNotEmpty
                           ? ZabiraNetworkImage(
                               imageUrl: item.resolvedCoverImage,
@@ -226,9 +228,10 @@ class LibraryBookCard extends StatelessWidget {
 
               // ── 2. Content Section ─────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // Title & Price Row
                     Row(
@@ -240,18 +243,18 @@ class LibraryBookCard extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
-                              fontSize: 13,
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                               color: brandNavy,
-                              height: 1.25,
+                              height: 1.2,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                         Text(
                           item.formattedPrice,
                           style: GoogleFonts.outfit(
-                            fontSize: 14,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w800,
                             color: brandNavy,
                           ),
@@ -269,13 +272,13 @@ class LibraryBookCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
-                        fontSize: 11,
+                        fontSize: 10.5,
                         color: const Color(0xFF64748B),
-                        height: 1.35,
+                        height: 1.3,
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
 
                     // ── 3. Bottom Actions: Cart Icon + BUY NOW Button ─────────
                     Row(
@@ -287,17 +290,17 @@ class LibraryBookCard extends StatelessWidget {
                             onAddToCart();
                           },
                           child: Container(
-                            width: 38,
-                            height: 36,
+                            width: 36,
+                            height: 34,
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(9),
+                              borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: const Color(0xFFCBD5E1)),
                             ),
                             child: const Center(
                               child: Icon(
                                 Icons.shopping_cart_outlined,
-                                size: 16,
+                                size: 15,
                                 color: brandNavy,
                               ),
                             ),
@@ -309,7 +312,7 @@ class LibraryBookCard extends StatelessWidget {
                         // BUY NOW Button (Dark Navy #112039)
                         Expanded(
                           child: SizedBox(
-                            height: 36,
+                            height: 34,
                             child: ElevatedButton(
                               onPressed: () {
                                 HapticFeedback.mediumImpact();
@@ -325,18 +328,18 @@ class LibraryBookCard extends StatelessWidget {
                                 elevation: 0,
                                 padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(9),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.bolt_rounded, size: 15, color: brandGold),
+                                  const Icon(Icons.bolt_rounded, size: 14, color: brandGold),
                                   const SizedBox(width: 2),
                                   Text(
                                     'BUY NOW',
                                     style: GoogleFonts.outfit(
-                                      fontSize: 11,
+                                      fontSize: 10.5,
                                       fontWeight: FontWeight.w800,
                                       color: Colors.white,
                                       letterSpacing: 0.3,
