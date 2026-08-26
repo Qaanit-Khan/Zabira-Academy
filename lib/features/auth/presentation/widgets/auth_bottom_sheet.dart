@@ -14,6 +14,7 @@ import '../../../../shared/buttons/social_button.dart';
 import '../../../../shared/inputs/zabira_text_field.dart';
 import '../../auth_controller.dart';
 import 'auth_tab_switcher.dart';
+import 'location_fields.dart';
 
 /// Shows the sign-in / create-account sheet sliding up over the current page.
 void showAuthBottomSheet(BuildContext context, {int initialTab = 0}) {
@@ -74,7 +75,9 @@ class _AuthBottomSheetState extends State<_AuthBottomSheet> {
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.95),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x33000000),
@@ -122,7 +125,9 @@ class _AuthBottomSheetState extends State<_AuthBottomSheet> {
                       AppSpacing.screenHorizontal,
                       AppSpacing.lg,
                       AppSpacing.screenHorizontal,
-                      AppSpacing.x3l + bottom + MediaQuery.of(context).padding.bottom,
+                      AppSpacing.x3l +
+                          bottom +
+                          MediaQuery.of(context).padding.bottom,
                     ),
                     child: Consumer<AuthController>(
                       builder: (context, auth, _) {
@@ -159,7 +164,10 @@ class _AuthBottomSheetState extends State<_AuthBottomSheet> {
 // Sign In Form (sheet version)
 // =============================================================================
 class _SheetSignInForm extends StatefulWidget {
-  const _SheetSignInForm({required this.auth, required this.onSwitchToRegister});
+  const _SheetSignInForm({
+    required this.auth,
+    required this.onSwitchToRegister,
+  });
   final AuthController auth;
   final VoidCallback onSwitchToRegister;
 
@@ -222,7 +230,12 @@ class _SheetSignInFormState extends State<_SheetSignInForm> {
       final returnTo = widget.auth.consumePendingReturnTo();
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
+      } else {
+        context.go(AppRoutes.studentDash);
       }
+      context.showSuccessSnackBar(
+        'Welcome back, ${widget.auth.user?.displayName ?? "Student"}!',
+      );
     } else if (widget.auth.errorMessage != null) {
       final msg = widget.auth.errorMessage!;
       if (!msg.toLowerCase().contains('cancelled')) {
@@ -358,7 +371,10 @@ class _SheetSignInFormState extends State<_SheetSignInForm> {
 // Create Account Form (Full registration fields matching API & Reference)
 // =============================================================================
 class _SheetRegisterForm extends StatefulWidget {
-  const _SheetRegisterForm({required this.auth, required this.onSwitchToSignIn});
+  const _SheetRegisterForm({
+    required this.auth,
+    required this.onSwitchToSignIn,
+  });
   final AuthController auth;
   final VoidCallback onSwitchToSignIn;
 
@@ -373,7 +389,7 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
   final _emailCtrl = TextEditingController();
   final _mobileCtrl = TextEditingController();
   final _dobCtrl = TextEditingController();
-  final _countryCtrl = TextEditingController(text: 'India');
+  final _countryCtrl = TextEditingController();
   final _stateCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -383,6 +399,11 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
   bool _acceptTerms = true;
   bool _isRegistering = false;
   bool _isGoogleSigningIn = false;
+
+  bool get _hasSelectedCountry => zabiraCountryOptions.any(
+    (country) =>
+        country.toLowerCase() == _countryCtrl.text.trim().toLowerCase(),
+  );
 
   @override
   void dispose() {
@@ -437,7 +458,8 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
       return;
     }
 
-    final fullName = '${_firstNameCtrl.text.trim()} ${_lastNameCtrl.text.trim()}'.trim();
+    final fullName =
+        '${_firstNameCtrl.text.trim()} ${_lastNameCtrl.text.trim()}'.trim();
 
     setState(() => _isRegistering = true);
     final success = await widget.auth.register(
@@ -468,7 +490,9 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
         widget.onSwitchToSignIn();
       }
     } else {
-      context.showErrorSnackBar(widget.auth.errorMessage ?? 'Registration failed.');
+      context.showErrorSnackBar(
+        widget.auth.errorMessage ?? 'Registration failed.',
+      );
     }
   }
 
@@ -485,7 +509,12 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
       final returnTo = widget.auth.consumePendingReturnTo();
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
+      } else {
+        context.go(AppRoutes.studentDash);
       }
+      context.showSuccessSnackBar(
+        'Welcome to Zabira Academy, ${widget.auth.user?.displayName ?? "Student"}!',
+      );
     } else if (widget.auth.errorMessage != null) {
       final msg = widget.auth.errorMessage!;
       if (!msg.toLowerCase().contains('cancelled')) {
@@ -503,7 +532,7 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
         Text('Create your account', style: AppTypography.headlineLarge),
         const SizedBox(height: 6),
         Text(
-          'Join Zabira Academy and begin your learning journey.',
+          'Join Zabira Academy and begin your learning journey today.',
           style: AppTypography.bodyMedium,
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -515,6 +544,18 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
         ),
         const SizedBox(height: AppSpacing.md),
         _OrDivider(),
+        const SizedBox(height: 6),
+
+        Center(
+          child: Text(
+            'Create your Zabira Academy account',
+            style: GoogleFonts.outfit(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
         const SizedBox(height: AppSpacing.md),
 
         Form(
@@ -530,7 +571,8 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
                       controller: _firstNameCtrl,
                       hintText: 'First Name *',
                       prefixIcon: Icons.person_outline_rounded,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -539,7 +581,8 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
                       controller: _lastNameCtrl,
                       hintText: 'Last Name *',
                       prefixIcon: Icons.person_outline_rounded,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
                   ),
                 ],
@@ -562,7 +605,9 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
                 hintText: 'Mobile Number *',
                 prefixIcon: Icons.phone_outlined,
                 keyboardType: TextInputType.phone,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Mobile number required' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Mobile number required'
+                    : null,
               ),
               const SizedBox(height: AppSpacing.formFieldGap),
 
@@ -581,19 +626,38 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.people_outline_rounded, size: 20, color: AppColors.textSecondary),
+                          const Icon(
+                            Icons.people_outline_rounded,
+                            size: 20,
+                            color: AppColors.textSecondary,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
                                 value: _gender,
                                 isExpanded: true,
-                                icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.textSecondary),
-                                style: GoogleFonts.outfit(fontSize: 13.5, color: AppColors.navyDark),
+                                icon: const Icon(
+                                  Icons.arrow_drop_down_rounded,
+                                  color: AppColors.textSecondary,
+                                ),
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13.5,
+                                  color: AppColors.navyDark,
+                                ),
                                 items: const [
-                                  DropdownMenuItem(value: 'Male', child: Text('Male')),
-                                  DropdownMenuItem(value: 'Female', child: Text('Female')),
-                                  DropdownMenuItem(value: 'Other', child: Text('Other')),
+                                  DropdownMenuItem(
+                                    value: 'Male',
+                                    child: Text('Male'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Female',
+                                    child: Text('Female'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Other',
+                                    child: Text('Other'),
+                                  ),
                                 ],
                                 onChanged: (v) {
                                   if (v != null) setState(() => _gender = v);
@@ -621,14 +685,22 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.textSecondary),
+                            const Icon(
+                              Icons.calendar_today_outlined,
+                              size: 18,
+                              color: AppColors.textSecondary,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _dobCtrl.text.isNotEmpty ? _dobCtrl.text : 'DOB (Optional)',
+                                _dobCtrl.text.isNotEmpty
+                                    ? _dobCtrl.text
+                                    : 'DOB (Optional)',
                                 style: GoogleFonts.outfit(
                                   fontSize: 13,
-                                  color: _dobCtrl.text.isNotEmpty ? AppColors.navyDark : AppColors.textTertiary,
+                                  color: _dobCtrl.text.isNotEmpty
+                                      ? AppColors.navyDark
+                                      : AppColors.textTertiary,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -644,32 +716,40 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
               const SizedBox(height: AppSpacing.formFieldGap),
 
               // ── 5. Location Details (Country, State, City) ──────────────────
+              CountrySelectionField(
+                controller: _countryCtrl,
+                onSelected: (_) {
+                  setState(() {
+                    _stateCtrl.clear();
+                    _cityCtrl.clear();
+                  });
+                },
+              ),
+              const SizedBox(height: AppSpacing.formFieldGap),
+
               Row(
                 children: [
                   Expanded(
-                    child: ZabiraTextField(
-                      controller: _countryCtrl,
-                      hintText: 'Country *',
-                      prefixIcon: Icons.public_outlined,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ZabiraTextField(
+                    child: DependentLocationField(
                       controller: _stateCtrl,
                       hintText: 'State *',
                       prefixIcon: Icons.location_on_outlined,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      enabled: _hasSelectedCountry,
+                      disabledMessage: 'Please select a country first.',
+                      onChanged: (_) {
+                        if (_cityCtrl.text.isNotEmpty) _cityCtrl.clear();
+                        setState(() {});
+                      },
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: ZabiraTextField(
+                    child: DependentLocationField(
                       controller: _cityCtrl,
                       hintText: 'City *',
                       prefixIcon: Icons.apartment_outlined,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      enabled: _stateCtrl.text.trim().isNotEmpty,
+                      disabledMessage: 'Select state first.',
                     ),
                   ),
                 ],
@@ -765,6 +845,60 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
                 ],
               ),
             ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        // ── 8. Bottom Stats Row matching PDF Reference ───────────────────────
+        const _SheetStatsRow(),
+      ],
+    );
+  }
+}
+
+class _SheetStatsRow extends StatelessWidget {
+  const _SheetStatsRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildStat('10k+', 'Learners'),
+          Container(width: 1, height: 22, color: const Color(0xFFCBD5E1)),
+          _buildStat('200+', 'Courses'),
+          Container(width: 1, height: 22, color: const Color(0xFFCBD5E1)),
+          _buildStat('50+', 'Educators'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStat(String number, String label) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          number,
+          style: GoogleFonts.outfit(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF112039),
+          ),
+        ),
+        Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontSize: 10.5,
+            color: const Color(0xFF64748B),
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],

@@ -33,9 +33,13 @@ class _CoursesPageState extends State<CoursesPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final CourseRepository _repository = CourseRepository();
 
-  List<CourseCategoryApiModel> _categories = List.from(CourseRepository.defaultCategories);
+  List<CourseCategoryApiModel> _categories = List.from(
+    CourseRepository.defaultCategories,
+  );
   List<CourseApiModel> _courses = List.from(CourseRepository.defaultCourses);
-  List<CourseApiModel> _filteredCourses = List.from(CourseRepository.defaultCourses);
+  List<CourseApiModel> _filteredCourses = List.from(
+    CourseRepository.defaultCourses,
+  );
 
   final CourseFilterState _filterState = CourseFilterState();
   int? _selectedCategoryId; // null = All
@@ -109,7 +113,11 @@ class _CoursesPageState extends State<CoursesPage> {
     }
 
     if (_filterState.level != null && _filterState.level != 'All') {
-      result = result.where((c) => c.level.toLowerCase() == _filterState.level!.toLowerCase()).toList();
+      result = result
+          .where(
+            (c) => c.level.toLowerCase() == _filterState.level!.toLowerCase(),
+          )
+          .toList();
     }
 
     if (_filterState.language != null && _filterState.language != 'All') {
@@ -123,7 +131,9 @@ class _CoursesPageState extends State<CoursesPage> {
     // Sort order
     switch (_filterState.sort) {
       case 'popular':
-        result.sort((a, b) => (b.isPopular ? 1 : 0).compareTo(a.isPopular ? 1 : 0));
+        result.sort(
+          (a, b) => (b.isPopular ? 1 : 0).compareTo(a.isPopular ? 1 : 0),
+        );
         break;
       case 'rating':
         result.sort((a, b) => b.rating.compareTo(a.rating));
@@ -192,8 +202,14 @@ class _CoursesPageState extends State<CoursesPage> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                success ? 'Added "${course.title}" (₹${course.effectivePrice.toInt()})' : 'Item added to cart',
-                style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                success
+                    ? 'Added "${course.title}" (₹${course.effectivePrice.toInt()})'
+                    : 'Item added to cart',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -250,9 +266,10 @@ class _CoursesPageState extends State<CoursesPage> {
             return;
           }
           final effectivePrice = selectedPlan == 'monthly'
-              ? (course.paymentOptions.length > 1 && course.paymentOptions[1].installmentAmount != null
-                  ? course.paymentOptions[1].installmentAmount!
-                  : (course.effectivePrice / 6).ceilToDouble())
+              ? (course.paymentOptions.length > 1 &&
+                        course.paymentOptions[1].installmentAmount != null
+                    ? course.paymentOptions[1].installmentAmount!
+                    : (course.effectivePrice / 6).ceilToDouble())
               : course.effectivePrice;
 
           context.push(
@@ -268,7 +285,9 @@ class _CoursesPageState extends State<CoursesPage> {
               'language': course.language,
               'duration': course.duration,
               'mode': course.courseType,
-              'planLabel': selectedPlan == 'monthly' ? 'Monthly Installment' : 'Pay in Full',
+              'planLabel': selectedPlan == 'monthly'
+                  ? 'Monthly Installment'
+                  : 'Pay in Full',
               'courseId': course.id,
             },
           );
@@ -326,7 +345,7 @@ class _CoursesPageState extends State<CoursesPage> {
       child: Scaffold(
         extendBody: true,
         key: _scaffoldKey,
-        drawer: const AppDrawer(),
+        drawer: const AppDrawer(currentRoute: AppRoutes.courses),
         backgroundColor: const Color(0xFFF8FAFC),
         bottomNavigationBar: const ZabiraBottomNav(selectedIndex: 0),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -340,8 +359,10 @@ class _CoursesPageState extends State<CoursesPage> {
                 isAuthenticated: isAuth,
                 notificationCount: isAuth ? 2 : 0,
                 cartCount: cart.itemCount,
-                userInitial: isAuth && user.displayName.isNotEmpty ? user.displayName[0] : null,
-                onMenuTap: () => AppDrawer.open(context),
+                userInitial: isAuth && user.displayName.isNotEmpty
+                    ? user.displayName[0]
+                    : null,
+                onMenuTap: () => AppDrawer.open(context, AppRoutes.courses),
                 onCartTap: () => context.push(AppRoutes.cart),
                 onSignIn: () => showAuthBottomSheet(context),
                 onProfileTap: () {
@@ -361,7 +382,9 @@ class _CoursesPageState extends State<CoursesPage> {
                 backgroundColor: Colors.white,
                 onRefresh: _loadInitialData,
                 child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -393,7 +416,11 @@ class _CoursesPageState extends State<CoursesPage> {
                               onTap: _openFilterSheet,
                               child: Row(
                                 children: [
-                                  const Icon(Icons.tune_rounded, size: 15, color: brandNavy),
+                                  const Icon(
+                                    Icons.tune_rounded,
+                                    size: 15,
+                                    color: brandNavy,
+                                  ),
                                   const SizedBox(width: 4),
                                   Text(
                                     'Filter',
@@ -436,7 +463,7 @@ class _CoursesPageState extends State<CoursesPage> {
   // ── Floating Action Button for Web-style Filter Window ─────────────────────
   Widget _buildFloatingFilterButton() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 72, right: 2),
+      margin: const EdgeInsets.only(bottom: 2, right: 2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: brandGold, width: 1.5),
@@ -497,7 +524,9 @@ class _CoursesPageState extends State<CoursesPage> {
         bg = const Color(0xFFE0E7FF);
         iconCol = const Color(0xFF4F46E5);
         icon = Icons.menu_book_rounded;
-      } else if (nameLower.contains('fiqh') || nameLower.contains('life') || nameLower.contains('namaz')) {
+      } else if (nameLower.contains('fiqh') ||
+          nameLower.contains('life') ||
+          nameLower.contains('namaz')) {
         bg = const Color(0xFFFCE7F3);
         iconCol = const Color(0xFFDB2777);
         icon = Icons.mosque_rounded;
@@ -545,7 +574,9 @@ class _CoursesPageState extends State<CoursesPage> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: isSelected ? brandNavy.withValues(alpha: 0.16) : Colors.black.withValues(alpha: 0.03),
+                    color: isSelected
+                        ? brandNavy.withValues(alpha: 0.16)
+                        : Colors.black.withValues(alpha: 0.03),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -558,7 +589,9 @@ class _CoursesPageState extends State<CoursesPage> {
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.white.withValues(alpha: 0.15) : item.bgColor,
+                      color: isSelected
+                          ? Colors.white.withValues(alpha: 0.15)
+                          : item.bgColor,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -575,8 +608,12 @@ class _CoursesPageState extends State<CoursesPage> {
                     textAlign: TextAlign.center,
                     style: GoogleFonts.outfit(
                       fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                      color: isSelected ? Colors.white : const Color(0xFF334155),
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w600,
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF334155),
                     ),
                   ),
                 ],
@@ -603,7 +640,11 @@ class _CoursesPageState extends State<CoursesPage> {
         ),
         child: Column(
           children: [
-            const Icon(Icons.search_off_rounded, size: 48, color: Color(0xFF94A3B8)),
+            const Icon(
+              Icons.search_off_rounded,
+              size: 48,
+              color: Color(0xFF94A3B8),
+            ),
             const SizedBox(height: 12),
             Text(
               'No courses match your filter',
@@ -634,7 +675,9 @@ class _CoursesPageState extends State<CoursesPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: brandNavy,
                 foregroundColor: brandGold,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               child: const Text('Reset All Filters'),
             ),
@@ -744,10 +787,14 @@ class _CourseCard extends StatelessWidget {
                   height: 195,
                   decoration: const BoxDecoration(
                     color: brandNavy,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(17)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(17),
+                    ),
                   ),
                   child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(17),
+                    ),
                     child: thumbUrl != null && thumbUrl.isNotEmpty
                         ? Image.network(
                             thumbUrl,
@@ -767,7 +814,8 @@ class _CourseCard extends StatelessWidget {
                                 ),
                               );
                             },
-                            errorBuilder: (context, error, _) => _buildLocalFallbackImage(),
+                            errorBuilder: (context, error, _) =>
+                                _buildLocalFallbackImage(),
                           )
                         : _buildLocalFallbackImage(),
                   ),
@@ -781,7 +829,11 @@ class _CourseCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (isPopular) ...[
-                        _buildTagBadge('POPULAR', const Color(0xFF00A884), Colors.white),
+                        _buildTagBadge(
+                          'POPULAR',
+                          const Color(0xFF00A884),
+                          Colors.white,
+                        ),
                         const SizedBox(width: 5),
                       ],
                       if (isBestseller) ...[
@@ -806,10 +858,19 @@ class _CourseCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildTagBadge('EMI Available', brandNavy, brandGold, isBordered: true),
+                      _buildTagBadge(
+                        'EMI Available',
+                        brandNavy,
+                        brandGold,
+                        isBordered: true,
+                      ),
                       if (discountPercent != null) ...[
                         const SizedBox(width: 5),
-                        _buildTagBadge('-$discountPercent%', const Color(0xFF00A884), Colors.white),
+                        _buildTagBadge(
+                          '-$discountPercent%',
+                          const Color(0xFF00A884),
+                          Colors.white,
+                        ),
                       ],
                     ],
                   ),
@@ -828,12 +889,16 @@ class _CourseCard extends StatelessWidget {
                         color: brandNavy.withValues(alpha: 0.75),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isFavorite ? brandGold : Colors.white.withValues(alpha: 0.4),
+                          color: isFavorite
+                              ? brandGold
+                              : Colors.white.withValues(alpha: 0.4),
                           width: 1.2,
                         ),
                       ),
                       child: Icon(
-                        isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        isFavorite
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
                         color: isFavorite ? brandGold : Colors.white,
                         size: 18,
                       ),
@@ -846,16 +911,25 @@ class _CourseCard extends StatelessWidget {
                   bottom: 10,
                   right: 10,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: brandNavy.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.15),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.star_rounded, size: 14, color: brandGold),
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 14,
+                          color: brandGold,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           course.rating.toStringAsFixed(1),
@@ -944,10 +1018,15 @@ class _CourseCard extends StatelessWidget {
                 const SizedBox(height: 10),
 
                 // Instructor line
-                if (course.instructorName != null && course.instructorName!.isNotEmpty) ...[
+                if (course.instructorName != null &&
+                    course.instructorName!.isNotEmpty) ...[
                   Row(
                     children: [
-                      const Icon(Icons.person_outline_rounded, size: 13, color: Color(0xFF94A3B8)),
+                      const Icon(
+                        Icons.person_outline_rounded,
+                        size: 13,
+                        color: Color(0xFF94A3B8),
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         course.instructorName!,
@@ -958,18 +1037,30 @@ class _CourseCard extends StatelessWidget {
                         ),
                       ),
                       _buildDot(),
-                      _buildMetaInline(Icons.menu_book_rounded, course.lessonsDisplay),
+                      _buildMetaInline(
+                        Icons.menu_book_rounded,
+                        course.lessonsDisplay,
+                      ),
                       _buildDot(),
-                      _buildMetaInline(Icons.access_time_rounded, course.duration),
+                      _buildMetaInline(
+                        Icons.access_time_rounded,
+                        course.duration,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 5),
                 ] else ...[
                   Row(
                     children: [
-                      _buildMetaInline(Icons.menu_book_rounded, course.lessonsDisplay),
+                      _buildMetaInline(
+                        Icons.menu_book_rounded,
+                        course.lessonsDisplay,
+                      ),
                       _buildDot(),
-                      _buildMetaInline(Icons.access_time_rounded, course.duration),
+                      _buildMetaInline(
+                        Icons.access_time_rounded,
+                        course.duration,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 5),
@@ -978,9 +1069,15 @@ class _CourseCard extends StatelessWidget {
                 // Metadata Row 2: Level · Language
                 Row(
                   children: [
-                    _buildMetaInline(Icons.signal_cellular_alt_rounded, course.level),
+                    _buildMetaInline(
+                      Icons.signal_cellular_alt_rounded,
+                      course.level,
+                    ),
                     _buildDot(),
-                    _buildMetaInline(Icons.translate_rounded, course.languagesDisplay),
+                    _buildMetaInline(
+                      Icons.translate_rounded,
+                      course.languagesDisplay,
+                    ),
                   ],
                 ),
 
@@ -1012,7 +1109,10 @@ class _CourseCard extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const _LucideBookOpenIcon(size: 16, color: brandNavy),
+                                const _LucideBookOpenIcon(
+                                  size: 16,
+                                  color: brandNavy,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Read More',
@@ -1052,7 +1152,11 @@ class _CourseCard extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.bolt_rounded, size: 17, color: Colors.white),
+                                const Icon(
+                                  Icons.bolt_rounded,
+                                  size: 17,
+                                  color: Colors.white,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Quick Enroll',
@@ -1080,13 +1184,19 @@ class _CourseCard extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: brandNavy,
                           backgroundColor: Colors.white,
-                          side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+                          side: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                            width: 1.2,
+                          ),
                           padding: EdgeInsets.zero,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        child: const Icon(Icons.shopping_cart_outlined, size: 18),
+                        child: const Icon(
+                          Icons.shopping_cart_outlined,
+                          size: 18,
+                        ),
                       ),
                     ),
                   ],
@@ -1099,7 +1209,12 @@ class _CourseCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTagBadge(String text, Color bg, Color textCol, {bool isBordered = false}) {
+  Widget _buildTagBadge(
+    String text,
+    Color bg,
+    Color textCol, {
+    bool isBordered = false,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
       decoration: BoxDecoration(
@@ -1230,10 +1345,13 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
   Widget build(BuildContext context) {
     final c = widget.course;
     final fullPrice = c.effectivePrice.toInt();
-    final originalPrice = (c.price > c.effectivePrice ? c.price : c.effectivePrice * 1.5).toInt();
+    final originalPrice =
+        (c.price > c.effectivePrice ? c.price : c.effectivePrice * 1.5).toInt();
     final savings = (originalPrice - fullPrice).clamp(0, originalPrice);
 
-    final installmentAmount = c.paymentOptions.length > 1 && c.paymentOptions[1].installmentAmount != null
+    final installmentAmount =
+        c.paymentOptions.length > 1 &&
+            c.paymentOptions[1].installmentAmount != null
         ? c.paymentOptions[1].installmentAmount!.toInt()
         : (fullPrice / 6).ceil();
 
@@ -1295,7 +1413,11 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
               ],
             ),
@@ -1313,12 +1435,17 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: !isMonthly ? brandGold : brandNavyCard,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: !isMonthly ? brandGold : Colors.white.withValues(alpha: 0.1),
+                          color: !isMonthly
+                              ? brandGold
+                              : Colors.white.withValues(alpha: 0.1),
                         ),
                       ),
                       child: Column(
@@ -1337,7 +1464,9 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
                             style: GoogleFonts.outfit(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: !isMonthly ? brandNavy : const Color(0xFF94A3B8),
+                              color: !isMonthly
+                                  ? brandNavy
+                                  : const Color(0xFF94A3B8),
                             ),
                           ),
                         ],
@@ -1356,12 +1485,17 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: isMonthly ? brandGold : brandNavyCard,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isMonthly ? brandGold : Colors.white.withValues(alpha: 0.1),
+                          color: isMonthly
+                              ? brandGold
+                              : Colors.white.withValues(alpha: 0.1),
                         ),
                       ),
                       child: Column(
@@ -1380,7 +1514,9 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
                             style: GoogleFonts.outfit(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: isMonthly ? brandNavy : const Color(0xFF94A3B8),
+                              color: isMonthly
+                                  ? brandNavy
+                                  : const Color(0xFF94A3B8),
                             ),
                           ),
                         ],
@@ -1407,11 +1543,18 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
                     children: [
                       Text(
                         'Amount Payable Today:',
-                        style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFFCBD5E1)),
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          color: const Color(0xFFCBD5E1),
+                        ),
                       ),
                       Text(
                         '₹${isMonthly ? installmentAmount : fullPrice}',
-                        style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: brandGold),
+                        style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: brandGold,
+                        ),
                       ),
                     ],
                   ),
@@ -1422,11 +1565,18 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
                       children: [
                         Text(
                           'You Save:',
-                          style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF00A884)),
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: const Color(0xFF00A884),
+                          ),
                         ),
                         Text(
                           '₹$savings (One-time offer)',
-                          style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF00A884)),
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF00A884),
+                          ),
                         ),
                       ],
                     ),
@@ -1443,8 +1593,13 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
                   child: SizedBox(
                     height: 48,
                     child: ElevatedButton.icon(
-                      onPressed: () => widget.onEnrollNow(isMonthly ? 'monthly' : 'full'),
-                      icon: const Icon(Icons.bolt_rounded, size: 20, color: brandNavy),
+                      onPressed: () =>
+                          widget.onEnrollNow(isMonthly ? 'monthly' : 'full'),
+                      icon: const Icon(
+                        Icons.bolt_rounded,
+                        size: 20,
+                        color: brandNavy,
+                      ),
                       label: Text(
                         'Proceed to Pay',
                         style: GoogleFonts.outfit(
@@ -1455,7 +1610,9 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: brandGold,
                         foregroundColor: brandNavy,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         elevation: 0,
                       ),
                     ),
@@ -1470,10 +1627,16 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: brandGold,
                       side: const BorderSide(color: brandGold, width: 1.2),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: EdgeInsets.zero,
                     ),
-                    child: const Icon(Icons.shopping_cart_outlined, size: 20, color: brandGold),
+                    child: const Icon(
+                      Icons.shopping_cart_outlined,
+                      size: 20,
+                      color: brandGold,
+                    ),
                   ),
                 ),
               ],
@@ -1487,7 +1650,10 @@ class _QuickEnrollSheetState extends State<_QuickEnrollSheet> {
 
 /// Exact Lucide Book-Open Icon implementation
 class _LucideBookOpenIcon extends StatelessWidget {
-  const _LucideBookOpenIcon({this.size = 18, this.color = const Color(0xFF112039)});
+  const _LucideBookOpenIcon({
+    this.size = 18,
+    this.color = const Color(0xFF112039),
+  });
   final double size;
   final Color color;
 
@@ -1523,24 +1689,53 @@ class _LucideBookOpenPainter extends CustomPainter {
     // Left page
     final pLeft = Path();
     pLeft.moveTo(12 * scale, 5 * scale);
-    pLeft.cubicTo(10 * scale, 3 * scale, 6 * scale, 3 * scale, 4 * scale, 3 * scale);
+    pLeft.cubicTo(
+      10 * scale,
+      3 * scale,
+      6 * scale,
+      3 * scale,
+      4 * scale,
+      3 * scale,
+    );
     pLeft.lineTo(2 * scale, 5 * scale);
     pLeft.lineTo(2 * scale, 17 * scale);
     pLeft.lineTo(4 * scale, 19 * scale);
-    pLeft.cubicTo(6 * scale, 19 * scale, 10 * scale, 21 * scale, 12 * scale, 21 * scale);
+    pLeft.cubicTo(
+      6 * scale,
+      19 * scale,
+      10 * scale,
+      21 * scale,
+      12 * scale,
+      21 * scale,
+    );
     canvas.drawPath(pLeft, paint);
 
     // Right page
     final pRight = Path();
     pRight.moveTo(12 * scale, 5 * scale);
-    pRight.cubicTo(14 * scale, 3 * scale, 18 * scale, 3 * scale, 20 * scale, 3 * scale);
+    pRight.cubicTo(
+      14 * scale,
+      3 * scale,
+      18 * scale,
+      3 * scale,
+      20 * scale,
+      3 * scale,
+    );
     pRight.lineTo(22 * scale, 5 * scale);
     pRight.lineTo(22 * scale, 17 * scale);
     pRight.lineTo(20 * scale, 19 * scale);
-    pRight.cubicTo(18 * scale, 19 * scale, 14 * scale, 21 * scale, 12 * scale, 21 * scale);
+    pRight.cubicTo(
+      18 * scale,
+      19 * scale,
+      14 * scale,
+      21 * scale,
+      12 * scale,
+      21 * scale,
+    );
     canvas.drawPath(pRight, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _LucideBookOpenPainter oldDelegate) => oldDelegate.color != color;
+  bool shouldRepaint(covariant _LucideBookOpenPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

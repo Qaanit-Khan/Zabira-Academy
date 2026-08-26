@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
+import '../../../payment/data/utils/order_response_utils.dart';
 import '../../data/models/enrolled_course_model.dart';
 import '../../data/services/enrollment_api_service.dart';
 
 /// Zabira Academy — Enrollment Controller
 class EnrollmentController extends ChangeNotifier {
-  EnrollmentController({EnrollmentApiService? service}) : _service = service ?? EnrollmentApiService();
+  EnrollmentController({EnrollmentApiService? service})
+    : _service = service ?? EnrollmentApiService();
 
   final EnrollmentApiService _service;
 
@@ -13,19 +15,24 @@ class EnrollmentController extends ChangeNotifier {
   String? _errorMessage;
   int? _lastOrderId;
 
-  List<EnrolledCourseModel> get enrolledCourses => List.unmodifiable(_enrolledCourses);
+  List<EnrolledCourseModel> get enrolledCourses =>
+      List.unmodifiable(_enrolledCourses);
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isEmpty => _enrolledCourses.isEmpty;
   int? get lastOrderId => _lastOrderId;
 
   bool isEnrolled(int courseId) {
-    return _enrolledCourses.any((c) => c.courseId == courseId || c.id == courseId);
+    return _enrolledCourses.any(
+      (c) => c.courseId == courseId || c.id == courseId,
+    );
   }
 
   EnrolledCourseModel? getEnrolledCourse(int courseId) {
     try {
-      return _enrolledCourses.firstWhere((c) => c.courseId == courseId || c.id == courseId);
+      return _enrolledCourses.firstWhere(
+        (c) => c.courseId == courseId || c.id == courseId,
+      );
     } catch (_) {
       return null;
     }
@@ -65,7 +72,9 @@ class EnrollmentController extends ChangeNotifier {
     String? lastLessonTitle,
     int? lastPositionSeconds,
   }) {
-    final index = _enrolledCourses.indexWhere((c) => c.courseId == courseId || c.id == courseId);
+    final index = _enrolledCourses.indexWhere(
+      (c) => c.courseId == courseId || c.id == courseId,
+    );
     if (index != -1) {
       final current = _enrolledCourses[index];
       _enrolledCourses[index] = EnrolledCourseModel(
@@ -82,7 +91,8 @@ class EnrollmentController extends ChangeNotifier {
         progressPercent: progressPercent,
         completed: progressPercent >= 100.0,
         lessonsCount: current.lessonsCount,
-        completedLessonsCount: completedLessonsCount ?? current.completedLessonsCount,
+        completedLessonsCount:
+            completedLessonsCount ?? current.completedLessonsCount,
         lastLessonId: lastLessonId ?? current.lastLessonId,
         lastLessonTitle: lastLessonTitle ?? current.lastLessonTitle,
         lastPositionSeconds: lastPositionSeconds ?? current.lastPositionSeconds,
@@ -112,8 +122,7 @@ class EnrollmentController extends ChangeNotifier {
         email: email,
         token: token,
       );
-      final data = res['data'] is Map<String, dynamic> ? res['data'] as Map<String, dynamic> : res;
-      _lastOrderId = int.tryParse(data['order_id']?.toString() ?? data['id']?.toString() ?? '');
+      _lastOrderId = extractOrderId(res);
       _isLoading = false;
       notifyListeners();
       return res;

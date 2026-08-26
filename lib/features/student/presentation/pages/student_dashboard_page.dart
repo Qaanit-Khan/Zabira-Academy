@@ -2,26 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../../../../app/router.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../auth/auth_controller.dart';
-import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
-import '../../../courses/data/models/enrolled_course_model.dart';
-import '../../../courses/presentation/controllers/enrollment_controller.dart';
-import '../../../store/presentation/controllers/cart_controller.dart';
-import '../../../../shared/widgets/zabira_logo.dart';
-import '../../../../shared/widgets/zabira_network_image.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../shared/widgets/zabira_bottom_nav.dart';
+import '../../../../shared/widgets/zabira_network_image.dart';
+import '../../../auth/auth_controller.dart';
+import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
+import '../../../courses/data/models/course_api_model.dart';
+import '../../../courses/data/models/enrolled_course_model.dart';
+import '../../../courses/data/services/course_service.dart';
+import '../../../courses/presentation/controllers/enrollment_controller.dart';
+import '../../../courses/presentation/controllers/wishlist_controller.dart';
+import '../../../store/presentation/controllers/cart_controller.dart';
 import '../controllers/student_controller.dart';
 import '../../data/models/student_dashboard_model.dart';
+import '../widgets/student_hero_header.dart';
+import '../widgets/student_nav_tabs_bar.dart';
 
-/// Zabira Academy — Authenticated Student Dashboard
-///
-/// Mobile-first adaptation of `Zabira Academy _ Student Dashboard.pdf`.
+/// Screen 1: Student Profile Dashboard (1:1 with `1 - profile dashboard 1.pdf`)
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
 
@@ -31,6 +31,8 @@ class StudentDashboardPage extends StatefulWidget {
 
 class _StudentDashboardPageState extends State<StudentDashboardPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final CourseService _courseService = CourseService();
+  List<CourseApiModel> _recommendedCourses = [];
 
   @override
   void initState() {
@@ -50,14 +52,26 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
           );
       context.read<EnrollmentController>().loadMyCourses(auth.currentToken);
       context.read<CartController>().loadCart(auth.currentToken);
+      _loadRecommendedCourses();
     }
   }
 
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+  Future<void> _loadRecommendedCourses() async {
+    try {
+      final res = await _courseService.getCourses(limit: 6);
+      final rawList = res['data'] ?? res['courses'] ?? [];
+      if (rawList is List) {
+        final parsed = rawList
+            .whereType<Map<String, dynamic>>()
+            .map((c) => CourseApiModel.fromJson(c))
+            .toList();
+        if (mounted) {
+          setState(() {
+            _recommendedCourses = parsed;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -72,25 +86,28 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
     final auth = context.watch<AuthController>();
     final studentCtrl = context.watch<StudentController>();
     final enrollment = context.watch<EnrollmentController>();
-    final cart = context.watch<CartController>();
+    final wishlistCtrl = context.watch<WishlistController>();
 
     final user = auth.user;
     if (!auth.isAuthenticated || user == null) {
       return Scaffold(
-        backgroundColor: AppColors.surfaceLight,
+        backgroundColor: const Color(0xFFF8FAFC),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.lock_outline_rounded, size: 48, color: AppColors.navyDark),
+              const Icon(LucideIcons.lock, size: 48, color: Color(0xFF112039)),
               const SizedBox(height: 16),
-              Text('Please sign in to access your dashboard.', style: AppTypography.titleMedium),
+              Text(
+                'Please sign in to access your dashboard.',
+                style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => showAuthBottomSheet(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.navyDark,
-                  foregroundColor: AppColors.gold,
+                  backgroundColor: const Color(0xFF112039),
+                  foregroundColor: const Color(0xFFC9A84C),
                 ),
                 child: const Text('Sign In'),
               ),
@@ -109,8 +126,9 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
           continueLearningCourses: enrollment.enrolledCourses,
         );
 
-    final continueCourses = (enrollment.enrolledCourses.isNotEmpty
-            ? enrollment.enrolledCourses
+    final enrolledCourses = enrollment.enrolledCourses;
+    final continueCourses = (enrolledCourses.isNotEmpty
+            ? enrolledCourses
             : dashboard.continueLearningCourses)
         .where((c) => !c.isCompleted && c.progressPercent < 100.0)
         .toList();
@@ -128,709 +146,452 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: const Color(0xFFF8FAFC),
-        extendBody: true,
-        drawer: const AppDrawer(),
+        drawer: const AppDrawer(currentRoute: AppRoutes.studentDash),
         bottomNavigationBar: const ZabiraBottomNav(selectedIndex: -1),
         body: RefreshIndicator(
-        color: AppColors.gold,
-        onRefresh: () async {
-          _loadData();
-          await Future.delayed(const Duration(milliseconds: 600));
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── 1. Dark Navy Top Hero Header ──────────────────────────────
-              _buildDarkHeroHeader(context, user, dashboard, cart.itemCount),
+          color: const Color(0xFFC9A84C),
+          onRefresh: () async {
+            _loadData();
+            await Future.delayed(const Duration(milliseconds: 600));
+          },
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── 1. Dark Navy Top Hero Header ────────────────────────────
+                StudentHeroHeader(user: user, dashboard: dashboard),
 
-              // ── 2. Filter Navigation Pills ────────────────────────────────
-              _buildFilterPills(context, studentCtrl),
+                // ── 2. Filter Navigation Pills (Index 0: Dashboard) ─────────
+                const StudentNavTabsBar(selectedIndex: 0),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: AppSpacing.lg),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 18),
 
-                    // ── 3. KPI Metric Cards Grid (7 Cards) ──────────────────
-                    _buildKpiMetricsGrid(context, dashboard, continueCourses),
+                      // ── 3. KPI Metric Cards Grid (7 Cards) ────────────────
+                      _buildKpiMetricsGrid(
+                        context,
+                        dashboard,
+                        continueCourses,
+                        enrolledCourses,
+                        wishlistCount: wishlistCtrl.count > 0 ? wishlistCtrl.count : dashboard.wishlistCount,
+                      ),
 
-                    const SizedBox(height: AppSpacing.x2l),
+                      const SizedBox(height: 28),
 
-                    // ── 4. Continue Learning Section ────────────────────────
-                    _buildContinueLearningSection(context, continueCourses),
+                      // ── 4. Continue Learning Section ──────────────────────
+                      _buildContinueLearningSection(context, continueCourses),
 
-                    const SizedBox(height: AppSpacing.x2l),
+                      const SizedBox(height: 28),
 
-                    // ── 5. Recommended For You Catalog ──────────────────────
-                    _buildRecommendedSection(context),
+                      // ── 5. Enrolled Programs Section ──────────────────────
+                      _buildEnrolledProgramsSection(context, enrolledCourses),
 
-                    const SizedBox(height: AppSpacing.x2l),
+                      const SizedBox(height: 28),
 
-                    // ── 6. Weekly Goal Card ─────────────────────────────────
-                    _buildWeeklyGoalCard(dashboard),
+                      // ── 6. Recommended For You Catalog ────────────────────
+                      _buildRecommendedSection(context),
 
-                    const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: 24),
 
-                    // ── 7. Upcoming Live Class / Free Trial ─────────────────
-                    _buildUpcomingLiveClassCard(context, dashboard),
+                      // ── 7. Weekly Goal Card ───────────────────────────────
+                      _buildWeeklyGoalCard(dashboard),
 
-                    const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: 16),
 
-                    // ── 8. Recent Certificates ──────────────────────────────
-                    _buildRecentCertificatesCard(context, dashboard),
+                      // ── 8. Upcoming Live Class / Free Trial ───────────────
+                      _buildUpcomingLiveClassCard(context, dashboard),
 
-                    const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: 16),
 
-                    // ── 9. Notifications Inbox ──────────────────────────────
-                    _buildNotificationsCard(context, studentCtrl, dashboard),
+                      // ── 9. Recent Certificates ────────────────────────────
+                      _buildRecentCertificatesCard(context, dashboard),
 
-                    const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: 16),
 
-                    // ── 10. Quick Actions ───────────────────────────────────
-                    _buildQuickActionsCard(context),
+                      // ── 10. Notifications Inbox ───────────────────────────
+                      _buildNotificationsCard(context, dashboard),
 
-                    const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: 16),
 
-                    // ── 11. Achievements Preview ────────────────────────────
-                    _buildAchievementsCard(),
+                      // ── 11. Quick Actions ─────────────────────────────────
+                      _buildQuickActionsCard(context),
 
-                    const SizedBox(height: AppSpacing.x3l),
-                  ],
+                      const SizedBox(height: 16),
+
+                      // ── 12. Achievements Preview ──────────────────────────
+                      _buildAchievementsCard(),
+
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Dark Navy Hero Header
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildDarkHeroHeader(
-    BuildContext context,
-    dynamic user,
-    StudentDashboardModel dashboard,
-    int cartCount,
-  ) {
-    final initials = user.displayName.isNotEmpty
-        ? user.displayName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
-        : 'ST';
-
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: AppColors.navyDark,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.screenHorizontal,
-        MediaQuery.of(context).padding.top + 12,
-        AppSpacing.screenHorizontal,
-        24,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top Row: Logo + Icons
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => context.go(AppRoutes.home),
-                child: const ZabiraLogo(size: LogoSize.small),
-              ),
-              const Spacer(),
-              // Home button
-              IconButton(
-                icon: const Icon(Icons.home_outlined, color: Colors.white70, size: 22),
-                tooltip: 'Home',
-                onPressed: () => context.go(AppRoutes.home),
-              ),
-              // Cart button
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white70, size: 22),
-                    tooltip: 'Cart',
-                    onPressed: () => context.push(AppRoutes.cart),
-                  ),
-                  if (cartCount > 0)
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: AppColors.gold,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                        child: Text(
-                          '$cartCount',
-                          style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.navyDark),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              // Drawer Menu Hamburger
-              IconButton(
-                icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 26),
-                tooltip: 'Menu',
-                onPressed: () => AppDrawer.open(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-
-          // Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(20),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withAlpha(40)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.auto_awesome, color: AppColors.gold, size: 13),
-                const SizedBox(width: 6),
-                Text(
-                  'ZABIRA ACADEMY · STUDENT',
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white70,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // User Card
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Avatar
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: AppColors.gold.withAlpha(40),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.gold, width: 1.5),
-                ),
-                child: Center(
-                  child: Text(
-                    initials,
-                    style: GoogleFonts.outfit(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.gold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Greeting & Name
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${_getGreeting()} · Assalamu Alaikum',
-                      style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white70,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      user.displayName,
-                      style: GoogleFonts.outfit(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        height: 1.2,
-                      ),
-                    ),
-                    Text(
-                      user.email,
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        color: Colors.white60,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Workspace Subtitle
-          Text(
-            'Your personal learning workspace — continue courses, track progress, and grow in knowledge with intention.',
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              color: Colors.white.withAlpha(200),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Quote Card
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(12),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withAlpha(20)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.format_quote_rounded, color: AppColors.gold, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '“${dashboard.quote}”',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                      color: Colors.white.withAlpha(220),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => context.push(AppRoutes.myCourses),
-                  icon: const Icon(Icons.play_circle_filled_rounded, size: 18),
-                  label: const Text('Continue Learning'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.gold,
-                    foregroundColor: AppColors.navyDark,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    textStyle: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => context.push(AppRoutes.courses),
-                  icon: const Icon(Icons.menu_book_rounded, size: 18),
-                  label: const Text('Browse Courses'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white38),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    textStyle: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Sub-Navigation Filter Pills
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildFilterPills(BuildContext context, StudentController ctrl) {
-    final tabs = [
-      ('Dashboard', Icons.dashboard_outlined, () {}),
-      ('My Courses', Icons.menu_book_outlined, () => context.push(AppRoutes.myCourses)),
-      ('My Books', Icons.library_books_outlined, () => context.push(AppRoutes.library)),
-      ('Continue', Icons.play_circle_outline, () => context.push(AppRoutes.myCourses)),
-      ('Certificates', Icons.workspace_premium_outlined, () {}),
-      ('My Orders', Icons.receipt_long_outlined, () => context.push('/my-orders')),
-    ];
-
-    return Container(
-      height: 48,
-      margin: const EdgeInsets.only(top: 14),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-        itemCount: tabs.length,
-        itemBuilder: (context, index) {
-          final isSelected = ctrl.selectedFilterIndex == index;
-          final tab = tabs[index];
-          return GestureDetector(
-            onTap: () {
-              ctrl.setFilterIndex(index);
-              tab.$3();
-            },
-            child: Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.navyDark : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected ? AppColors.navyDark : const Color(0xFFE2E8F0),
-                ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: AppColors.navyDark.withAlpha(40),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    tab.$2,
-                    size: 16,
-                    color: isSelected ? AppColors.gold : const Color(0xFF64748B),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    tab.$1,
-                    style: GoogleFonts.outfit(
-                      fontSize: 12.5,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected ? Colors.white : const Color(0xFF334155),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // KPI Metrics Grid (7 Stats)
+  // 3. KPI Metric Cards Grid
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildKpiMetricsGrid(
     BuildContext context,
-    StudentDashboardModel d,
-    List<EnrolledCourseModel> enrolled,
-  ) {
-    final inProgCount = enrolled.where((c) => c.progressPercent > 0 && c.progressPercent < 100).length;
-    final totalCourses = enrolled.isNotEmpty ? enrolled.length : d.myCoursesCount;
+    StudentDashboardModel dashboard,
+    List<EnrolledCourseModel> continueCourses,
+    List<EnrolledCourseModel> enrolledCourses, {
+    required int wishlistCount,
+  }) {
+    final overallProgress = enrolledCourses.isNotEmpty
+        ? (enrolledCourses.map((c) => c.progressPercent).reduce((a, b) => a + b) / enrolledCourses.length).toInt()
+        : dashboard.progressPercent.toInt();
 
-    double avgProgress = 0.0;
-    if (enrolled.isNotEmpty) {
-      avgProgress = enrolled.map((e) => e.progressPercent).reduce((a, b) => a + b) / enrolled.length;
-    }
-
-    final kpis = [
-      ('My orders', '${d.myOrdersCount}', Icons.receipt_long_rounded, const Color(0xFF2563EB), () => context.push('/my-orders')),
-      ('My courses', '$totalCourses', Icons.menu_book_rounded, const Color(0xFF0D9488), () => context.push(AppRoutes.myCourses)),
-      ('In progress', '$inProgCount', Icons.play_arrow_rounded, const Color(0xFFE11D48), () => context.push(AppRoutes.myCourses)),
-      ('Progress', '${avgProgress.toInt()}%', Icons.trending_up_rounded, const Color(0xFFD97706), () {}),
-      ('Certificates', '${d.certificatesCount}', Icons.workspace_premium_rounded, const Color(0xFF7C3AED), () {}),
-      ('Wishlist', '${d.wishlistCount}', Icons.favorite_rounded, const Color(0xFFEC4899), () {}),
-      ('Live classes', '${d.liveClassesCount}', Icons.videocam_rounded, const Color(0xFF059669), () {}),
+    final metrics = [
+      {'label': 'My orders', 'value': '${dashboard.myOrdersCount}', 'icon': LucideIcons.banknote, 'route': '/student/orders'},
+      {'label': 'My courses', 'value': '${enrolledCourses.isNotEmpty ? enrolledCourses.length : dashboard.myCoursesCount}', 'icon': LucideIcons.bookOpen, 'route': '/student/courses'},
+      {'label': 'In progress', 'value': '${continueCourses.isNotEmpty ? continueCourses.length : dashboard.inProgressCount}', 'icon': LucideIcons.play, 'route': '/student/continue'},
+      {'label': 'Progress', 'value': '$overallProgress%', 'icon': LucideIcons.trendingUp, 'route': null},
+      {'label': 'Certificates', 'value': '${dashboard.certificatesCount}', 'icon': LucideIcons.award, 'route': '/student/certificates'},
+      {'label': 'Wishlist', 'value': '$wishlistCount', 'icon': LucideIcons.heart, 'route': '/student/wishlist'},
+      {'label': 'Live classes', 'value': '${dashboard.liveClassesCount}', 'icon': LucideIcons.video, 'route': '/student/help'},
     ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        mainAxisExtent: 82,
+      ),
+      itemCount: metrics.length,
+      itemBuilder: (context, index) {
+        final item = metrics[index];
+        final route = item['route'] as String?;
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: route != null ? () => context.go(route) : null,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(item['icon'] as IconData, size: 20, color: const Color(0xFF1E293B)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          item['label'] as String,
+                          style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item['value'] as String,
+                          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 4. Continue Learning Section
+  // ───────────────────────────────────────────────────────────────────────────
+  Widget _buildContinueLearningSection(BuildContext context, List<EnrolledCourseModel> courses) {
+    final firstCourse = courses.isNotEmpty ? courses.first : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final cardWidth = (constraints.maxWidth - 16) / 3;
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: kpis.map((kpi) {
-                return GestureDetector(
-                  onTap: kpi.$5,
-                  child: Container(
-                    width: cardWidth,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(6),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              kpi.$1,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF64748B),
-                              ),
-                            ),
-                            Icon(kpi.$3, size: 14, color: kpi.$4),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          kpi.$2,
-                          style: GoogleFonts.outfit(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.navyDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            );
-          },
+        // Section Header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF22C55E), shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    Text('CONTINUE LEARNING', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF64748B), letterSpacing: 0.8)),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text('Pick up where you left off', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+              ],
+            ),
+            GestureDetector(
+              onTap: () => context.go('/student/continue'),
+              child: Text('View all', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+            ),
+          ],
         ),
+        const SizedBox(height: 14),
+
+        if (firstCourse != null)
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 160,
+                    child: ZabiraNetworkImage(imageUrl: firstCourse.coverImage, fit: BoxFit.cover),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        (firstCourse.categoryName != null && firstCourse.categoryName!.isNotEmpty)
+                            ? firstCourse.categoryName!.toUpperCase()
+                            : 'LANGUAGE OF QURAN',
+                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFFC9A84C), letterSpacing: 0.8),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        firstCourse.title,
+                        style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Last watched lesson · 1 lesson remaining · ~18 min left',
+                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Course progress', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
+                          Text('${firstCourse.progressPercent.toInt()}%', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: (firstCourse.progressPercent / 100.0).clamp(0.0, 1.0),
+                          minHeight: 6,
+                          backgroundColor: const Color(0xFFE2E8F0),
+                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFC9A84C)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                final cid = firstCourse.courseId > 0 ? firstCourse.courseId : firstCourse.id;
+                                context.push('/courses/$cid/learn');
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFC9A84C),
+                                foregroundColor: const Color(0xFF112039),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                              child: Text('Resume lesson', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF112039))),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                final cid = firstCourse.courseId > 0 ? firstCourse.courseId : firstCourse.id;
+                                context.push('/courses/$cid');
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                              child: Text('Open course', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A))),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
+            child: Center(
+              child: Text('No courses in progress.', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+            ),
+          ),
       ],
     );
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Continue Learning Section
+  // 5. Enrolled Programs Section
   // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildContinueLearningSection(
-    BuildContext context,
-    List<EnrolledCourseModel> courses,
-  ) {
+  Widget _buildEnrolledProgramsSection(BuildContext context, List<EnrolledCourseModel> enrolledCourses) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: AppColors.gold,
-                shape: BoxShape.circle,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF22C55E), shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    Text('MY COURSES', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF64748B), letterSpacing: 0.8)),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text('Your enrolled programs', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+              ],
             ),
-            const SizedBox(width: 8),
-            Text(
-              'CONTINUE LEARNING',
-              style: GoogleFonts.outfit(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: AppColors.gold,
-                letterSpacing: 1.2,
-              ),
+            GestureDetector(
+              onTap: () => context.go('/student/courses'),
+              child: Text('View all', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Pick up where you left off',
-          style: GoogleFonts.outfit(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: AppColors.navyDark,
-          ),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
 
-        if (courses.isEmpty) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(26),
-                  ),
-                  child: const Icon(Icons.play_arrow_rounded, color: AppColors.gold, size: 28),
+        if (enrolledCourses.isNotEmpty)
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: enrolledCourses.take(2).length,
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final course = enrolledCourses[index];
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Nothing in progress yet',
-                  style: GoogleFonts.outfit(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.navyDark,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Open a course and start a lesson — it will appear here for quick resume.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
-                    fontSize: 12.5,
-                    color: const Color(0xFF64748B),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: () => context.push(AppRoutes.courses),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.navyDark,
-                    side: const BorderSide(color: AppColors.navyDark),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: const Text('Browse Courses'),
-                ),
-              ],
-            ),
-          ),
-        ] else ...[
-          SizedBox(
-            height: 130,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: courses.length,
-              itemBuilder: (context, index) {
-                final c = courses[index];
-                final effectiveId = c.courseId > 0 ? c.courseId : c.id;
-                final lessonParam = c.lastLessonId != null && c.lastLessonId! > 0 ? '?lesson_id=${c.lastLessonId}' : '';
-                return GestureDetector(
-                  onTap: () => context.push('/courses/$effectiveId/learn$lessonParam'),
-                  child: Container(
-                    width: 260,
-                    margin: EdgeInsets.only(right: index < courses.length - 1 ? 12 : 0),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(6),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Container(
-                          width: 72,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            color: AppColors.navyDark,
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: c.resolvedImage != null
-                                ? ZabiraNetworkImage(imageUrl: c.resolvedImage, fit: BoxFit.cover)
-                                : const Center(
-                                    child: Icon(Icons.menu_book_rounded, color: AppColors.gold, size: 28),
-                                  ),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: SizedBox(
+                            width: 60,
+                            height: 60,
+                            child: ZabiraNetworkImage(imageUrl: course.coverImage, fit: BoxFit.cover),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(
-                                c.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.navyDark,
-                                ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(4)),
+                                child: Text('ONE-TO-ONE CLASS', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
                               ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: LinearProgressIndicator(
-                                        value: (c.progressPercent / 100).clamp(0.0, 1.0),
-                                        backgroundColor: const Color(0xFFE2E8F0),
-                                        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
-                                        minHeight: 5,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '${c.progressPercentInt}%',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              const SizedBox(height: 3),
+                              Text(course.title, style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                              Text('1 lessons · 6 months', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B))),
                             ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                );
-              },
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Progress', style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF64748B))),
+                        Text('${course.progressPercent.toInt()}%', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: (course.progressPercent / 100.0).clamp(0.0, 1.0),
+                        minHeight: 5,
+                        backgroundColor: const Color(0xFFE2E8F0),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFC9A84C)),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
+            child: Center(
+              child: Text('No enrolled programs yet.', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
             ),
           ),
-        ],
       ],
     );
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Recommended Programs Section
+  // 6. Recommended For You Section
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildRecommendedSection(BuildContext context) {
-    final progs = [
-      ('Quran with Tajweed', 'QURAN STUDIES', 'assets/images/home/courses/quran_tajweed.png', 5),
-      ('Young Muslims Program', 'ISLAMIC STUDIES', 'assets/images/home/courses/muslim_life.png', 6),
-      ('Stories from the Quran', 'SELF-PACED', 'assets/images/home/courses/understand_quran.png', 7),
-      ('Namaz & Dua Masterclass', 'PRACTICAL ISLAM', 'assets/images/home/courses/namaz_dua.png', 8),
-    ];
+    final recCourses = _recommendedCourses.take(4).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -843,415 +604,311 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.gold,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'RECOMMENDED FOR YOU',
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.gold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
+                    Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF22C55E), shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    Text('RECOMMENDED FOR YOU', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF64748B), letterSpacing: 0.8)),
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Programs students love right now',
-                  style: GoogleFonts.outfit(
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.navyDark,
-                  ),
-                ),
+                const SizedBox(height: 3),
+                Text('Programs students love right now', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
               ],
             ),
-            TextButton(
-              onPressed: () => context.push(AppRoutes.courses),
-              child: Text(
-                'Catalog',
-                style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.gold),
-              ),
+            GestureDetector(
+              onTap: () => context.go(AppRoutes.courses),
+              child: Text('Catalog', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1.45,
+        const SizedBox(height: 14),
+
+        if (recCourses.isNotEmpty)
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.85,
+            ),
+            itemCount: recCourses.length,
+            itemBuilder: (context, index) {
+              final c = recCourses[index];
+              return InkWell(
+                onTap: () => context.push('/courses/${c.id}'),
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 90,
+                          child: ZabiraNetworkImage(imageUrl: c.thumbnail, fit: BoxFit.cover),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              c.courseType.isNotEmpty ? c.courseType.toUpperCase() : 'QURAN STUDIES',
+                              style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFFC9A84C), letterSpacing: 0.5),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              c.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A), height: 1.2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
+            child: Center(
+              child: Text('Loading recommendations...', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+            ),
           ),
-          itemCount: progs.length,
-          itemBuilder: (context, index) {
-            final p = progs[index];
-            return GestureDetector(
-              onTap: () => context.push('/courses/${p.$4}'),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      p.$2,
-                      style: GoogleFonts.outfit(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.gold,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      p.$1,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.navyDark,
-                        height: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
+      ],
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 7. Weekly Goal Card
+  // ───────────────────────────────────────────────────────────────────────────
+  Widget _buildWeeklyGoalCard(StudentDashboardModel dashboard) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Weekly goal', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+              const Icon(LucideIcons.sparkles, size: 18, color: Color(0xFFC9A84C)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${dashboard.weeklyGoalCurrent} of ${dashboard.weeklyGoalTarget} learning moments',
+            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (dashboard.weeklyGoalCurrent / dashboard.weeklyGoalTarget.toDouble()).clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: const Color(0xFFE2E8F0),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFC9A84C)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Average course completion · ${dashboard.averageCourseCompletion.toInt()}%',
+            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 8. Upcoming Live Class / Free Trial Card
+  // ───────────────────────────────────────────────────────────────────────────
+  Widget _buildUpcomingLiveClassCard(BuildContext context, StudentDashboardModel dashboard) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Upcoming live class', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+          const SizedBox(height: 8),
+          Text('No live sessions scheduled.', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+          const SizedBox(height: 14),
+          ElevatedButton(
+            onPressed: () => context.go(AppRoutes.courses),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF112039),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('Book a free trial', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 9. Recent Certificates Card
+  // ───────────────────────────────────────────────────────────────────────────
+  Widget _buildRecentCertificatesCard(BuildContext context, StudentDashboardModel dashboard) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Recent certificates', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+              GestureDetector(
+                onTap: () => context.go('/student/certificates'),
+                child: Text('All', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
               ),
-            );
-          },
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text('Complete a course to earn your first certificate.', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+        ],
+      ),
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 10. Notifications Inbox Card
+  // ───────────────────────────────────────────────────────────────────────────
+  Widget _buildNotificationsCard(BuildContext context, StudentDashboardModel dashboard) {
+    final notifs = dashboard.notifications.take(4).toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Notifications', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+              GestureDetector(
+                onTap: () => context.go('/student/notifications'),
+                child: Text('Inbox', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (notifs.isNotEmpty)
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: notifs.length,
+              separatorBuilder: (_, _) => const Divider(height: 16, thickness: 1, color: Color(0xFFF1F5F9)),
+              itemBuilder: (context, index) {
+                final n = notifs[index];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(n.title, style: GoogleFonts.outfit(fontSize: 13.5, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                    const SizedBox(height: 2),
+                    Text(n.message, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
+                  ],
+                );
+              },
+            )
+          else
+            Text('No new notifications.', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+        ],
+      ),
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 11. Quick Actions Card
+  // ───────────────────────────────────────────────────────────────────────────
+  Widget _buildQuickActionsCard(BuildContext context) {
+    final actions = [
+      {'label': 'Wishlist', 'icon': LucideIcons.heart, 'route': '/student/wishlist'},
+      {'label': 'Free trials', 'icon': LucideIcons.video, 'route': '/courses'},
+      {'label': 'Certificates', 'icon': LucideIcons.award, 'route': '/student/certificates'},
+      {'label': 'Browse catalog', 'icon': LucideIcons.bookOpen, 'route': AppRoutes.courses},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Quick actions', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            children: List.generate(actions.length, (index) {
+              final a = actions[index];
+              final isLast = index == actions.length - 1;
+
+              return Column(
+                children: [
+                  ListTile(
+                    leading: Icon(a['icon'] as IconData, size: 18, color: const Color(0xFF1E293B)),
+                    title: Text(a['label'] as String, style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A))),
+                    trailing: const Icon(LucideIcons.arrowUpRight, size: 16, color: Color(0xFF94A3B8)),
+                    onTap: () => context.go(a['route'] as String),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                  ),
+                  if (!isLast) const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+                ],
+              );
+            }),
+          ),
         ),
       ],
     );
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Weekly Goal Card
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildWeeklyGoalCard(StudentDashboardModel d) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Weekly goal',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navyDark,
-                ),
-              ),
-              const Icon(Icons.star_rounded, color: AppColors.gold, size: 20),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${d.weeklyGoalCurrent} of ${d.weeklyGoalTarget} learning moments',
-            style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF64748B)),
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: (d.weeklyGoalCurrent / d.weeklyGoalTarget).clamp(0.0, 1.0),
-              backgroundColor: const Color(0xFFF1F5F9),
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
-              minHeight: 6,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Average course completion · ${d.averageCourseCompletion.toInt()}%',
-            style: GoogleFonts.outfit(fontSize: 11.5, color: const Color(0xFF94A3B8)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Upcoming Live Class / Free Trial Card
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildUpcomingLiveClassCard(BuildContext context, StudentDashboardModel d) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Upcoming live class',
-            style: GoogleFonts.outfit(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.navyDark,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (d.upcomingLiveClass != null) ...[
-            Row(
-              children: [
-                const Icon(Icons.videocam_outlined, color: AppColors.gold, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    d.upcomingLiveClass!.title,
-                    style: GoogleFonts.outfit(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.navyDark),
-                  ),
-                ),
-              ],
-            ),
-          ] else ...[
-            Text(
-              'No live sessions scheduled.',
-              style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () => context.push(AppRoutes.courses),
-              child: Text(
-                'Book a free trial',
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.gold,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Recent Certificates Card
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildRecentCertificatesCard(BuildContext context, StudentDashboardModel d) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Recent certificates',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navyDark,
-                ),
-              ),
-              Text(
-                'All',
-                style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.gold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (d.recentCertificates.isNotEmpty) ...[
-            ...d.recentCertificates.map(
-              (cert) => Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.workspace_premium_rounded, color: AppColors.gold, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        cert.courseTitle,
-                        style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.navyDark),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ] else ...[
-            Text(
-              'Complete a course to earn your first certificate.',
-              style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF64748B)),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Notifications Card
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildNotificationsCard(
-    BuildContext context,
-    StudentController ctrl,
-    StudentDashboardModel d,
-  ) {
-    final token = context.read<AuthController>().currentToken;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Notifications',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.navyDark,
-                ),
-              ),
-              GestureDetector(
-                onTap: () => ctrl.markNotificationsRead(token),
-                child: Text(
-                  'Mark all read',
-                  style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.gold),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (d.notifications.isNotEmpty) ...[
-            ...d.notifications.take(3).map(
-              (n) => Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFF1F5F9)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      n.title,
-                      style: GoogleFonts.outfit(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.navyDark),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      n.message,
-                      style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ] else ...[
-            Text(
-              'No unread notifications.',
-              style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF64748B)),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Quick Actions Card
-  // ───────────────────────────────────────────────────────────────────────────
-  Widget _buildQuickActionsCard(BuildContext context) {
-    final actions = [
-      ('Wishlist', Icons.favorite_border_rounded, () {}),
-      ('Free trials', Icons.videocam_outlined, () {}),
-      ('Certificates', Icons.workspace_premium_outlined, () {}),
-      ('Browse catalog', Icons.menu_book_outlined, () => context.push(AppRoutes.courses)),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Quick actions',
-            style: GoogleFonts.outfit(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.navyDark,
-            ),
-          ),
-          const SizedBox(height: 10),
-          ...actions.map(
-            (act) => InkWell(
-              onTap: act.$3,
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Icon(act.$2, size: 18, color: const Color(0xFF64748B)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        act.$1,
-                        style: GoogleFonts.outfit(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.navyDark),
-                      ),
-                    ),
-                    const Icon(Icons.arrow_outward_rounded, size: 16, color: Color(0xFF94A3B8)),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Achievements Card
+  // 12. Achievements Card
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildAchievementsCard() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1261,18 +918,11 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Achievements',
-            style: GoogleFonts.outfit(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.navyDark,
-            ),
-          ),
-          const SizedBox(height: 6),
+          Text('Achievements', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+          const SizedBox(height: 8),
           Text(
             'Badges and learning milestones will appear here as you progress — stay consistent.',
-            style: GoogleFonts.outfit(fontSize: 12.5, color: const Color(0xFF64748B)),
+            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B), height: 1.4),
           ),
         ],
       ),

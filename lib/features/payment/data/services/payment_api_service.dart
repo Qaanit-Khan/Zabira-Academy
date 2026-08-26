@@ -8,15 +8,21 @@ import '../models/payment_plans_model.dart';
 /// Interacts with official `/payments/*` endpoints using runtime Bearer authentication.
 class PaymentApiService {
   PaymentApiService({http.Client? client, ApiClient? apiClient})
-      : _client = apiClient ?? ApiClient(client: client);
+    : _client = apiClient ?? ApiClient(client: client);
 
   final ApiClient _client;
 
   /// Get active payment gateways configured on Zabira server.
   Future<List<PaymentGatewayInfo>> getPaymentGateways({String? token}) async {
-    final response = await _client.get(ApiConfig.paymentsGateways, token: token);
-    final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
-    final rawList = data['gateways'] ?? response['gateways'] ?? response['data'] ?? [];
+    final response = await _client.get(
+      ApiConfig.paymentsGateways,
+      token: token,
+    );
+    final data = response['data'] is Map<String, dynamic>
+        ? response['data'] as Map<String, dynamic>
+        : response;
+    final rawList =
+        data['gateways'] ?? response['gateways'] ?? response['data'] ?? [];
     if (rawList is List) {
       return rawList
           .whereType<Map<String, dynamic>>()
@@ -32,12 +38,20 @@ class PaymentApiService {
   }
 
   /// Get flexible payment plans for a course
-  Future<PaymentPlansData> getPaymentPlans({int? courseId, String? slug, String? token}) async {
+  Future<PaymentPlansData> getPaymentPlans({
+    int? courseId,
+    String? slug,
+    String? token,
+  }) async {
     final query = <String, dynamic>{};
     if (courseId != null) query['course_id'] = courseId;
     if (slug != null && slug.isNotEmpty) query['slug'] = slug;
 
-    final response = await _client.get(ApiConfig.paymentsPaymentPlans, queryParameters: query, token: token);
+    final response = await _client.get(
+      ApiConfig.paymentsPaymentPlans,
+      queryParameters: query,
+      token: token,
+    );
     return PaymentPlansData.fromJson(response);
   }
 
@@ -54,8 +68,17 @@ class PaymentApiService {
       'product_type': productType,
     };
 
-    final response = await _client.post(ApiConfig.paymentsCreateSession, body: body, token: token);
-    return PaymentSessionModel.fromJson(response, orderId: orderId, productType: productType);
+    final response = await _client.post(
+      ApiConfig.paymentsCreateSession,
+      body: body,
+      token: token,
+    );
+    _ensureSuccess(response);
+    return PaymentSessionModel.fromJson(
+      response,
+      orderId: orderId,
+      productType: productType,
+    );
   }
 
   /// Verify a completed payment transaction.
@@ -77,8 +100,25 @@ class PaymentApiService {
     if (signature != null) body['razorpay_signature'] = signature;
     if (razorpayOrderId != null) body['razorpay_order_id'] = razorpayOrderId;
 
-    final response = await _client.post(ApiConfig.paymentsVerify, body: body, token: token);
+    final response = await _client.post(
+      ApiConfig.paymentsVerify,
+      body: body,
+      token: token,
+    );
+    _ensureSuccess(response);
     return PaymentVerificationResult.fromJson(response);
+  }
+
+  void _ensureSuccess(Map<String, dynamic> response) {
+    if (response['success'] == false ||
+        response['status'] == 'error' ||
+        response['status'] == 'failed') {
+      final message =
+          response['message']?.toString() ??
+          response['error']?.toString() ??
+          'Payment request failed.';
+      throw Exception(message);
+    }
   }
 
   /// `GET /payments/checkout_summary.php`
@@ -90,7 +130,11 @@ class PaymentApiService {
     final query = <String, dynamic>{'order_id': orderId};
     if (productType != null) query['product_type'] = productType;
 
-    return _client.get(ApiConfig.paymentsCheckoutSummary, queryParameters: query, token: token);
+    return _client.get(
+      ApiConfig.paymentsCheckoutSummary,
+      queryParameters: query,
+      token: token,
+    );
   }
 
   /// `GET /payments/my_orders.php`
@@ -106,9 +150,18 @@ class PaymentApiService {
 
     while (keepFetching) {
       final query = {'page': currentPage, 'limit': limit};
-      final response = await _client.get(ApiConfig.paymentsMyOrders, queryParameters: query, token: token);
-      final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
-      final rawList = data['orders'] ?? response['orders'] ?? (response['data'] is List ? response['data'] : []);
+      final response = await _client.get(
+        ApiConfig.paymentsMyOrders,
+        queryParameters: query,
+        token: token,
+      );
+      final data = response['data'] is Map<String, dynamic>
+          ? response['data'] as Map<String, dynamic>
+          : response;
+      final rawList =
+          data['orders'] ??
+          response['orders'] ??
+          (response['data'] is List ? response['data'] : []);
 
       final pageOrders = <MyOrderItem>[];
       if (rawList is List) {
@@ -128,8 +181,12 @@ class PaymentApiService {
 
       final pagination = data['pagination'] is Map<String, dynamic>
           ? data['pagination'] as Map<String, dynamic>
-          : (response['pagination'] is Map<String, dynamic> ? response['pagination'] as Map<String, dynamic> : null);
-      final totalPages = int.tryParse(pagination?['total_pages']?.toString() ?? '');
+          : (response['pagination'] is Map<String, dynamic>
+                ? response['pagination'] as Map<String, dynamic>
+                : null);
+      final totalPages = int.tryParse(
+        pagination?['total_pages']?.toString() ?? '',
+      );
 
       if (totalPages != null && totalPages > 0) {
         keepFetching = currentPage < totalPages;
@@ -152,7 +209,11 @@ class PaymentApiService {
     final query = <String, dynamic>{'order_id': orderId};
     if (productType != null) query['product_type'] = productType;
 
-    return _client.get(ApiConfig.paymentsOrderStatus, queryParameters: query, token: token);
+    return _client.get(
+      ApiConfig.paymentsOrderStatus,
+      queryParameters: query,
+      token: token,
+    );
   }
 
   /// `GET /payments/invoice.php`
@@ -164,7 +225,11 @@ class PaymentApiService {
     final query = <String, dynamic>{'order_id': orderId};
     if (format != null) query['format'] = format;
 
-    return _client.get(ApiConfig.paymentsInvoice, queryParameters: query, token: token);
+    return _client.get(
+      ApiConfig.paymentsInvoice,
+      queryParameters: query,
+      token: token,
+    );
   }
 
   /// `POST /payments/apply_coupon.php`
@@ -181,7 +246,11 @@ class PaymentApiService {
     if (remove) {
       body['remove'] = '1';
     }
-    return _client.post(ApiConfig.paymentsApplyCoupon, body: body, token: token);
+    return _client.post(
+      ApiConfig.paymentsApplyCoupon,
+      body: body,
+      token: token,
+    );
   }
 
   /// `POST /payments/cancel_order.php`
@@ -190,12 +259,14 @@ class PaymentApiService {
     String? action,
     String? token,
   }) async {
-    final body = <String, dynamic>{
-      'order_id': orderId,
-    };
+    final body = <String, dynamic>{'order_id': orderId};
     if (action != null) {
       body['action'] = action;
     }
-    return _client.post(ApiConfig.paymentsCancelOrder, body: body, token: token);
+    return _client.post(
+      ApiConfig.paymentsCancelOrder,
+      body: body,
+      token: token,
+    );
   }
 }

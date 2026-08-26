@@ -167,7 +167,7 @@ class _EventsPageState extends State<EventsPage> {
       child: Scaffold(
         extendBody: true,
         key: _scaffoldKey,
-        drawer: const AppDrawer(),
+        drawer: const AppDrawer(currentRoute: AppRoutes.events),
         backgroundColor: const Color(0xFFF8FAFC),
         bottomNavigationBar: const ZabiraBottomNav(selectedIndex: -1),
         body: Column(
@@ -180,7 +180,7 @@ class _EventsPageState extends State<EventsPage> {
                 notificationCount: isAuth ? 2 : 0,
                 cartCount: cart.itemCount,
                 userInitial: isAuth && auth.user!.displayName.isNotEmpty ? auth.user!.displayName[0] : null,
-                onMenuTap: () => AppDrawer.open(context),
+                onMenuTap: () => AppDrawer.open(context, AppRoutes.events),
                 onCartTap: () => context.push(AppRoutes.cart),
                 onSignIn: () => showAuthBottomSheet(context),
                 onProfileTap: () {
@@ -200,7 +200,7 @@ class _EventsPageState extends State<EventsPage> {
                 backgroundColor: Colors.white,
                 onRefresh: _loadEvents,
                 child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

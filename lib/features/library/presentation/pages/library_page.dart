@@ -267,7 +267,7 @@ class _LibraryPageState extends State<LibraryPage> {
       child: Scaffold(
         extendBody: true,
         key: _scaffoldKey,
-        drawer: const AppDrawer(),
+        drawer: const AppDrawer(currentRoute: AppRoutes.library),
         backgroundColor: const Color(0xFFF8FAFC),
         bottomNavigationBar: const ZabiraBottomNav(selectedIndex: 4),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -282,7 +282,7 @@ class _LibraryPageState extends State<LibraryPage> {
                 notificationCount: isAuth ? 2 : 0,
                 cartCount: cart.itemCount,
                 userInitial: isAuth && auth.user!.displayName.isNotEmpty ? auth.user!.displayName[0] : null,
-                onMenuTap: () => AppDrawer.open(context),
+                onMenuTap: () => AppDrawer.open(context, AppRoutes.library),
                 onCartTap: () => context.push(AppRoutes.cart),
                 onSignIn: () => showAuthBottomSheet(context),
                 onProfileTap: () {
@@ -319,7 +319,7 @@ class _LibraryPageState extends State<LibraryPage> {
                     color: brandGold,
                     backgroundColor: Colors.white,
                     child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -648,7 +648,7 @@ class _LibraryPageState extends State<LibraryPage> {
   // ── Floating Action Button for Filter ──────────────────────────────────────
   Widget _buildFloatingFilterButton() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 76, right: 4),
+      margin: const EdgeInsets.only(bottom: 10, right: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         boxShadow: [

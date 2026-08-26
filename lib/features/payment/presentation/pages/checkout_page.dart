@@ -14,6 +14,7 @@ import '../../../store/presentation/controllers/cart_controller.dart';
 import '../../../student/presentation/controllers/student_controller.dart';
 import '../../../store/data/services/store_service.dart';
 import '../../data/services/payment_gateway_launcher.dart';
+import '../../data/utils/order_response_utils.dart';
 import '../controllers/payment_controller.dart';
 import '../../data/models/payment_models.dart';
 
@@ -189,7 +190,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    final effectiveCourseId = widget.productType == 'course' ? (widget.courseId ?? widget.orderId) : null;
+    final effectiveCourseId = widget.productType == 'course'
+        ? (widget.courseId ?? widget.orderId)
+        : null;
 
     try {
       payment.setStatus(PaymentStatus.creatingOrder);
@@ -209,7 +212,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
           if (cartOrderId != null && cartOrderId > 0) {
             effectiveOrderId = cartOrderId;
           } else {
-            payment.setStatus(PaymentStatus.failed, error: 'Unable to create cart checkout order.');
+            payment.setStatus(
+              PaymentStatus.failed,
+              error: 'Unable to create cart checkout order.',
+            );
             return;
           }
         }
@@ -221,8 +227,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             quantity: widget.quantity,
             authToken: auth.currentToken,
           );
-          final data = purchaseRes['data'] is Map<String, dynamic> ? purchaseRes['data'] as Map<String, dynamic> : purchaseRes;
-          final realId = int.tryParse(data['order_id']?.toString() ?? data['id']?.toString() ?? '0') ?? 0;
+          final realId = extractOrderId(purchaseRes) ?? 0;
           if (realId > 0) effectiveOrderId = realId;
         } catch (e) {
           DebugLogger.logPaymentStage(
@@ -231,14 +236,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
             productId: widget.orderId,
             data: {'error': _sanitizeError(e)},
           );
-          payment.setStatus(PaymentStatus.failed, error: 'Unable to initiate store order. ${_sanitizeError(e)}');
+          payment.setStatus(
+            PaymentStatus.failed,
+            error: 'Unable to initiate store order. ${_sanitizeError(e)}',
+          );
           return;
         }
-      } else if (widget.productType == 'course' && (effectiveOrderId <= 0 || effectiveOrderId == widget.courseId)) {
+      } else if (widget.productType == 'course' &&
+          (effectiveOrderId <= 0 || effectiveOrderId == widget.courseId)) {
         // Create real backend enrollment order
         final courseIdToEnroll = effectiveCourseId ?? widget.orderId;
         if (courseIdToEnroll > 0) {
-          final planType = (widget.planLabel?.toLowerCase().contains('month') ?? false) ? 'monthly' : 'full';
+          final planType =
+              (widget.planLabel?.toLowerCase().contains('month') ?? false)
+              ? 'monthly'
+              : 'full';
           final enrollRes = await enrollment.enrollInCourse(
             courseId: courseIdToEnroll,
             paymentPlan: planType,
@@ -248,7 +260,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           if (enrollment.lastOrderId != null && enrollment.lastOrderId! > 0) {
             effectiveOrderId = enrollment.lastOrderId!;
           } else {
-            final orderIdFromEnroll = int.tryParse(enrollRes['order_id']?.toString() ?? enrollRes['data']?['order_id']?.toString() ?? '');
+            final orderIdFromEnroll = extractOrderId(enrollRes);
             if (orderIdFromEnroll != null && orderIdFromEnroll > 0) {
               effectiveOrderId = orderIdFromEnroll;
             }
@@ -264,7 +276,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
 
       if (effectiveOrderId <= 0) {
-        payment.setStatus(PaymentStatus.failed, error: 'Invalid order: unable to resolve backend order ID.');
+        payment.setStatus(
+          PaymentStatus.failed,
+          error: 'Invalid order: unable to resolve backend order ID.',
+        );
         return;
       }
 
@@ -319,7 +334,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
           'gateway_order_id': gatewayResult.gatewayOrderId,
           'payment_id': gatewayResult.paymentId ?? 'null',
           'razorpay_order_id': gatewayResult.razorpayOrderId ?? 'null',
-          'has_signature': gatewayResult.signature != null && gatewayResult.signature!.isNotEmpty,
+          'has_signature':
+              gatewayResult.signature != null &&
+              gatewayResult.signature!.isNotEmpty,
         },
       );
 
@@ -346,7 +363,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         if (!payment.isConfirmedOrderStatus(orderStatus, widget.productType)) {
           payment.setStatus(
             PaymentStatus.awaitingConfirmation,
-            error: 'Payment received, but backend confirmation is still pending. Order ID: #$effectiveOrderId',
+            error:
+                'Payment received, but backend confirmation is still pending. Order ID: #$effectiveOrderId',
           );
           return;
         }
@@ -361,12 +379,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
         if (!mounted) return;
 
         // Navigate to Native Payment Success Page
-        final effectiveTotal = (widget.amount - payment.couponDiscount).clamp(0.0, double.infinity);
+        final effectiveTotal = (widget.amount - payment.couponDiscount).clamp(
+          0.0,
+          double.infinity,
+        );
         context.go(
           '/payment-success',
           extra: {
             'orderId': effectiveOrderId,
-            'paymentId': gatewayResult.paymentId ?? gatewayResult.gatewayOrderId,
+            'paymentId':
+                gatewayResult.paymentId ?? gatewayResult.gatewayOrderId,
             'title': widget.title,
             'amount': effectiveTotal,
             'productType': widget.productType,
@@ -395,12 +417,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
           if (!mounted) return;
 
-          final effectiveTotal = (widget.amount - payment.couponDiscount).clamp(0.0, double.infinity);
+          final effectiveTotal = (widget.amount - payment.couponDiscount).clamp(
+            0.0,
+            double.infinity,
+          );
           context.go(
             '/payment-success',
             extra: {
               'orderId': effectiveOrderId,
-              'paymentId': gatewayResult.paymentId ?? gatewayResult.gatewayOrderId,
+              'paymentId':
+                  gatewayResult.paymentId ?? gatewayResult.gatewayOrderId,
               'title': widget.title,
               'amount': effectiveTotal,
               'productType': widget.productType,
@@ -413,7 +439,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
         payment.setStatus(
           PaymentStatus.awaitingConfirmation,
-          error: 'Payment received, but order confirmation is pending. Order ID: #$effectiveOrderId. Use Refresh Status to check again.',
+          error:
+              'Payment received, but order confirmation is pending. Order ID: #$effectiveOrderId. Use Refresh Status to check again.',
         );
       }
     } on PaymentGatewayLaunchException catch (e) {
@@ -432,10 +459,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // If a payment_id was already obtained from the gateway (stored in
       // payment state), do NOT say "Payment Failed" — say "awaiting confirmation".
       if (!mounted) return;
-      final hasPaymentId = payment.lastResult?.transactionId != null &&
+      final hasPaymentId =
+          payment.lastResult?.transactionId != null &&
           (payment.lastResult?.transactionId?.isNotEmpty ?? false);
       DebugLogger.logPaymentStage(
-        stage: hasPaymentId ? 'post_payment_exception' : 'pre_payment_exception',
+        stage: hasPaymentId
+            ? 'post_payment_exception'
+            : 'pre_payment_exception',
         productType: widget.productType,
         orderId: payment.currentOrderId,
         data: {'error': _sanitizeError(e), 'has_payment_id': hasPaymentId},
@@ -445,7 +475,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         // Do NOT show "Payment Failed" — show "awaiting confirmation".
         payment.setStatus(
           PaymentStatus.awaitingConfirmation,
-          error: 'Payment received, but confirmation could not be completed. '
+          error:
+              'Payment received, but confirmation could not be completed. '
               'Your Order ID is #${payment.currentOrderId ?? 'unknown'}. '
               'Contact support if not resolved within 24 hours.',
         );
@@ -482,7 +513,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
 
       if (!mounted) return;
-      final effectiveTotal = (widget.amount - payment.couponDiscount).clamp(0.0, double.infinity);
+      final effectiveTotal = (widget.amount - payment.couponDiscount).clamp(
+        0.0,
+        double.infinity,
+      );
       context.go(
         '/payment-success',
         extra: {
@@ -499,7 +533,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     payment.setStatus(
       PaymentStatus.awaitingConfirmation,
-      error: 'Payment received, but backend confirmation is still pending. Order ID: #$orderId',
+      error:
+          'Payment received, but backend confirmation is still pending. Order ID: #$orderId',
     );
   }
 
@@ -515,7 +550,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final payment = context.watch<PaymentController>();
     final gateways = payment.gateways;
 
-    final effectiveTotal = (widget.amount - payment.couponDiscount).clamp(0.0, double.infinity);
+    final effectiveTotal = (widget.amount - payment.couponDiscount).clamp(
+      0.0,
+      double.infinity,
+    );
 
     return PopScope(
       canPop: !payment.isProcessing,
@@ -525,7 +563,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
           backgroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: AppColors.navyDark),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: AppColors.navyDark,
+            ),
             onPressed: payment.isProcessing
                 ? null
                 : () {
@@ -568,7 +609,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.screenHorizontal,
+                      vertical: 16,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -641,8 +685,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
 
             // ── Processing Overlay ─────────────────────────────────────────────
-            if (payment.isProcessing)
-              _buildProcessingOverlay(payment),
+            if (payment.isProcessing) _buildProcessingOverlay(payment),
           ],
         ),
       ),
@@ -680,7 +723,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
               const SizedBox(height: 20),
               Text(
-                payment.statusMessage.isNotEmpty ? payment.statusMessage : 'Processing securely...',
+                payment.statusMessage.isNotEmpty
+                    ? payment.statusMessage
+                    : 'Processing securely...',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.outfit(
                   fontSize: 15,
@@ -692,7 +737,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
               Text(
                 'Please do not close or refresh this page.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  color: const Color(0xFF64748B),
+                ),
               ),
             ],
           ),
@@ -702,13 +750,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Widget _buildErrorBanner(PaymentController payment) {
-    final isPendingConfirmation = payment.status == PaymentStatus.awaitingConfirmation;
+    final isPendingConfirmation =
+        payment.status == PaymentStatus.awaitingConfirmation;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isPendingConfirmation ? const Color(0xFFFFFBEB) : const Color(0xFFFEF2F2),
+        color: isPendingConfirmation
+            ? const Color(0xFFFFFBEB)
+            : const Color(0xFFFEF2F2),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isPendingConfirmation ? const Color(0xFFFDE68A) : const Color(0xFFFECACA)),
+        border: Border.all(
+          color: isPendingConfirmation
+              ? const Color(0xFFFDE68A)
+              : const Color(0xFFFECACA),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -716,8 +771,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
           Row(
             children: [
               Icon(
-                isPendingConfirmation ? Icons.hourglass_top_rounded : Icons.error_outline_rounded,
-                color: isPendingConfirmation ? const Color(0xFFD97706) : const Color(0xFFDC2626),
+                isPendingConfirmation
+                    ? Icons.hourglass_top_rounded
+                    : Icons.error_outline_rounded,
+                color: isPendingConfirmation
+                    ? const Color(0xFFD97706)
+                    : const Color(0xFFDC2626),
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -727,12 +786,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     : payment.status == PaymentStatus.timeout
                     ? 'Transaction Timed Out'
                     : payment.status == PaymentStatus.cancelled
-                        ? 'Payment Cancelled'
-                        : 'Payment Failed',
+                    ? 'Payment Cancelled'
+                    : 'Payment Failed',
                 style: GoogleFonts.outfit(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w800,
-                  color: isPendingConfirmation ? const Color(0xFF92400E) : const Color(0xFF991B1B),
+                  color: isPendingConfirmation
+                      ? const Color(0xFF92400E)
+                      : const Color(0xFF991B1B),
                 ),
               ),
             ],
@@ -742,7 +803,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
             payment.errorMessage ?? payment.statusMessage,
             style: GoogleFonts.outfit(
               fontSize: 12.5,
-              color: isPendingConfirmation ? const Color(0xFFB45309) : const Color(0xFFB91C1C),
+              color: isPendingConfirmation
+                  ? const Color(0xFFB45309)
+                  : const Color(0xFFB91C1C),
               height: 1.35,
             ),
           ),
@@ -759,13 +822,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.gold,
                   foregroundColor: AppColors.navyDark,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   elevation: 0,
                 ),
                 child: Text(
                   isPendingConfirmation ? 'Refresh Status' : 'Retry Payment',
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12),
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -774,7 +845,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   payment.reset();
                   if (context.canPop()) context.pop();
                 },
-                child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12)),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.outfit(
+                    color: const Color(0xFF64748B),
+                    fontSize: 12,
+                  ),
+                ),
               ),
             ],
           ),
@@ -796,11 +873,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.local_offer_outlined, color: AppColors.gold, size: 18),
+              const Icon(
+                Icons.local_offer_outlined,
+                color: AppColors.gold,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Have a Promo Code or Coupon?',
-                style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.navyDark),
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.navyDark,
+                ),
               ),
             ],
           ),
@@ -815,8 +900,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     textCapitalization: TextCapitalization.characters,
                     decoration: InputDecoration(
                       hintText: 'Enter coupon code (e.g. ZABIRA20)',
-                      hintStyle: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      hintStyle: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: const Color(0xFF94A3B8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                       border: OutlineInputBorder(
@@ -835,16 +926,33 @@ class _CheckoutPageState extends State<CheckoutPage> {
               SizedBox(
                 height: 44,
                 child: ElevatedButton(
-                  onPressed: _isApplyingCoupon ? null : () => _applyCouponCode(widget.orderId),
+                  onPressed: _isApplyingCoupon
+                      ? null
+                      : () => _applyCouponCode(widget.orderId),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.navyDark,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     elevation: 0,
                   ),
                   child: _isApplyingCoupon
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text('Apply', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13)),
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          'Apply',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -856,7 +964,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
               style: GoogleFonts.outfit(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: _isCouponSuccess ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                color: _isCouponSuccess
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFFEF4444),
               ),
             ),
           ],
@@ -889,8 +999,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 widget.productType == 'course'
                     ? 'COURSE INCLUDED IN ENROLLMENT'
                     : widget.productType == 'store'
-                        ? 'STORE ITEM IN ORDER'
-                        : 'CART ITEMS IN CHECKOUT',
+                    ? 'STORE ITEM IN ORDER'
+                    : 'CART ITEMS IN CHECKOUT',
                 style: GoogleFonts.outfit(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
@@ -907,7 +1017,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
                 child: Text(
                   widget.productType == 'course' ? '1 COURSE' : 'ITEM',
-                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF475569)),
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF475569),
+                  ),
                 ),
               ),
             ],
@@ -927,8 +1041,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   widget.productType == 'course'
                       ? Icons.menu_book_rounded
                       : widget.productType == 'store'
-                          ? Icons.inventory_2_rounded
-                          : Icons.shopping_bag_rounded,
+                      ? Icons.inventory_2_rounded
+                      : Icons.shopping_bag_rounded,
                   color: AppColors.gold,
                   size: 28,
                 ),
@@ -967,14 +1081,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       const SizedBox(height: 4),
                       Text(
                         'Plan: ${widget.planLabel}',
-                        style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFFB45309)),
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFFB45309),
+                        ),
                       ),
                     ],
                     if (widget.instructor != null) ...[
                       const SizedBox(height: 2),
                       Text(
                         widget.instructor!,
-                        style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: const Color(0xFF64748B),
+                        ),
                       ),
                     ],
                   ],
@@ -1016,7 +1137,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
           const SizedBox(height: 4),
           Text(
             'All payments are processed securely via banking-grade encryption.',
-            style: GoogleFonts.outfit(fontSize: 12.5, color: const Color(0xFF64748B)),
+            style: GoogleFonts.outfit(
+              fontSize: 12.5,
+              color: const Color(0xFF64748B),
+            ),
           ),
           const SizedBox(height: 14),
 
@@ -1031,7 +1155,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
               child: Text(
                 'No configured payment gateway is currently available.',
-                style: GoogleFonts.outfit(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFFB91C1C)),
+                style: GoogleFonts.outfit(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFB91C1C),
+                ),
               ),
             ),
 
@@ -1047,7 +1175,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   color: isSelected ? AppColors.navyDark : Colors.white,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isSelected ? AppColors.navyDark : const Color(0xFFE2E8F0),
+                    color: isSelected
+                        ? AppColors.navyDark
+                        : const Color(0xFFE2E8F0),
                     width: isSelected ? 1.5 : 1.0,
                   ),
                 ),
@@ -1057,15 +1187,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     Row(
                       children: [
                         Icon(
-                          isSelected ? Icons.check_circle_rounded : Icons.radio_button_off_rounded,
-                          color: isSelected ? AppColors.gold : const Color(0xFF94A3B8),
+                          isSelected
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_off_rounded,
+                          color: isSelected
+                              ? AppColors.gold
+                              : const Color(0xFF94A3B8),
                           size: 20,
                         ),
                         const SizedBox(width: 10),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: gw.code == 'cashfree' ? const Color(0xFF00C897) : const Color(0xFF0C2340),
+                            color: gw.code == 'cashfree'
+                                ? const Color(0xFF00C897)
+                                : const Color(0xFF0C2340),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -1080,7 +1219,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         if (gw.isRecommended) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.gold.withAlpha(40),
                               borderRadius: BorderRadius.circular(4),
@@ -1090,7 +1232,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               style: GoogleFonts.outfit(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w800,
-                                color: isSelected ? AppColors.gold : const Color(0xFFB45309),
+                                color: isSelected
+                                    ? AppColors.gold
+                                    : const Color(0xFFB45309),
                               ),
                             ),
                           ),
@@ -1109,10 +1253,26 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Widget _buildTrustBadgesSection() {
     final badges = [
-      ('Instant Access', 'Start learning right after payment.', Icons.flash_on_rounded),
-      ('Transparent Terms', 'Clear policies and support.', Icons.replay_rounded),
-      ('Verified Security', 'Certified PCI DSS compliant.', Icons.verified_user_outlined),
-      ('Direct Support', '24/7 student assistance.', Icons.support_agent_rounded),
+      (
+        'Instant Access',
+        'Start learning right after payment.',
+        Icons.flash_on_rounded,
+      ),
+      (
+        'Transparent Terms',
+        'Clear policies and support.',
+        Icons.replay_rounded,
+      ),
+      (
+        'Verified Security',
+        'Certified PCI DSS compliant.',
+        Icons.verified_user_outlined,
+      ),
+      (
+        'Direct Support',
+        '24/7 student assistance.',
+        Icons.support_agent_rounded,
+      ),
     ];
 
     return Container(
@@ -1127,11 +1287,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.lock_outline_rounded, color: AppColors.gold, size: 16),
+              const Icon(
+                Icons.lock_outline_rounded,
+                color: AppColors.gold,
+                size: 16,
+              ),
               const SizedBox(width: 6),
               Text(
                 '256-bit SSL Encrypted',
-                style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF475569)),
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF475569),
+                ),
               ),
             ],
           ),
@@ -1172,7 +1340,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     b.$2,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(fontSize: 10.5, color: const Color(0xFF64748B)),
+                    style: GoogleFonts.outfit(
+                      fontSize: 10.5,
+                      color: const Color(0xFF64748B),
+                    ),
                   ),
                 ],
               );
@@ -1188,12 +1359,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
       (
         0,
         'When will I get access?',
-        'Access activates immediately after successful payment verification. You will be redirected right away.'
+        'Access activates immediately after successful payment verification. You will be redirected right away.',
       ),
       (
         1,
         'Is my payment information secure?',
-        'All transactions are processed through banking-grade 256-bit encryption with certified PCI DSS compliant partners.'
+        'All transactions are processed through banking-grade 256-bit encryption with certified PCI DSS compliant partners.',
       ),
     ];
 
@@ -1242,11 +1413,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         Expanded(
                           child: Text(
                             faq.$2,
-                            style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.navyDark),
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.navyDark,
+                            ),
                           ),
                         ),
                         Icon(
-                          isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                          isExpanded
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
                           color: const Color(0xFF64748B),
                           size: 18,
                         ),
@@ -1256,7 +1433,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       const SizedBox(height: 4),
                       Text(
                         faq.$3,
-                        style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B), height: 1.35),
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: const Color(0xFF64748B),
+                          height: 1.35,
+                        ),
                       ),
                     ],
                   ],
@@ -1269,7 +1450,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _buildOrderSummaryCard(PaymentController payment, double effectiveTotal) {
+  Widget _buildOrderSummaryCard(
+    PaymentController payment,
+    double effectiveTotal,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1282,22 +1466,39 @@ class _CheckoutPageState extends State<CheckoutPage> {
         children: [
           Text(
             'Order Summary',
-            style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.navyDark),
+            style: GoogleFonts.outfit(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppColors.navyDark,
+            ),
           ),
           const SizedBox(height: 12),
           _summaryRow('Subtotal', '₹${widget.amount.toInt()}'),
           if (payment.couponDiscount > 0) ...[
             const SizedBox(height: 6),
-            _summaryRow('Coupon Discount', '-₹${payment.couponDiscount.toInt()}', isDiscount: true),
+            _summaryRow(
+              'Coupon Discount',
+              '-₹${payment.couponDiscount.toInt()}',
+              isDiscount: true,
+            ),
           ],
           const Divider(height: 20, color: Color(0xFFF1F5F9)),
-          _summaryRow('Total Due Today', '₹${effectiveTotal.toInt()}', isBold: true),
+          _summaryRow(
+            'Total Due Today',
+            '₹${effectiveTotal.toInt()}',
+            isBold: true,
+          ),
         ],
       ),
     );
   }
 
-  Widget _summaryRow(String label, String value, {bool isBold = false, bool isDiscount = false}) {
+  Widget _summaryRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    bool isDiscount = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1314,7 +1515,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
           style: GoogleFonts.poppins(
             fontSize: isBold ? 16 : 13,
             fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
-            color: isDiscount ? const Color(0xFF10B981) : (isBold ? AppColors.navyDark : const Color(0xFF334155)),
+            color: isDiscount
+                ? const Color(0xFF10B981)
+                : (isBold ? AppColors.navyDark : const Color(0xFF334155)),
           ),
         ),
       ],
@@ -1348,7 +1551,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
             children: [
               Text(
                 'Total Amount',
-                style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B)),
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  color: const Color(0xFF64748B),
+                ),
               ),
               Text(
                 '₹${effectiveTotal.toInt()}',
@@ -1365,17 +1571,26 @@ class _CheckoutPageState extends State<CheckoutPage> {
             child: SizedBox(
               height: 50,
               child: ElevatedButton.icon(
-                onPressed: payment.isProcessing || payment.gateways.isEmpty ? null : _handlePayment,
+                onPressed: payment.isProcessing || payment.gateways.isEmpty
+                    ? null
+                    : _handlePayment,
                 icon: const Icon(Icons.lock_rounded, size: 17),
                 label: Text(
-                  payment.isProcessing ? 'Processing...' : 'Pay ₹${effectiveTotal.toInt()} Securely',
-                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700),
+                  payment.isProcessing
+                      ? 'Processing...'
+                      : 'Pay ₹${effectiveTotal.toInt()} Securely',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.gold,
                   foregroundColor: AppColors.navyDark,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ),

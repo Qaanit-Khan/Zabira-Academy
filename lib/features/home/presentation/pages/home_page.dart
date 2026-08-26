@@ -138,7 +138,7 @@ class _HomePageState extends State<HomePage> {
         key: _scaffoldKey,
         extendBody: true,
         backgroundColor: AppColors.surfaceLight,
-        drawer: const AppDrawer(),
+        drawer: const AppDrawer(currentRoute: AppRoutes.home),
         body: Column(
           children: [
             // ── Fixed Header ──────────────────────────────────────────────────
@@ -149,7 +149,7 @@ class _HomePageState extends State<HomePage> {
                 notificationCount: isAuth ? 3 : 0,
                 cartCount: cart.itemCount,
                 userInitial: isAuth && user.displayName.isNotEmpty ? user.displayName[0] : null,
-                onMenuTap: () => AppDrawer.open(context),
+                onMenuTap: () => AppDrawer.open(context, AppRoutes.home),
                 onSignIn: () => showAuthBottomSheet(context),
                 onCartTap: () {
                   if (isAuth) {
@@ -192,7 +192,7 @@ class _HomePageState extends State<HomePage> {
                   }
                 },
                 child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

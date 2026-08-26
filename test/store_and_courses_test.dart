@@ -101,7 +101,7 @@ void main() {
       expect(course.title, 'Quran with Tajweed');
       expect(course.formattedPrice, '₹999');
       expect(course.formattedOriginalPrice, '₹1500');
-      expect(course.monthlyInstallmentText, 'or ₹249 / month');
+      expect(course.monthlyInstallmentText, 'Starting from ₹249/month EMI');
       expect(course.lessonsDisplay, '98 Lessons');
       expect(course.ratingDisplay, '4.8 (320)');
       expect(course.fullThumbnailUrl, 'https://api.zabiraacademy.com/uploads/courses/quran.webp');

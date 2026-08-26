@@ -13,6 +13,7 @@ import '../../../../shared/inputs/zabira_text_field.dart';
 import '../../../../shared/widgets/zabira_logo.dart';
 import '../../auth_controller.dart';
 import '../widgets/auth_tab_switcher.dart';
+import '../widgets/location_fields.dart';
 
 /// Zabira Academy — Create Account Screen
 ///
@@ -34,7 +35,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _emailController = TextEditingController();
   final _mobileController = TextEditingController();
   final _dobController = TextEditingController();
-  final _countryController = TextEditingController(text: 'United States');
+  final _countryController = TextEditingController();
   final _stateController = TextEditingController();
   final _cityController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -42,6 +43,11 @@ class _RegisterPageState extends State<RegisterPage> {
 
   String _selectedGender = 'Male';
   bool _acceptTerms = false;
+
+  bool get _hasSelectedCountry => zabiraCountryOptions.any(
+    (country) =>
+        country.toLowerCase() == _countryController.text.trim().toLowerCase(),
+  );
 
   @override
   void dispose() {
@@ -92,11 +98,15 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     if (!_acceptTerms) {
-      context.showErrorSnackBar('Please accept the Terms & Conditions to proceed.');
+      context.showErrorSnackBar(
+        'Please accept the Terms & Conditions to proceed.',
+      );
       return;
     }
 
-    final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim();
+    final fullName =
+        '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'
+            .trim();
 
     final auth = context.read<AuthController>();
     if (auth.isLoading) return;
@@ -123,14 +133,43 @@ class _RegisterPageState extends State<RegisterPage> {
         if (returnTo != null && returnTo.isNotEmpty) {
           context.go(returnTo);
         } else {
-          context.go(AppRoutes.home);
+          context.go(AppRoutes.studentDash);
         }
       } else {
-        context.showSuccessSnackBar('Account created successfully! Please sign in.');
+        context.showSuccessSnackBar(
+          'Account created successfully! Please sign in.',
+        );
         context.go(AppRoutes.login);
       }
     } else {
-      context.showErrorSnackBar(auth.errorMessage ?? 'Registration failed. Please check your details.');
+      context.showErrorSnackBar(
+        auth.errorMessage ?? 'Registration failed. Please check your details.',
+      );
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    final auth = context.read<AuthController>();
+    if (auth.isLoading) return;
+
+    final success = await auth.signInWithGoogle(portal: 'student');
+    if (!mounted) return;
+
+    if (success) {
+      final returnTo = auth.consumePendingReturnTo();
+      if (returnTo != null && returnTo.isNotEmpty) {
+        context.go(returnTo);
+      } else {
+        context.go(AppRoutes.studentDash);
+      }
+      context.showSuccessSnackBar(
+        'Welcome to Zabira Academy, ${auth.user?.displayName ?? "Student"}!',
+      );
+    } else if (auth.errorMessage != null) {
+      final msg = auth.errorMessage!;
+      if (!msg.toLowerCase().contains('cancelled')) {
+        context.showErrorSnackBar(msg);
+      }
     }
   }
 
@@ -232,7 +271,10 @@ class _RegisterPageState extends State<RegisterPage> {
                               const SizedBox(height: AppSpacing.x2l),
 
                               // Form Headings
-                              Text('Create your account', style: AppTypography.headlineLarge),
+                              Text(
+                                'Create your account',
+                                style: AppTypography.headlineLarge,
+                              ),
                               const SizedBox(height: AppSpacing.sm),
                               Text(
                                 'Join Zabira Academy and begin your learning journey today.',
@@ -243,8 +285,10 @@ class _RegisterPageState extends State<RegisterPage> {
                               // Social Registration Button
                               SocialButton(
                                 label: 'Continue with Google',
-                                onPressed: () =>
-                                    context.showInfoSnackBar('Google Sign-Up coming soon.'),
+                                isLoading: auth.isGoogleLoading,
+                                onPressed: auth.isLoading
+                                    ? null
+                                    : _handleGoogleSignIn,
                               ),
                               const SizedBox(height: AppSpacing.lg),
 
@@ -274,7 +318,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                           child: ZabiraTextField(
                                             controller: _firstNameController,
                                             hintText: 'First Name *',
-                                            prefixIcon: Icons.person_outline_rounded,
+                                            prefixIcon:
+                                                Icons.person_outline_rounded,
                                             validator: Validators.required,
                                           ),
                                         ),
@@ -283,13 +328,16 @@ class _RegisterPageState extends State<RegisterPage> {
                                           child: ZabiraTextField(
                                             controller: _lastNameController,
                                             hintText: 'Last Name *',
-                                            prefixIcon: Icons.person_outline_rounded,
+                                            prefixIcon:
+                                                Icons.person_outline_rounded,
                                             validator: Validators.required,
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: AppSpacing.formFieldGap),
+                                    const SizedBox(
+                                      height: AppSpacing.formFieldGap,
+                                    ),
 
                                     // 2. Email Address *
                                     ZabiraTextField(
@@ -299,7 +347,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                       keyboardType: TextInputType.emailAddress,
                                       validator: Validators.email,
                                     ),
-                                    const SizedBox(height: AppSpacing.formFieldGap),
+                                    const SizedBox(
+                                      height: AppSpacing.formFieldGap,
+                                    ),
 
                                     // 3. Mobile Number *
                                     ZabiraTextField(
@@ -309,7 +359,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                       keyboardType: TextInputType.phone,
                                       validator: Validators.required,
                                     ),
-                                    const SizedBox(height: AppSpacing.formFieldGap),
+                                    const SizedBox(
+                                      height: AppSpacing.formFieldGap,
+                                    ),
 
                                     // 4. Gender * & Date of Birth (Optional)
                                     Row(
@@ -319,7 +371,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                             value: _selectedGender,
                                             onChanged: (v) {
                                               if (v != null) {
-                                                setState(() => _selectedGender = v);
+                                                setState(
+                                                  () => _selectedGender = v,
+                                                );
                                               }
                                             },
                                           ),
@@ -332,47 +386,72 @@ class _RegisterPageState extends State<RegisterPage> {
                                               child: ZabiraTextField(
                                                 controller: _dobController,
                                                 hintText: 'DOB (Optional)',
-                                                prefixIcon: Icons.calendar_today_outlined,
+                                                prefixIcon: Icons
+                                                    .calendar_today_outlined,
                                               ),
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: AppSpacing.formFieldGap),
+                                    const SizedBox(
+                                      height: AppSpacing.formFieldGap,
+                                    ),
 
                                     // 5. Country *
-                                    ZabiraTextField(
+                                    CountrySelectionField(
                                       controller: _countryController,
-                                      hintText: 'Country *',
-                                      prefixIcon: Icons.public_outlined,
-                                      validator: Validators.required,
+                                      onSelected: (_) {
+                                        setState(() {
+                                          _stateController.clear();
+                                          _cityController.clear();
+                                        });
+                                      },
                                     ),
-                                    const SizedBox(height: AppSpacing.formFieldGap),
+                                    const SizedBox(
+                                      height: AppSpacing.formFieldGap,
+                                    ),
 
                                     // 6. State * & City *
                                     Row(
                                       children: [
                                         Expanded(
-                                          child: ZabiraTextField(
+                                          child: DependentLocationField(
                                             controller: _stateController,
                                             hintText: 'State *',
                                             prefixIcon: Icons.map_outlined,
-                                            validator: Validators.required,
+                                            enabled: _hasSelectedCountry,
+                                            disabledMessage:
+                                                'Please select a country first.',
+                                            onChanged: (_) {
+                                              if (_cityController
+                                                  .text
+                                                  .isNotEmpty) {
+                                                _cityController.clear();
+                                              }
+                                              setState(() {});
+                                            },
                                           ),
                                         ),
                                         const SizedBox(width: AppSpacing.md),
                                         Expanded(
-                                          child: ZabiraTextField(
+                                          child: DependentLocationField(
                                             controller: _cityController,
                                             hintText: 'City *',
-                                            prefixIcon: Icons.location_city_outlined,
-                                            validator: Validators.required,
+                                            prefixIcon:
+                                                Icons.location_city_outlined,
+                                            enabled: _stateController.text
+                                                .trim()
+                                                .isNotEmpty,
+                                            disabledMessage:
+                                                'Select state first.',
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: AppSpacing.formFieldGap),
+                                    const SizedBox(
+                                      height: AppSpacing.formFieldGap,
+                                    ),
 
                                     // 7. Password *
                                     ZabiraTextField(
@@ -382,7 +461,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                       isPassword: true,
                                       validator: Validators.newPassword,
                                     ),
-                                    const SizedBox(height: AppSpacing.formFieldGap),
+                                    const SizedBox(
+                                      height: AppSpacing.formFieldGap,
+                                    ),
 
                                     // 8. Confirm Password *
                                     ZabiraTextField(
@@ -408,7 +489,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                     height: 24,
                                     child: Checkbox(
                                       value: _acceptTerms,
-                                      onChanged: (v) => setState(() => _acceptTerms = v ?? false),
+                                      onChanged: (v) => setState(
+                                        () => _acceptTerms = v ?? false,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: AppSpacing.sm),
@@ -420,11 +503,12 @@ class _RegisterPageState extends State<RegisterPage> {
                                           const TextSpan(text: 'I accept the '),
                                           TextSpan(
                                             text: 'Terms & Conditions *',
-                                            style: AppTypography.labelSmall.copyWith(
-                                              color: AppColors.gold,
-                                              fontSize: 12,
-                                              letterSpacing: 0,
-                                            ),
+                                            style: AppTypography.labelSmall
+                                                .copyWith(
+                                                  color: AppColors.gold,
+                                                  fontSize: 12,
+                                                  letterSpacing: 0,
+                                                ),
                                           ),
                                         ],
                                       ),
@@ -459,11 +543,12 @@ class _RegisterPageState extends State<RegisterPage> {
                                       children: [
                                         TextSpan(
                                           text: 'Sign In',
-                                          style: AppTypography.labelSmall.copyWith(
-                                            color: AppColors.gold,
-                                            fontSize: 12,
-                                            letterSpacing: 0,
-                                          ),
+                                          style: AppTypography.labelSmall
+                                              .copyWith(
+                                                color: AppColors.gold,
+                                                fontSize: 12,
+                                                letterSpacing: 0,
+                                              ),
                                         ),
                                       ],
                                     ),
@@ -480,7 +565,9 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
 
               if (auth.isLoading)
-                const Positioned.fill(child: AbsorbPointer(child: SizedBox.shrink())),
+                const Positioned.fill(
+                  child: AbsorbPointer(child: SizedBox.shrink()),
+                ),
             ],
           );
         },
@@ -502,13 +589,20 @@ class _GenderDropdown extends StatelessWidget {
     return DropdownButtonFormField<String>(
       initialValue: value,
       onChanged: onChanged,
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: AppColors.textSecondary,
+      ),
       style: AppTypography.inputText,
       dropdownColor: AppColors.surfaceWhite,
       decoration: const InputDecoration(
         prefixIcon: Padding(
           padding: EdgeInsets.only(left: AppSpacing.sm),
-          child: Icon(Icons.person_pin_outlined, color: AppColors.textSecondary, size: 20),
+          child: Icon(
+            Icons.person_pin_outlined,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
         ),
         prefixIconConstraints: BoxConstraints(minWidth: 48, minHeight: 48),
       ),

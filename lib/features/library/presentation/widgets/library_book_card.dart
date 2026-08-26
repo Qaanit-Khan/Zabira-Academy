@@ -93,54 +93,31 @@ class LibraryBookCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Top Left Badges: PREMIUM & NEW
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (item.premium) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: brandNavy,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: brandGold, width: 0.8),
-                            ),
-                            child: Text(
-                              'PREMIUM',
-                              style: GoogleFonts.outfit(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: brandGold,
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                        ],
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: brandNavy,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'NEW',
-                            style: GoogleFonts.outfit(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: 0.4,
-                            ),
+                  // Top Left Badges: PREMIUM (if applicable)
+                  if (item.premium)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: brandNavy,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: brandGold, width: 0.8),
+                        ),
+                        child: Text(
+                          'PREMIUM',
+                          style: GoogleFonts.outfit(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: brandGold,
+                            letterSpacing: 0.4,
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
 
-                  // Top Right Badge: Language (e.g. URDU, ENGLISH)
+                  // Top Right Badge: Language (e.g. URDU, ENGLISH, ARABIC)
                   Positioned(
                     top: 8,
                     right: 8,
@@ -169,7 +146,7 @@ class LibraryBookCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Bottom Left: Floating Heart (Wishlist)
+                  // Bottom Left: Floating Heart (Wishlist in Gold)
                   Positioned(
                     bottom: 8,
                     left: 8,
@@ -189,7 +166,7 @@ class LibraryBookCard extends StatelessWidget {
                           child: Icon(
                             isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                             size: 16,
-                            color: isFavorite ? const Color(0xFFEF4444) : Colors.white,
+                            color: isFavorite ? brandGold : Colors.white,
                           ),
                         ),
                       ),

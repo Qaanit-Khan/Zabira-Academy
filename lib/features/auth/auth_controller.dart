@@ -145,17 +145,28 @@ class AuthController extends ChangeNotifier {
     } catch (e) {
       _isGoogleLoading = false;
       _googleStatus = GoogleAuthStatus.error;
-      final rawMsg = e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim();
-      
-      if (rawMsg.contains('10') || rawMsg.contains('DEVELOPER_ERROR') || rawMsg.contains('sign_in_failed')) {
-        _errorMessage = 'Google Sign-In is currently unavailable. Please sign in with email and password.';
-      } else if (rawMsg.toLowerCase().contains('cancelled')) {
+      final rawMsg = e
+          .toString()
+          .replaceAll('AuthApiException:', '')
+          .replaceAll('ApiException:', '')
+          .trim();
+
+      if (rawMsg.toLowerCase().contains('cancel') ||
+          rawMsg.toLowerCase().contains('dismiss')) {
         _errorMessage = 'Google sign-in was cancelled.';
+      } else if (rawMsg.toLowerCase().contains('client_id') ||
+          rawMsg.toLowerCase().contains('your_web_client_id')) {
+        _errorMessage =
+            'Google Sign-In is not configured yet. Please sign in with email and password.';
       } else {
-        _errorMessage = rawMsg;
+        _errorMessage = rawMsg.isNotEmpty
+            ? rawMsg
+            : 'Google sign-in failed. Please try again.';
       }
-      
-      _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+
+      _status = _auth.isSignedIn
+          ? AuthStatus.authenticated
+          : AuthStatus.unauthenticated;
       notifyListeners();
       return false;
     }
@@ -273,6 +284,23 @@ class AuthController extends ChangeNotifier {
       _user = user;
       notifyListeners();
     } catch (_) {}
+  }
+
+  // ─── Update User Profile ──────────────────────────────────────────────────
+  Future<void> updateUserProfile({
+    String? displayName,
+    String? photoUrl,
+    String? email,
+  }) async {
+    if (_user == null) return;
+    final updated = _user!.copyWith(
+      displayName: displayName ?? _user!.displayName,
+      photoUrl: photoUrl ?? _user!.photoUrl,
+      email: email ?? _user!.email,
+    );
+    _user = updated;
+    await _auth.updateCachedUser(updated);
+    notifyListeners();
   }
 
   // ─── Sign Out ─────────────────────────────────────────────────────────────
