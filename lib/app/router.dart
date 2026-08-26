@@ -11,7 +11,6 @@ import '../features/auth/presentation/pages/teacher_login_page.dart';
 import '../features/courses/presentation/pages/course_details_page.dart';
 import '../features/courses/presentation/pages/course_learning_page.dart';
 import '../features/courses/presentation/pages/courses_page.dart';
-import '../features/courses/presentation/pages/my_courses_page.dart';
 import '../features/events/presentation/pages/event_details_page.dart';
 import '../features/events/presentation/pages/events_page.dart';
 import '../features/home/presentation/pages/home_page.dart';
@@ -34,13 +33,21 @@ import '../features/nasheed/presentation/pages/nasheed_page.dart';
 import '../features/parent/presentation/pages/parent_dashboard_page.dart';
 import '../features/payment/presentation/pages/checkout_page.dart';
 import '../features/scholarship/presentation/pages/scholarship_page.dart';
-import '../features/payment/presentation/pages/my_orders_page.dart';
 import '../features/payment/presentation/pages/payment_success_page.dart';
 import '../features/store/presentation/pages/cart_page.dart';
 import '../features/store/presentation/pages/store_page.dart';
 import '../features/store/presentation/pages/store_product_details_page.dart';
 import '../features/student/presentation/pages/profile_page.dart';
+import '../features/student/presentation/pages/student_certificates_page.dart';
+import '../features/student/presentation/pages/student_continue_learning_page.dart';
 import '../features/student/presentation/pages/student_dashboard_page.dart';
+import '../features/student/presentation/pages/student_help_center_page.dart';
+import '../features/student/presentation/pages/student_my_books_page.dart';
+import '../features/student/presentation/pages/student_my_courses_page.dart';
+import '../features/student/presentation/pages/student_my_orders_page.dart';
+import '../features/student/presentation/pages/student_notifications_page.dart';
+import '../features/student/presentation/pages/student_settings_page.dart';
+import '../features/student/presentation/pages/student_wishlist_page.dart';
 import '../features/teacher/presentation/pages/teacher_dashboard_page.dart';
 
 /// Zabira Academy Route Names
@@ -75,6 +82,17 @@ abstract final class AppRoutes {
   static const String checkout = '/checkout';
   static const String paymentSuccess = '/payment-success';
   static const String myOrders = '/my-orders';
+  static const String studentDashboard = '/student/dashboard';
+  static const String studentCourses = '/student/courses';
+  static const String studentMyBooks = '/student/my-books';
+  static const String studentContinue = '/student/continue';
+  static const String studentCertificates = '/student/certificates';
+  static const String studentProfile = '/student/profile';
+  static const String studentOrders = '/student/orders';
+  static const String studentWishlist = '/student/wishlist';
+  static const String studentNotifications = '/student/notifications';
+  static const String studentHelp = '/student/help';
+  static const String studentSettings = '/student/settings';
 }
 
 /// Zabira Academy Router
@@ -102,6 +120,7 @@ GoRouter buildRouter(BuildContext context) {
           loc == AppRoutes.cart ||
           loc == AppRoutes.profile ||
           loc == AppRoutes.myCourses ||
+          loc.startsWith('/student') ||
           loc == AppRoutes.media ||
           loc.startsWith('/media/') ||
           loc == AppRoutes.nasheed ||
@@ -132,12 +151,10 @@ GoRouter buildRouter(BuildContext context) {
       final isOnAuthPage = authRoutes.contains(state.matchedLocation);
 
       if (!isAuth && !isOnAuthPage) {
-        // Not authenticated and trying to access protected dashboard -> redirect to public Home Page
         return AppRoutes.home;
       }
 
       if (isAuth && isOnAuthPage) {
-        // Authenticated user trying to access auth pages -> redirect to intended role dashboard
         final returnTo = auth.consumePendingReturnTo();
         if (returnTo != null && returnTo.isNotEmpty) {
           return returnTo;
@@ -168,7 +185,7 @@ GoRouter buildRouter(BuildContext context) {
           return CourseLearningPage(courseId: id, initialLessonId: lessonId);
         },
       ),
-      GoRoute(path: AppRoutes.myCourses, builder: (context, state) => const MyCoursesPage()),
+      GoRoute(path: AppRoutes.myCourses, builder: (context, state) => const StudentMyCoursesPage()),
       GoRoute(path: AppRoutes.store, builder: (context, state) => const StorePage()),
       GoRoute(
         path: AppRoutes.storeDetails,
@@ -180,6 +197,19 @@ GoRouter buildRouter(BuildContext context) {
       ),
       GoRoute(path: AppRoutes.cart, builder: (context, state) => const CartPage()),
       GoRoute(path: AppRoutes.profile, builder: (context, state) => const ProfilePage()),
+      GoRoute(path: AppRoutes.studentDash, builder: (context, state) => const StudentDashboardPage()),
+      GoRoute(path: AppRoutes.studentDashboard, builder: (context, state) => const StudentDashboardPage()),
+      GoRoute(path: AppRoutes.studentCourses, builder: (context, state) => const StudentMyCoursesPage()),
+      GoRoute(path: AppRoutes.studentMyBooks, builder: (context, state) => const StudentMyBooksPage()),
+      GoRoute(path: AppRoutes.studentContinue, builder: (context, state) => const StudentContinueLearningPage()),
+      GoRoute(path: AppRoutes.studentCertificates, builder: (context, state) => const StudentCertificatesPage()),
+      GoRoute(path: AppRoutes.studentProfile, builder: (context, state) => const ProfilePage()),
+      GoRoute(path: AppRoutes.studentOrders, builder: (context, state) => const StudentMyOrdersPage()),
+      GoRoute(path: AppRoutes.myOrders, builder: (context, state) => const StudentMyOrdersPage()),
+      GoRoute(path: AppRoutes.studentWishlist, builder: (context, state) => const StudentWishlistPage()),
+      GoRoute(path: AppRoutes.studentNotifications, builder: (context, state) => const StudentNotificationsPage()),
+      GoRoute(path: AppRoutes.studentHelp, builder: (context, state) => const StudentHelpCenterPage()),
+      GoRoute(path: AppRoutes.studentSettings, builder: (context, state) => const StudentSettingsPage()),
       GoRoute(path: AppRoutes.media, builder: (context, state) => const MediaPage()),
       GoRoute(
         path: AppRoutes.mediaDetails,
@@ -298,7 +328,6 @@ GoRouter buildRouter(BuildContext context) {
           );
         },
       ),
-      GoRoute(path: AppRoutes.myOrders, builder: (context, state) => const MyOrdersPage()),
       GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => const AuthPage(initialTab: 0),
@@ -320,10 +349,6 @@ GoRouter buildRouter(BuildContext context) {
       ),
       GoRoute(path: AppRoutes.teacherLogin, builder: (context, state) => const TeacherLoginPage()),
       GoRoute(path: AppRoutes.parentDash, builder: (context, state) => const ParentDashboardPage()),
-      GoRoute(
-        path: AppRoutes.studentDash,
-        builder: (context, state) => const StudentDashboardPage(),
-      ),
       GoRoute(
         path: AppRoutes.teacherDash,
         builder: (context, state) => const TeacherDashboardPage(),

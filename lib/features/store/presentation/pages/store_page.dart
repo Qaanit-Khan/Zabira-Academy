@@ -11,9 +11,6 @@ import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../shared/widgets/scholarship_promo_banner.dart';
 import '../../../../shared/widgets/zabira_bottom_nav.dart';
-import '../../../home/data/models/hero_banner_model.dart';
-import '../../../home/data/repositories/hero_banner_repository.dart';
-import '../../../home/presentation/widgets/hero_carousel.dart';
 import '../../../home/presentation/widgets/home_header.dart';
 import '../controllers/cart_controller.dart';
 import '../../../courses/presentation/controllers/wishlist_controller.dart';
@@ -22,19 +19,6 @@ import '../../data/models/store_product_model.dart';
 import '../../data/repositories/store_repository.dart';
 
 /// Zabira Academy — Store Page
-///
-/// Features:
-/// - Exact visual layout from reference screenshot
-/// - Title & Subtitle + Search & Filter
-/// - Global Hero Banner Carousel
-/// - Soft pastel category cards
-/// - Featured Products section header
-/// - 2-column equal-height product cards
-/// - 3 action buttons arranged in 2 rows:
-///     Row 1: [Add to Cart (50%)] [View Details (50%)]
-///     Row 2: [Buy Now (100% orange)]
-/// - Trust/Service badges
-/// - Universal Scholarship Promotional Banner
 class StorePage extends StatefulWidget {
   const StorePage({super.key});
 
@@ -54,18 +38,9 @@ class _StorePageState extends State<StorePage> {
   int? _selectedCategoryId; // null = "All"
   final String _searchQuery = '';
 
-  late final List<HeroBannerModel> _banners;
-
   @override
   void initState() {
     super.initState();
-    _banners = HeroBannerRepository.getBannersForSection(
-      section: HeroBannerSection.store,
-      onCoursesTap: () => context.push(AppRoutes.courses),
-      onKidsPortalTap: () => context.push(AppRoutes.kids),
-      onStoreTap: () {},
-      onHero4Tap: () => context.push(AppRoutes.courses),
-    );
     _loadInitialData();
   }
 
@@ -101,8 +76,10 @@ class _StorePageState extends State<StorePage> {
       if (mounted) {
         setState(() {
           final errStr = e.toString();
-          if (errStr.contains('XMLHttpRequest') || errStr.contains('ClientException')) {
-            _errorMessage = 'Backend CORS Restriction:\napi.zabiraacademy.com did not include Access-Control-Allow-Origin header for browser requests.';
+          if (errStr.contains('XMLHttpRequest') ||
+              errStr.contains('ClientException')) {
+            _errorMessage =
+                'Backend CORS Restriction:\napi.zabiraacademy.com did not include Access-Control-Allow-Origin header for browser requests.';
           } else {
             _errorMessage = 'Failed to load store: $e';
           }
@@ -129,8 +106,10 @@ class _StorePageState extends State<StorePage> {
       if (mounted) {
         setState(() {
           final errStr = e.toString();
-          if (errStr.contains('XMLHttpRequest') || errStr.contains('ClientException')) {
-            _errorMessage = 'Backend CORS Restriction:\napi.zabiraacademy.com did not include Access-Control-Allow-Origin header for browser requests.';
+          if (errStr.contains('XMLHttpRequest') ||
+              errStr.contains('ClientException')) {
+            _errorMessage =
+                'Backend CORS Restriction:\napi.zabiraacademy.com did not include Access-Control-Allow-Origin header for browser requests.';
           } else {
             _errorMessage = 'Failed to load products: $e';
           }
@@ -183,12 +162,17 @@ class _StorePageState extends State<StorePage> {
         SnackBar(
           content: Text(
             success ? '${product.name} added to cart' : 'Item added to cart',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: Colors.white),
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
           backgroundColor: brandNavy,
           duration: const Duration(milliseconds: 1800),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           action: SnackBarAction(
             label: 'View Cart',
             textColor: brandGold,
@@ -258,9 +242,11 @@ class _StorePageState extends State<StorePage> {
       child: Scaffold(
         extendBody: true,
         key: _scaffoldKey,
-        drawer: const AppDrawer(),
+        drawer: const AppDrawer(currentRoute: AppRoutes.store),
         backgroundColor: AppColors.surfaceLight,
         bottomNavigationBar: const ZabiraBottomNav(selectedIndex: 3),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        floatingActionButton: _buildFloatingFilterButton(),
         body: Column(
           children: [
             // ── 1. Store Global Header ──────────────────────────────────────
@@ -270,8 +256,10 @@ class _StorePageState extends State<StorePage> {
                 isAuthenticated: isAuth,
                 notificationCount: isAuth ? 2 : 0,
                 cartCount: cart.itemCount,
-                userInitial: isAuth && user.displayName.isNotEmpty ? user.displayName[0] : null,
-                onMenuTap: () => AppDrawer.open(context),
+                userInitial: isAuth && user.displayName.isNotEmpty
+                    ? user.displayName[0]
+                    : null,
+                onMenuTap: () => AppDrawer.open(context, AppRoutes.store),
                 onCartTap: () => context.push(AppRoutes.cart),
                 onSignIn: () => showAuthBottomSheet(context),
                 onProfileTap: () {
@@ -291,14 +279,16 @@ class _StorePageState extends State<StorePage> {
                 backgroundColor: AppColors.surfaceWhite,
                 onRefresh: _loadInitialData,
                 child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: AppSpacing.sm),
 
-                      // ── Hero Banner Carousel ──────────────────────────────
-                      HeroCarousel(banners: _banners),
+                      // ── Static Hero Banner (Single Banner matching Library) ──
+                      _buildStaticHeroBanner(),
 
                       const SizedBox(height: AppSpacing.md),
 
@@ -309,7 +299,9 @@ class _StorePageState extends State<StorePage> {
 
                       // ── Section 1: Featured Products ──────────────────────
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -342,7 +334,9 @@ class _StorePageState extends State<StorePage> {
 
                       // ── Section 2: Zabira Exclusive ───────────────────────
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -393,17 +387,12 @@ class _StorePageState extends State<StorePage> {
 
                       const SizedBox(height: AppSpacing.xl),
 
-                      // ── Section 5: The Zabira Ecosystem ───────────────────
-                      _buildEcosystemSection(),
-
-                      const SizedBox(height: AppSpacing.xl),
-
-                      // ── Section 6: Universal Scholarship Banner ───────────
+                      // ── Section 5: Universal Scholarship Banner ───────────
                       const ScholarshipPromoBanner(),
 
                       const SizedBox(height: AppSpacing.lg),
 
-                      // ── Section 7: Secure Payment Badges Footer ───────────
+                      // ── Section 6: Secure Payment Badges Footer ───────────
                       _buildPaymentMethodsFooter(),
 
                       // Bottom breathing room above floating nav bar
@@ -514,8 +503,12 @@ class _StorePageState extends State<StorePage> {
         itemCount: staticCategories.length,
         itemBuilder: (context, index) {
           final item = staticCategories[index];
-          final isSelected = (_selectedCategoryName != null && _selectedCategoryName == item.name) ||
-              (_selectedCategoryName == null && index == 0 && _selectedCategoryId == null);
+          final isSelected =
+              (_selectedCategoryName != null &&
+                  _selectedCategoryName == item.name) ||
+              (_selectedCategoryName == null &&
+                  index == 0 &&
+                  _selectedCategoryId == null);
 
           return Padding(
             padding: const EdgeInsets.only(right: 10.0),
@@ -534,7 +527,9 @@ class _StorePageState extends State<StorePage> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: brandNavy.withValues(alpha: isSelected ? 0.08 : 0.03),
+                      color: brandNavy.withValues(
+                        alpha: isSelected ? 0.08 : 0.03,
+                      ),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -552,11 +547,7 @@ class _StorePageState extends State<StorePage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Center(
-                        child: Icon(
-                          item.icon,
-                          size: 22,
-                          color: brandNavy,
-                        ),
+                        child: Icon(item.icon, size: 22, color: brandNavy),
                       ),
                     ),
                     const SizedBox(height: 7),
@@ -593,7 +584,13 @@ class _StorePageState extends State<StorePage> {
       } else {
         _selectedCategoryName = name;
         // Find matching API category id if available
-        final match = _categories.where((c) => c.name.toLowerCase().contains(name.toLowerCase().split(' ').first)).firstOrNull;
+        final match = _categories
+            .where(
+              (c) => c.name.toLowerCase().contains(
+                name.toLowerCase().split(' ').first,
+              ),
+            )
+            .firstOrNull;
         _selectedCategoryId = match?.id ?? id;
       }
     });
@@ -601,7 +598,10 @@ class _StorePageState extends State<StorePage> {
   }
 
   // ── Products Grid ─────────────────────────────────────────────────────────
-  Widget _buildProductsGrid(int crossAxisCount, {List<StoreProductModel>? customList}) {
+  Widget _buildProductsGrid(
+    int crossAxisCount, {
+    List<StoreProductModel>? customList,
+  }) {
     final list = customList ?? _getFilteredProductsList();
 
     if (_isLoading && list.isEmpty) {
@@ -646,7 +646,10 @@ class _StorePageState extends State<StorePage> {
   List<StoreProductModel> _getFilteredProductsList() {
     if (_products.isNotEmpty) {
       if (_selectedCategoryName != null) {
-        final filterWord = _selectedCategoryName!.toLowerCase().split(' ').first;
+        final filterWord = _selectedCategoryName!
+            .toLowerCase()
+            .split(' ')
+            .first;
         final filtered = _products.where((p) {
           final cat = (p.categoryName ?? '').toLowerCase();
           final name = p.name.toLowerCase();
@@ -669,7 +672,8 @@ class _StorePageState extends State<StorePage> {
         salePrice: 2.50,
         categoryName: 'STATIONERY',
         isNew: true,
-        thumbnail: 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=600&q=80',
+        thumbnail:
+            'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=600&q=80',
       ),
       const StoreProductModel(
         id: 102,
@@ -679,7 +683,8 @@ class _StorePageState extends State<StorePage> {
         salePrice: 1.50,
         categoryName: 'STATIONERY',
         isNew: true,
-        thumbnail: 'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=600&q=80',
+        thumbnail:
+            'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=600&q=80',
       ),
       const StoreProductModel(
         id: 103,
@@ -689,7 +694,8 @@ class _StorePageState extends State<StorePage> {
         salePrice: 3.00,
         categoryName: 'HAJJ & UMRAH',
         isNew: true,
-        thumbnail: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?w=600&q=80',
+        thumbnail:
+            'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?w=600&q=80',
       ),
       const StoreProductModel(
         id: 104,
@@ -699,7 +705,8 @@ class _StorePageState extends State<StorePage> {
         salePrice: 1.00,
         categoryName: 'KIDS & LEARNING',
         isNew: true,
-        thumbnail: 'https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=600&q=80',
+        thumbnail:
+            'https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=600&q=80',
       ),
     ];
   }
@@ -708,19 +715,22 @@ class _StorePageState extends State<StorePage> {
   Widget _buildTestimonialsSection() {
     final testimonials = [
       const _StoreReviewItem(
-        quote: '“The Quality of the items is unmatched. The packaging arrived in pristine condition with fast shipping.”',
+        quote:
+            '“The Quality of the items is unmatched. The packaging arrived in pristine condition with fast shipping.”',
         author: 'Aisha Siddiqui',
         location: 'Mumbai, India',
         verified: true,
       ),
       const _StoreReviewItem(
-        quote: '“Bought the study journal and prayer accessories for my kids. Extremely satisfied with the quality!”',
+        quote:
+            '“Bought the study journal and prayer accessories for my kids. Extremely satisfied with the quality!”',
         author: 'Farhan Akhtar',
         location: 'Hyderabad, India',
         verified: true,
       ),
       const _StoreReviewItem(
-        quote: '“The best curated Islamic store. Highly recommend Zabira Academy for genuine authentic products.”',
+        quote:
+            '“The best curated Islamic store. Highly recommend Zabira Academy for genuine authentic products.”',
         author: 'Zainab Fatima',
         location: 'Bangalore, India',
         verified: true,
@@ -759,83 +769,98 @@ class _StorePageState extends State<StorePage> {
             ),
           ),
           const SizedBox(height: 14),
-          ...testimonials.map((t) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: brandNavy.withValues(alpha: 0.03),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: List.generate(
-                        5,
-                        (index) => const Icon(Icons.star_rounded, size: 16, color: brandGold),
+          ...testimonials.map(
+            (t) => Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: brandNavy.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: List.generate(
+                      5,
+                      (index) => const Icon(
+                        Icons.star_rounded,
+                        size: 16,
+                        color: brandGold,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      t.quote,
-                      style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: brandNavy,
-                        height: 1.4,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    t.quote,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: brandNavy,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Text(
+                        t.author,
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: brandNavy,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Text(
-                          t.author,
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: brandNavy,
-                          ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        '•',
+                        style: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 12,
                         ),
-                        const SizedBox(width: 6),
-                        const Text('•', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                        const SizedBox(width: 6),
-                        Text(
-                          t.location,
-                          style: GoogleFonts.outfit(
-                            fontSize: 11,
-                            color: const Color(0xFF94A3B8),
-                          ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        t.location,
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          color: const Color(0xFF94A3B8),
                         ),
-                        const Spacer(),
-                        if (t.verified)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFDCFCE7),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Verified',
-                              style: GoogleFonts.outfit(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF15803D),
-                              ),
+                      ),
+                      const Spacer(),
+                      if (t.verified)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Verified',
+                            style: GoogleFonts.outfit(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF15803D),
                             ),
                           ),
-                      ],
-                    ),
-                  ],
-                ),
-              )),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -902,7 +927,10 @@ class _StorePageState extends State<StorePage> {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Enter your email address',
-                      hintStyle: GoogleFonts.outfit(fontSize: 12.5, color: const Color(0xFF94A3B8)),
+                      hintStyle: GoogleFonts.outfit(
+                        fontSize: 12.5,
+                        color: const Color(0xFF94A3B8),
+                      ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 10),
                     ),
@@ -918,7 +946,10 @@ class _StorePageState extends State<StorePage> {
                     ScaffoldMessenger.of(context).clearSnackBars();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Thank you for subscribing to Zabira Store!', style: GoogleFonts.outfit(color: Colors.white)),
+                        content: Text(
+                          'Thank you for subscribing to Zabira Store!',
+                          style: GoogleFonts.outfit(color: Colors.white),
+                        ),
                         backgroundColor: brandNavy,
                         duration: const Duration(milliseconds: 2000),
                       ),
@@ -927,11 +958,19 @@ class _StorePageState extends State<StorePage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: brandNavy,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
-                  child: Text('Subscribe', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    'Subscribe',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -946,12 +985,20 @@ class _StorePageState extends State<StorePage> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Color(0xFF16A34A)),
+                const Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  size: 16,
+                  color: Color(0xFF16A34A),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Join Zabira WhatsApp VIP Channel for 1-click order updates.',
-                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF15803D)),
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF15803D),
+                    ),
                   ),
                 ),
               ],
@@ -962,99 +1009,248 @@ class _StorePageState extends State<StorePage> {
     );
   }
 
-  // ── The Zabira Ecosystem Grid ──────────────────────────────────────────────
-  Widget _buildEcosystemSection() {
-    final modules = [
-      _EcosystemModule(title: 'Courses', icon: Icons.menu_book_rounded, route: AppRoutes.courses),
-      _EcosystemModule(title: 'Library', icon: Icons.local_library_outlined, route: AppRoutes.library),
-      _EcosystemModule(title: 'Store', icon: Icons.storefront_outlined, route: AppRoutes.store, isHighlighted: true),
-      _EcosystemModule(title: 'Kids Portal', icon: Icons.child_care_rounded, route: AppRoutes.kids),
-      _EcosystemModule(title: 'Scholarship', icon: Icons.volunteer_activism_outlined, route: AppRoutes.scholarship),
-      _EcosystemModule(title: 'Student Desk', icon: Icons.dashboard_outlined, route: AppRoutes.studentDash),
-    ];
+  // ── Static Hero Banner (Single Banner matching Library) ───────────────────
+  Widget _buildStaticHeroBanner() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bannerHeight = (screenWidth * 0.50).clamp(170.0, 210.0);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: brandNavy,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'INTEGRATED PLATFORM',
-            style: GoogleFonts.outfit(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              color: brandGold,
-              letterSpacing: 1.0,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: Container(
+        height: bannerHeight,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(40),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            'The Zabira Ecosystem',
-            style: GoogleFonts.outfit(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 14),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 2.2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-            ),
-            itemCount: modules.length,
-            itemBuilder: (context, index) {
-              final m = modules[index];
-              return GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  context.push(m.route);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: m.isHighlighted ? brandGold : Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: m.isHighlighted ? brandGold : Colors.white.withValues(alpha: 0.12),
-                    ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.asset(
+            'assets/images/home/hero/hero_3.png',
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (context, error, _) => Image.asset(
+              'assets/images/home/hero/hero_4.png',
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (context, error, _) => Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF071B36), Color(0xFF0F2C59)],
                   ),
-                  child: Row(
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        m.icon,
-                        size: 20,
-                        color: m.isHighlighted ? brandNavy : brandGold,
+                      const Icon(
+                        Icons.storefront_rounded,
+                        color: brandGold,
+                        size: 38,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          m.title,
-                          style: GoogleFonts.outfit(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: m.isHighlighted ? brandNavy : Colors.white,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 8),
+                      Text(
+                        'Zabira Academy Store',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Floating Action Button for Filter ──────────────────────────────────────
+  Widget _buildFloatingFilterButton() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2, right: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: brandGold.withValues(alpha: 0.4),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
+      ),
+      child: FloatingActionButton.extended(
+        onPressed: _openFilterSheet,
+        backgroundColor: brandGold,
+        elevation: 0,
+        highlightElevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        icon: const Icon(Icons.tune_rounded, color: brandNavy, size: 18),
+        label: Text(
+          'FILTER',
+          style: GoogleFonts.outfit(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w900,
+            color: brandNavy,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openFilterSheet() {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final categories = _categories;
+          final currentCatId = _selectedCategoryId;
+
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              left: 20,
+              right: 20,
+              top: 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Filter Store Products',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: brandNavy,
+                      ),
+                    ),
+                    if (currentCatId != null || _selectedCategoryName != null)
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedCategoryId = null;
+                            _selectedCategoryName = null;
+                          });
+                          _fetchFilteredProducts();
+                          Navigator.pop(ctx);
+                        },
+                        child: Text(
+                          'Reset',
+                          style: GoogleFonts.outfit(
+                            color: brandGold,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'CATEGORIES',
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF64748B),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('All Products'),
+                      selected:
+                          currentCatId == null && _selectedCategoryName == null,
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedCategoryId = null;
+                          _selectedCategoryName = null;
+                        });
+                        _fetchFilteredProducts();
+                        Navigator.pop(ctx);
+                      },
+                      selectedColor: brandNavy,
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      labelStyle: GoogleFonts.outfit(
+                        color:
+                            (currentCatId == null &&
+                                _selectedCategoryName == null)
+                            ? brandGold
+                            : brandNavy,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                    ...categories.map((c) {
+                      final isSel =
+                          currentCatId == c.id ||
+                          _selectedCategoryName?.toLowerCase() ==
+                              c.name.toLowerCase();
+                      return ChoiceChip(
+                        label: Text(c.name),
+                        selected: isSel,
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedCategoryId = c.id;
+                            _selectedCategoryName = c.name;
+                          });
+                          _fetchFilteredProducts();
+                          Navigator.pop(ctx);
+                        },
+                        selectedColor: brandNavy,
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        labelStyle: GoogleFonts.outfit(
+                          color: isSel ? brandGold : brandNavy,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12.5,
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -1159,7 +1355,11 @@ class _StorePageState extends State<StorePage> {
         padding: const EdgeInsets.all(AppSpacing.xxl),
         child: Column(
           children: [
-            const Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.textTertiary),
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 48,
+              color: AppColors.textTertiary,
+            ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Unable to load Store',
@@ -1171,9 +1371,13 @@ class _StorePageState extends State<StorePage> {
             ),
             const SizedBox(height: 4),
             Text(
-              _errorMessage ?? 'An error occurred while connecting to the Store.',
+              _errorMessage ??
+                  'An error occurred while connecting to the Store.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(fontSize: 12.5, color: AppColors.textSecondary),
+              style: GoogleFonts.outfit(
+                fontSize: 12.5,
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
             ElevatedButton(
@@ -1181,7 +1385,9 @@ class _StorePageState extends State<StorePage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: brandNavy,
                 foregroundColor: brandGold,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               child: const Text('Try Again'),
             ),
@@ -1197,7 +1403,11 @@ class _StorePageState extends State<StorePage> {
         padding: const EdgeInsets.all(AppSpacing.xxl),
         child: Column(
           children: [
-            const Icon(Icons.inventory_2_outlined, size: 48, color: AppColors.textTertiary),
+            const Icon(
+              Icons.inventory_2_outlined,
+              size: 48,
+              color: AppColors.textTertiary,
+            ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               'No Products Found',
@@ -1211,7 +1421,10 @@ class _StorePageState extends State<StorePage> {
             Text(
               'Try selecting another category or refining your search term.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(fontSize: 12.5, color: AppColors.textSecondary),
+              style: GoogleFonts.outfit(
+                fontSize: 12.5,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -1252,7 +1465,9 @@ class _StoreProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = product.fullThumbnailUrl;
-    final discountPercent = product.discountPercent > 0 ? product.discountPercent : 98;
+    final discountPercent = product.discountPercent > 0
+        ? product.discountPercent
+        : 98;
 
     return Container(
       padding: const EdgeInsets.all(8),
@@ -1303,7 +1518,8 @@ class _StoreProductCard extends StatelessWidget {
                                   ),
                                 );
                               },
-                              errorBuilder: (context, error, _) => _buildFallbackImage(product),
+                              errorBuilder: (context, error, _) =>
+                                  _buildFallbackImage(product),
                             )
                           : _buildFallbackImage(product),
                     ),
@@ -1315,7 +1531,10 @@ class _StoreProductCard extends StatelessWidget {
                   top: 6,
                   left: 6,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: brandNavy,
                       borderRadius: BorderRadius.circular(6),
@@ -1337,7 +1556,10 @@ class _StoreProductCard extends StatelessWidget {
                   top: 6,
                   right: 6,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF00A884),
                       borderRadius: BorderRadius.circular(6),
@@ -1353,7 +1575,7 @@ class _StoreProductCard extends StatelessWidget {
                   ),
                 ),
 
-                // ── Bottom-Left: Floating Wishlist Heart Button ──────────────
+                // ── Bottom-Left: Floating Wishlist Heart Button (Golden) ───
                 Positioned(
                   bottom: 6,
                   left: 6,
@@ -1365,15 +1587,55 @@ class _StoreProductCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F172A).withValues(alpha: 0.65),
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.0),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          width: 1.0,
+                        ),
                       ),
                       child: Center(
                         child: Icon(
-                          isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          isFavorite
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
                           size: 16,
-                          color: isFavorite ? const Color(0xFFEF4444) : Colors.white,
+                          color: isFavorite ? brandGold : Colors.white,
                         ),
                       ),
+                    ),
+                  ),
+                ),
+
+                // ── Bottom-Right: Rating Badge (★ 4.8) matching Library ───────
+                Positioned(
+                  bottom: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 12,
+                          color: brandGold,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          (4.8 + (product.id % 2) * 0.1).toStringAsFixed(1),
+                          style: GoogleFonts.outfit(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1436,7 +1698,10 @@ class _StoreProductCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        product.formattedOriginalPrice ?? (product.price > 0 ? '₹${product.price.toInt()}' : '₹1,199'),
+                        product.formattedOriginalPrice ??
+                            (product.price > 0
+                                ? '₹${product.price.toInt()}'
+                                : '₹1,199'),
                         style: GoogleFonts.outfit(
                           fontSize: 10,
                           color: const Color(0xFF94A3B8),
@@ -1452,7 +1717,7 @@ class _StoreProductCard extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          // ── 4. Action Buttons Row: [Cart Button] + [⚡ Options / Buy Now] ──
+          // ── 4. Action Buttons Row: [Cart Button] + [⚡ Options / Buy Now (Golden Bolt)] ──
           Row(
             children: [
               // Cart Button (Square outline)
@@ -1464,24 +1729,35 @@ class _StoreProductCard extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: brandNavy,
                     backgroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.0),
+                    side: const BorderSide(
+                      color: Color(0xFFCBD5E1),
+                      width: 1.0,
+                    ),
                     padding: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Icon(Icons.shopping_bag_outlined, size: 17, color: brandNavy),
+                  child: const Icon(
+                    Icons.shopping_bag_outlined,
+                    size: 17,
+                    color: brandNavy,
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
 
-              // Options / Buy Now Button (Dark Navy)
+              // Options / Buy Now Button (Dark Navy with Golden Bolt)
               Expanded(
                 child: SizedBox(
                   height: 36,
                   child: ElevatedButton.icon(
                     onPressed: onViewDetails,
-                    icon: const Icon(Icons.bolt_rounded, size: 15, color: Colors.white),
+                    icon: const Icon(
+                      Icons.bolt_rounded,
+                      size: 15,
+                      color: brandGold,
+                    ),
                     label: Text(
                       product.stock > 1 ? 'Options' : 'Buy Now',
                       style: GoogleFonts.outfit(
@@ -1566,18 +1842,4 @@ class _StoreReviewItem {
   final String author;
   final String location;
   final bool verified;
-}
-
-class _EcosystemModule {
-  const _EcosystemModule({
-    required this.title,
-    required this.icon,
-    required this.route,
-    this.isHighlighted = false,
-  });
-
-  final String title;
-  final IconData icon;
-  final String route;
-  final bool isHighlighted;
 }

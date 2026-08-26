@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../../app/router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -14,6 +15,7 @@ import '../../../../shared/widgets/zabira_logo.dart';
 import '../../auth_controller.dart';
 import '../widgets/auth_tab_switcher.dart';
 import '../widgets/feature_card.dart';
+import '../widgets/location_fields.dart';
 
 /// Zabira Academy — Unified Authentication Page
 ///
@@ -259,7 +261,7 @@ class _SlidingTabContentState extends State<_SlidingTabContent> {
     final isForward = widget.selectedTab > _previousTab;
 
     // Incoming widget starts off-screen in the slide direction.
-    final inOffset  = Offset(isForward ? 1.0 : -1.0, 0.0);
+    final inOffset = Offset(isForward ? 1.0 : -1.0, 0.0);
     // Outgoing widget exits in the opposite direction.
     final outOffset = Offset(isForward ? -1.0 : 1.0, 0.0);
 
@@ -271,10 +273,7 @@ class _SlidingTabContentState extends State<_SlidingTabContent> {
       layoutBuilder: (currentChild, previousChildren) {
         return Stack(
           alignment: Alignment.topCenter,
-          children: [
-            ...previousChildren,
-            ?currentChild,
-          ],
+          children: [...previousChildren, ?currentChild],
         );
       },
       transitionBuilder: (child, animation) {
@@ -289,8 +288,8 @@ class _SlidingTabContentState extends State<_SlidingTabContent> {
         //   begin=outOffset, end=Offset.zero  →  at 1.0 = Offset.zero ✓
         //                                          at 0.0 = outOffset  ✓
         final tween = isIncoming
-            ? Tween<Offset>(begin: inOffset,   end: Offset.zero)
-            : Tween<Offset>(begin: outOffset,  end: Offset.zero);
+            ? Tween<Offset>(begin: inOffset, end: Offset.zero)
+            : Tween<Offset>(begin: outOffset, end: Offset.zero);
 
         return ClipRect(
           child: SlideTransition(
@@ -332,10 +331,10 @@ class _SignInForm extends StatefulWidget {
 
 class _SignInFormState extends State<_SignInForm> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController    = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _emailFocus         = FocusNode();
-  final _passwordFocus      = FocusNode();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   bool _rememberMe = false;
 
   @override
@@ -351,7 +350,7 @@ class _SignInFormState extends State<_SignInForm> {
     if (widget.auth.isLoading) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final success = await widget.auth.signIn(
-      email:    _emailController.text.trim(),
+      email: _emailController.text.trim(),
       password: _passwordController.text,
     );
     if (!mounted) return;
@@ -378,6 +377,9 @@ class _SignInFormState extends State<_SignInForm> {
       } else {
         context.go(AppRoutes.studentDash);
       }
+      context.showSuccessSnackBar(
+        'Welcome back, ${widget.auth.user?.displayName ?? "Student"}!',
+      );
     } else if (widget.auth.errorMessage != null) {
       final msg = widget.auth.errorMessage!;
       if (!msg.toLowerCase().contains('cancelled')) {
@@ -560,20 +562,25 @@ class _RegisterForm extends StatefulWidget {
 }
 
 class _RegisterFormState extends State<_RegisterForm> {
-  final _formKey                  = GlobalKey<FormState>();
-  final _firstNameController      = TextEditingController();
-  final _lastNameController       = TextEditingController();
-  final _emailController          = TextEditingController();
-  final _mobileController         = TextEditingController();
-  final _dobController            = TextEditingController();
-  final _countryController        = TextEditingController(text: 'United States');
-  final _stateController          = TextEditingController();
-  final _cityController           = TextEditingController();
-  final _passwordController       = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _mobileController = TextEditingController();
+  final _dobController = TextEditingController();
+  final _countryController = TextEditingController();
+  final _stateController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  String   _selectedGender = 'Male';
-  bool     _acceptTerms    = false;
+  String _selectedGender = 'Male';
+  bool _acceptTerms = false;
+
+  bool get _hasSelectedCountry => zabiraCountryOptions.any(
+    (country) =>
+        country.toLowerCase() == _countryController.text.trim().toLowerCase(),
+  );
 
   @override
   void dispose() {
@@ -626,8 +633,11 @@ class _RegisterFormState extends State<_RegisterForm> {
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
       } else {
-        context.go(AppRoutes.home);
+        context.go(AppRoutes.studentDash);
       }
+      context.showSuccessSnackBar(
+        'Welcome to Zabira Academy, ${widget.auth.user?.displayName ?? "Student"}!',
+      );
     } else if (widget.auth.errorMessage != null) {
       final msg = widget.auth.errorMessage!;
       if (!msg.toLowerCase().contains('cancelled')) {
@@ -640,11 +650,14 @@ class _RegisterFormState extends State<_RegisterForm> {
     if (widget.auth.isLoading) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (!_acceptTerms) {
-      context.showErrorSnackBar('Please accept the Terms & Conditions to proceed.');
+      context.showErrorSnackBar(
+        'Please accept the Terms & Conditions to proceed.',
+      );
       return;
     }
     final fullName =
-        '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.trim();
+        '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'
+            .trim();
     final success = await widget.auth.register(
       fullName: fullName,
       email: _emailController.text.trim(),
@@ -668,11 +681,15 @@ class _RegisterFormState extends State<_RegisterForm> {
           context.go(AppRoutes.studentDash);
         }
       } else {
-        context.showSuccessSnackBar('Account created successfully! Please sign in.');
+        context.showSuccessSnackBar(
+          'Account created successfully! Please sign in.',
+        );
         widget.onSwitchToSignIn();
       }
     } else {
-      context.showErrorSnackBar(widget.auth.errorMessage ?? 'Registration failed.');
+      context.showErrorSnackBar(
+        widget.auth.errorMessage ?? 'Registration failed.',
+      );
     }
   }
 
@@ -697,14 +714,16 @@ class _RegisterFormState extends State<_RegisterForm> {
         ),
         const SizedBox(height: AppSpacing.lg),
         const _OrDivider(),
-        const SizedBox(height: AppSpacing.xl),
+        const SizedBox(height: 6),
 
-        Text(
-          'REGISTRATION DETAILS',
-          style: AppTypography.labelSmall.copyWith(
-            color: AppColors.gold,
-            fontSize: 11,
-            letterSpacing: 1.5,
+        Center(
+          child: Text(
+            'Create your Zabira Academy account',
+            style: GoogleFonts.outfit(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
         const SizedBox(height: AppSpacing.md),
@@ -786,11 +805,14 @@ class _RegisterFormState extends State<_RegisterForm> {
               const SizedBox(height: AppSpacing.formFieldGap),
 
               // Country
-              ZabiraTextField(
+              CountrySelectionField(
                 controller: _countryController,
-                hintText: 'Country *',
-                prefixIcon: Icons.public_outlined,
-                validator: Validators.required,
+                onSelected: (_) {
+                  setState(() {
+                    _stateController.clear();
+                    _cityController.clear();
+                  });
+                },
               ),
               const SizedBox(height: AppSpacing.formFieldGap),
 
@@ -798,20 +820,28 @@ class _RegisterFormState extends State<_RegisterForm> {
               Row(
                 children: [
                   Expanded(
-                    child: ZabiraTextField(
+                    child: DependentLocationField(
                       controller: _stateController,
                       hintText: 'State *',
                       prefixIcon: Icons.map_outlined,
-                      validator: Validators.required,
+                      enabled: _hasSelectedCountry,
+                      disabledMessage: 'Please select a country first.',
+                      onChanged: (_) {
+                        if (_cityController.text.isNotEmpty) {
+                          _cityController.clear();
+                        }
+                        setState(() {});
+                      },
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
-                    child: ZabiraTextField(
+                    child: DependentLocationField(
                       controller: _cityController,
                       hintText: 'City *',
                       prefixIcon: Icons.location_city_outlined,
-                      validator: Validators.required,
+                      enabled: _stateController.text.trim().isNotEmpty,
+                      disabledMessage: 'Select state first.',
                     ),
                   ),
                 ],
@@ -924,20 +954,27 @@ class _GenderDropdown extends StatelessWidget {
     return DropdownButtonFormField<String>(
       initialValue: value,
       onChanged: onChanged,
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: AppColors.textSecondary,
+      ),
       style: AppTypography.inputText,
       dropdownColor: AppColors.surfaceWhite,
       decoration: const InputDecoration(
         prefixIcon: Padding(
           padding: EdgeInsets.only(left: AppSpacing.sm),
-          child: Icon(Icons.person_pin_outlined, color: AppColors.textSecondary, size: 20),
+          child: Icon(
+            Icons.person_pin_outlined,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
         ),
         prefixIconConstraints: BoxConstraints(minWidth: 48, minHeight: 48),
       ),
       items: const [
-        DropdownMenuItem(value: 'Male',   child: Text('Male *')),
+        DropdownMenuItem(value: 'Male', child: Text('Male *')),
         DropdownMenuItem(value: 'Female', child: Text('Female *')),
-        DropdownMenuItem(value: 'Other',  child: Text('Other *')),
+        DropdownMenuItem(value: 'Other', child: Text('Other *')),
       ],
     );
   }

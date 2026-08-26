@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/constants/api_config.dart';
 import '../../core/theme/app_colors.dart';
@@ -23,49 +24,75 @@ class ZabiraNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolved = ApiConfig.resolveImageUrl(imageUrl);
-
-    Widget imageWidget;
-    if (resolved == null || resolved.isEmpty) {
-      imageWidget = _buildFallback();
-    } else {
-      imageWidget = Image.network(
-        resolved,
-        width: width,
-        height: height,
-        fit: fit,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Container(
-            width: width,
-            height: height,
-            color: const Color(0xFFF0F4F8),
-            child: const Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.gold),
-                ),
-              ),
-            ),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return _buildFallback();
-        },
-      );
+    final raw = imageUrl?.trim();
+    if (raw == null || raw.isEmpty) {
+      return _wrapBorderRadius(_buildFallback());
     }
 
+    // Handle Data URI / base64 image
+    if (raw.startsWith('data:image') || (!raw.startsWith('http') && !raw.startsWith('/') && raw.length > 100)) {
+      try {
+        final commaIdx = raw.indexOf(',');
+        final b64 = commaIdx != -1 ? raw.substring(commaIdx + 1) : raw;
+        final bytes = base64Decode(b64);
+        return _wrapBorderRadius(
+          Image.memory(
+            bytes,
+            width: width,
+            height: height,
+            fit: fit,
+            errorBuilder: (context, error, stackTrace) => _buildFallback(),
+          ),
+        );
+      } catch (_) {
+        return _wrapBorderRadius(_buildFallback());
+      }
+    }
+
+    final resolved = ApiConfig.resolveImageUrl(raw);
+    if (resolved == null || resolved.isEmpty) {
+      return _wrapBorderRadius(_buildFallback());
+    }
+
+    Widget imageWidget = Image.network(
+      resolved,
+      width: width,
+      height: height,
+      fit: fit,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          width: width,
+          height: height,
+          color: const Color(0xFFF0F4F8),
+          child: const Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.gold),
+              ),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return _buildFallback();
+      },
+    );
+
+    return _wrapBorderRadius(imageWidget);
+  }
+
+  Widget _wrapBorderRadius(Widget child) {
     if (borderRadius != null) {
       return ClipRRect(
         borderRadius: borderRadius!,
-        child: imageWidget,
+        child: child,
       );
     }
-
-    return imageWidget;
+    return child;
   }
 
   Widget _buildFallback() {

@@ -9,6 +9,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/auth_controller.dart';
 import '../../../../features/auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../../../../features/courses/presentation/controllers/wishlist_controller.dart';
+import '../../../../features/payment/data/utils/order_response_utils.dart';
 import '../../../../features/store/presentation/controllers/cart_controller.dart';
 import '../../../../shared/loaders/zabira_loader.dart';
 import '../../../../shared/widgets/scholarship_promo_banner.dart';
@@ -19,7 +20,11 @@ import '../../data/services/library_api_service.dart';
 import '../widgets/library_book_card.dart';
 
 class LibraryItemDetailsPage extends StatefulWidget {
-  const LibraryItemDetailsPage({super.key, required this.itemId, this.initialItem});
+  const LibraryItemDetailsPage({
+    super.key,
+    required this.itemId,
+    this.initialItem,
+  });
 
   final int itemId;
   final LibraryItemModel? initialItem;
@@ -35,6 +40,8 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
   bool _isLoading = true;
   String? _errorMessage;
   int _selectedFormatIndex = 0;
+  int _currentImageIndex = 0;
+  final PageController _imagePageController = PageController();
 
   // Exact Brand Colors
   static const Color brandGold = Color(0xFFC9A84C);
@@ -45,6 +52,12 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
     super.initState();
     _item = widget.initialItem;
     _fetchDetails();
+  }
+
+  @override
+  void dispose() {
+    _imagePageController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchDetails() async {
@@ -63,7 +76,10 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
         setState(() {
           _item = results[0] as LibraryItemModel? ?? _item;
           final all = results[1] as List<LibraryItemModel>;
-          _relatedBooks = all.where((b) => b.id != widget.itemId).take(4).toList();
+          _relatedBooks = all
+              .where((b) => b.id != widget.itemId)
+              .take(4)
+              .toList();
           _isLoading = false;
         });
       }
@@ -114,7 +130,8 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
 
   void _shareBook() {
     if (_item == null) return;
-    final shareText = 'Read "${_item!.title}" on Zabira Academy Library! Check it out here: https://zabiraacademy.com/library/${_item!.slug}';
+    final shareText =
+        'Read "${_item!.title}" on Zabira Academy Library! Check it out here: https://zabiraacademy.com/library/${_item!.slug}';
     Clipboard.setData(ClipboardData(text: shareText));
     HapticFeedback.lightImpact();
     ScaffoldMessenger.of(context).clearSnackBars();
@@ -126,7 +143,10 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
             const SizedBox(width: 8),
             Text(
               'Book link copied to clipboard!',
-              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600),
+              style: GoogleFonts.outfit(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -165,17 +185,21 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: brandGold, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text('Added "${_item!.title}" to cart!'),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: brandGold,
+                size: 18,
               ),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Added "${_item!.title}" to cart!')),
             ],
           ),
           backgroundColor: brandNavy,
           duration: const Duration(milliseconds: 2500),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           action: SnackBarAction(
             label: 'View Cart',
             textColor: brandGold,
@@ -211,8 +235,7 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
         format: format,
         token: auth.currentToken,
       );
-      final data = response['data'] is Map<String, dynamic> ? response['data'] as Map<String, dynamic> : response;
-      final orderId = int.tryParse(data['order_id']?.toString() ?? data['id']?.toString() ?? '');
+      final orderId = extractOrderId(response);
       if (!mounted) return;
       if (orderId == null || orderId <= 0) {
         messenger.showSnackBar(
@@ -260,7 +283,11 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
           backgroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: brandNavy, size: 20),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: brandNavy,
+              size: 20,
+            ),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
@@ -282,7 +309,11 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
         backgroundColor: Colors.white,
         elevation: 0.5,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: brandNavy, size: 18),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: brandNavy,
+            size: 18,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
@@ -299,7 +330,7 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
           IconButton(
             icon: Icon(
               isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              color: isFav ? const Color(0xFFEF4444) : brandNavy,
+              color: isFav ? brandGold : brandNavy,
               size: 22,
             ),
             onPressed: () => wishlist.toggleLibraryItem(item),
@@ -316,7 +347,7 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── 1. Hero Cover Image with Preview Button Overlay ───────────
+            // ── 1. Hero Cover Image Carousel with Dot Indicators & Preview Overlay ──
             _buildCoverCard(item),
 
             Padding(
@@ -324,7 +355,7 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── 2. Badges Row (URDU, PREMIUM, NEW, PRINT & DIGITAL) ──
+                  // ── 2. Badges Row (Language, PREMIUM, PRINT & DIGITAL) ─────
                   _buildBadgesRow(item),
 
                   const SizedBox(height: 12),
@@ -344,7 +375,11 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
 
                   Row(
                     children: [
-                      const Icon(Icons.verified_rounded, size: 16, color: brandGold),
+                      const Icon(
+                        Icons.verified_rounded,
+                        size: 16,
+                        color: brandGold,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         'By ${item.author}',
@@ -373,11 +408,16 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                       ),
                       const SizedBox(width: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: brandGold.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: brandGold.withValues(alpha: 0.4)),
+                          border: Border.all(
+                            color: brandGold.withValues(alpha: 0.4),
+                          ),
                         ),
                         child: Text(
                           'Save 25% • Best Value',
@@ -407,7 +447,10 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                           height: 48,
                           child: OutlinedButton.icon(
                             onPressed: _addToCart,
-                            icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                            icon: const Icon(
+                              Icons.shopping_cart_outlined,
+                              size: 18,
+                            ),
                             label: Text(
                               'Add to Cart',
                               style: GoogleFonts.outfit(
@@ -417,7 +460,10 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                             ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: brandNavy,
-                              side: const BorderSide(color: brandNavy, width: 1.5),
+                              side: const BorderSide(
+                                color: brandNavy,
+                                width: 1.5,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -428,15 +474,19 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
 
                       const SizedBox(width: 12),
 
-                      // Buy Now (Golden #C9A84C Button)
+                      // Buy Now (Golden #C9A84C Button with single Flash Icon)
                       Expanded(
                         child: SizedBox(
                           height: 48,
                           child: ElevatedButton.icon(
                             onPressed: _handleBuyNow,
-                            icon: const Icon(Icons.bolt_rounded, size: 18, color: brandNavy),
+                            icon: const Icon(
+                              Icons.bolt_rounded,
+                              size: 18,
+                              color: brandNavy,
+                            ),
                             label: Text(
-                              '⚡ BUY NOW',
+                              'BUY NOW',
                               style: GoogleFonts.outfit(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w900,
@@ -488,8 +538,10 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
     );
   }
 
-  // ── Cover Image Container with Preview Button ──────────────────────────────
+  // ── Cover Image Container with Multi-Image Slider & Preview Button ─────────
   Widget _buildCoverCard(LibraryItemModel item) {
+    final images = item.allImages;
+
     return Container(
       width: double.infinity,
       color: Colors.white,
@@ -497,42 +549,121 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
       child: Center(
         child: Column(
           children: [
-            Container(
-              constraints: const BoxConstraints(maxHeight: 280, maxWidth: 220),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: brandNavy.withValues(alpha: 0.15),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: item.resolvedCoverImage != null && item.resolvedCoverImage!.isNotEmpty
-                    ? ZabiraNetworkImage(
-                        imageUrl: item.resolvedCoverImage,
-                        fit: BoxFit.cover,
-                        fallbackIcon: Icons.menu_book_rounded,
-                      )
-                    : Container(
-                        color: const Color(0xFFF1F5F9),
-                        child: const Center(
-                          child: Icon(Icons.menu_book_rounded, color: brandNavy, size: 54),
+            if (images.length > 1) ...[
+              // Multi-Image Carousel Slider
+              SizedBox(
+                height: 280,
+                child: PageView.builder(
+                  controller: _imagePageController,
+                  itemCount: images.length,
+                  onPageChanged: (idx) {
+                    setState(() => _currentImageIndex = idx);
+                  },
+                  itemBuilder: (context, index) {
+                    final imgUrl = images[index];
+                    return Center(
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          maxHeight: 280,
+                          maxWidth: 220,
+                        ),
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: brandNavy.withValues(alpha: 0.15),
+                              blurRadius: 24,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: ZabiraNetworkImage(
+                            imageUrl: imgUrl,
+                            fit: BoxFit.cover,
+                            fallbackIcon: Icons.menu_book_rounded,
+                          ),
                         ),
                       ),
+                    );
+                  },
+                ),
               ),
-            ),
+
+              const SizedBox(height: 12),
+
+              // Dot Indicators
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(images.length, (idx) {
+                  final isSelected = _currentImageIndex == idx;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: isSelected ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isSelected ? brandGold : const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  );
+                }),
+              ),
+            ] else ...[
+              // Single Image Fallback
+              Container(
+                constraints: const BoxConstraints(
+                  maxHeight: 280,
+                  maxWidth: 220,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: brandNavy.withValues(alpha: 0.15),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child:
+                      item.resolvedCoverImage != null &&
+                          item.resolvedCoverImage!.isNotEmpty
+                      ? ZabiraNetworkImage(
+                          imageUrl: item.resolvedCoverImage,
+                          fit: BoxFit.cover,
+                          fallbackIcon: Icons.menu_book_rounded,
+                        )
+                      : Container(
+                          color: const Color(0xFFF1F5F9),
+                          child: const Center(
+                            child: Icon(
+                              Icons.menu_book_rounded,
+                              color: brandNavy,
+                              size: 54,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ],
 
             const SizedBox(height: 14),
 
             // Preview PDF Button
-            if (item.resolvedPreviewUrl != null && item.resolvedPreviewUrl!.isNotEmpty)
+            if (item.resolvedPreviewUrl != null &&
+                item.resolvedPreviewUrl!.isNotEmpty)
               OutlinedButton.icon(
                 onPressed: () => _launchUrl(item.resolvedPreviewUrl!),
-                icon: const Icon(Icons.visibility_rounded, size: 16, color: brandNavy),
+                icon: const Icon(
+                  Icons.visibility_rounded,
+                  size: 16,
+                  color: brandNavy,
+                ),
                 label: Text(
                   'Preview Sample PDF',
                   style: GoogleFonts.outfit(
@@ -544,8 +675,13 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
                   backgroundColor: const Color(0xFFF8FAFC),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                 ),
               ),
           ],
@@ -554,7 +690,7 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
     );
   }
 
-  // ── Badges Row ─────────────────────────────────────────────────────────────
+  // ── Badges Row (No NEW badge, prominent Language badge) ─────────────────────
   Widget _buildBadgesRow(LibraryItemModel item) {
     return Wrap(
       spacing: 8,
@@ -562,10 +698,13 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
       children: [
         _buildPillTag(item.displayLanguage, brandNavy, brandGold),
         if (item.premium) _buildPillTag('PREMIUM', brandGold, brandNavy),
-        _buildPillTag('NEW', brandNavy, Colors.white),
         _buildPillTag('PRINT & DIGITAL', const Color(0xFFE2E8F0), brandNavy),
         if (item.categoryName != null && item.categoryName!.isNotEmpty)
-          _buildPillTag(item.categoryName!.toUpperCase(), const Color(0xFFEFF6FF), const Color(0xFF2563EB)),
+          _buildPillTag(
+            item.categoryName!.toUpperCase(),
+            const Color(0xFFEFF6FF),
+            const Color(0xFF2563EB),
+          ),
       ],
     );
   }
@@ -595,8 +734,16 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
         ? item.formats
         : [
             const LibraryBookFormat(format: 'pdf', enabled: true, price: 149),
-            const LibraryBookFormat(format: 'paperback', enabled: true, price: 299),
-            const LibraryBookFormat(format: 'hardcover', enabled: true, price: 499),
+            const LibraryBookFormat(
+              format: 'paperback',
+              enabled: true,
+              price: 299,
+            ),
+            const LibraryBookFormat(
+              format: 'hardcover',
+              enabled: true,
+              price: 499,
+            ),
           ];
 
     return Column(
@@ -614,7 +761,9 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
         ...List.generate(formats.length, (idx) {
           final f = formats[idx];
           final isSelected = _selectedFormatIndex == idx;
-          final price = (f.salePrice != null && f.salePrice! > 0) ? f.salePrice! : f.price;
+          final price = (f.salePrice != null && f.salePrice! > 0)
+              ? f.salePrice!
+              : f.price;
 
           String subtitle = 'Instant Digital PDF Download';
           IconData icon = Icons.picture_as_pdf_rounded;
@@ -646,7 +795,9 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: isSelected ? brandGold.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.02),
+                    color: isSelected
+                        ? brandGold.withValues(alpha: 0.15)
+                        : Colors.black.withValues(alpha: 0.02),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -756,10 +907,18 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              _buildHighlightBullet('Authentic teachings inspired by the Quran & Sunnah'),
-              _buildHighlightBullet('Engaging full-color character illustrations'),
-              _buildHighlightBullet('Interactive reflection questions for children and parents'),
-              _buildHighlightBullet('Easy-to-understand storytelling in Urdu and English'),
+              _buildHighlightBullet(
+                'Authentic teachings inspired by the Quran & Sunnah',
+              ),
+              _buildHighlightBullet(
+                'Engaging full-color character illustrations',
+              ),
+              _buildHighlightBullet(
+                'Interactive reflection questions for children and parents',
+              ),
+              _buildHighlightBullet(
+                'Easy-to-understand storytelling in Urdu and English',
+              ),
             ],
           ),
         ),
@@ -901,7 +1060,9 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
               onAddToCart: () async {
                 final auth = context.read<AuthController>();
                 final cart = context.read<CartController>();
-                final format = book.formats.isNotEmpty ? book.formats.first.format : 'pdf';
+                final format = book.formats.isNotEmpty
+                    ? book.formats.first.format
+                    : 'pdf';
                 await cart.addItem(
                   itemData: {
                     'book_id': book.id,
@@ -943,7 +1104,10 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
             // Cart Button
             IconButton(
               onPressed: _addToCart,
-              icon: const Icon(Icons.add_shopping_cart_rounded, color: brandNavy),
+              icon: const Icon(
+                Icons.add_shopping_cart_rounded,
+                color: brandNavy,
+              ),
             ),
 
             const SizedBox(width: 8),
@@ -954,7 +1118,11 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                 height: 48,
                 child: ElevatedButton.icon(
                   onPressed: _handleBuyNow,
-                  icon: const Icon(Icons.bolt_rounded, color: brandNavy, size: 20),
+                  icon: const Icon(
+                    Icons.bolt_rounded,
+                    color: brandNavy,
+                    size: 20,
+                  ),
                   label: Text(
                     'BUY NOW FOR ₹${_selectedPrice(item).toInt()}',
                     style: GoogleFonts.outfit(
@@ -967,7 +1135,9 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                     backgroundColor: brandGold,
                     foregroundColor: brandNavy,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),

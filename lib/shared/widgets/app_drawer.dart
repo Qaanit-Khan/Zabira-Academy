@@ -22,18 +22,21 @@ import 'menu_info_sheets.dart';
 /// - Fixed red Logout button with modern Android gesture bar safe-area padding
 /// - Reusable across every page in the application
 class AppDrawer extends StatefulWidget {
-  const AppDrawer({super.key});
+  const AppDrawer({super.key, this.currentRoute});
+
+  final String? currentRoute;
 
   /// Universal method to open the drawer from ANY page or header with full background blur
-  static Future<void> open(BuildContext context) {
+  static Future<void> open(BuildContext context, [String? currentRoute]) {
     HapticFeedback.lightImpact();
+    final resolvedLocation = currentRoute ?? resolveLocation(context);
     return showGeneralDialog(
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Navigation Menu',
       barrierColor: const Color(0xFF0A1628).withValues(alpha: 0.42),
       transitionDuration: const Duration(milliseconds: 280),
-      pageBuilder: (ctx, anim1, anim2) => const AppDrawer(),
+      pageBuilder: (ctx, anim1, anim2) => AppDrawer(currentRoute: resolvedLocation),
       transitionBuilder: (ctx, anim1, anim2, child) {
         final curved = CurvedAnimation(
           parent: anim1,
@@ -67,6 +70,26 @@ class AppDrawer extends StatefulWidget {
     );
   }
 
+  static String resolveLocation(BuildContext context) {
+    try {
+      final state = GoRouterState.of(context);
+      if (state.matchedLocation.isNotEmpty) return state.matchedLocation;
+      if (state.uri.path.isNotEmpty) return state.uri.path;
+    } catch (_) {}
+
+    try {
+      final router = GoRouter.of(context);
+      final uriPath = router.routerDelegate.currentConfiguration.uri.path;
+      if (uriPath.isNotEmpty) return uriPath;
+    } catch (_) {}
+
+    try {
+      return GoRouter.of(context).routeInformationProvider.value.uri.path;
+    } catch (_) {
+      return '';
+    }
+  }
+
   @override
   State<AppDrawer> createState() => _AppDrawerState();
 }
@@ -91,18 +114,6 @@ class _AppDrawerState extends State<AppDrawer> {
     navigationAction();
   }
 
-  String _resolveLocation(BuildContext context) {
-    try {
-      return GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
-    } catch (_) {
-      try {
-        return GoRouter.of(context).routeInformationProvider.value.uri.path;
-      } catch (_) {
-        return '';
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
@@ -114,7 +125,25 @@ class _AppDrawerState extends State<AppDrawer> {
     final drawerWidth = (screenWidth * 0.64).clamp(260.0, 320.0);
 
     // Current route location for active gold highlighting
-    final currentLocation = _resolveLocation(context);
+    final rawLocation = widget.currentRoute?.isNotEmpty == true
+        ? widget.currentRoute!
+        : AppDrawer.resolveLocation(context);
+    final currentLocation = rawLocation.trim();
+
+    final isCourses = currentLocation == AppRoutes.courses || currentLocation.startsWith('/courses');
+    final isMedia = currentLocation == AppRoutes.media || currentLocation.startsWith('/media');
+    final isEvents = currentLocation == AppRoutes.events || currentLocation.startsWith('/events');
+    final isLibrary = currentLocation == AppRoutes.library || currentLocation.startsWith('/library');
+    final isNasheed = currentLocation == AppRoutes.nasheed || currentLocation.startsWith('/nasheed');
+    final isKids = currentLocation == AppRoutes.kids || currentLocation.startsWith('/kids');
+    final isScholarship = currentLocation == AppRoutes.scholarship || currentLocation.startsWith('/scholarship');
+    final isStore = currentLocation == AppRoutes.store || currentLocation.startsWith('/store');
+    final isProfile = currentLocation == AppRoutes.profile || currentLocation == AppRoutes.studentDash || currentLocation.startsWith('/student');
+    final isCart = currentLocation == AppRoutes.cart || currentLocation.startsWith('/cart');
+    final isWishlist = currentLocation == AppRoutes.studentWishlist;
+
+    // Home is only active if on home/root and no other section is active
+    final isHome = !isCourses && !isMedia && !isEvents && !isLibrary && !isNasheed && !isKids && !isScholarship && !isProfile && !isStore && !isCart && !isWishlist && (currentLocation == AppRoutes.home || currentLocation == '/' || currentLocation.isEmpty);
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -153,7 +182,7 @@ class _AppDrawerState extends State<AppDrawer> {
 
                           // ── 2. User Profile Card (Only for Authenticated Users)
                           if (isAuthenticated) ...[
-                            _buildUserProfileCard(context, user),
+                            _buildUserProfileCard(context, user, isProfile: isProfile),
                             const SizedBox(height: 14),
                           ],
 
@@ -163,19 +192,19 @@ class _AppDrawerState extends State<AppDrawer> {
                           _buildMenuItem(
                             icon: Icons.home_outlined,
                             title: 'Home',
-                            isActive: currentLocation == AppRoutes.home,
+                            isActive: isHome,
                             onTap: () => _closeAndNavigate(() => context.go(AppRoutes.home)),
                           ),
                           _buildMenuItem(
                             icon: Icons.play_circle_outlined,
                             title: 'Media',
-                            isActive: currentLocation == AppRoutes.media,
+                            isActive: isMedia,
                             onTap: () => _closeAndNavigate(() => context.push(AppRoutes.media)),
                           ),
                           _buildMenuItem(
                             icon: Icons.event_outlined,
                             title: 'Events',
-                            isActive: currentLocation == AppRoutes.events,
+                            isActive: isEvents,
                             onTap: () => _closeAndNavigate(() => context.push(AppRoutes.events)),
                           ),
                           _buildMenuItem(
@@ -187,32 +216,32 @@ class _AppDrawerState extends State<AppDrawer> {
                           _buildMenuItem(
                             icon: Icons.library_books_outlined,
                             title: 'Library',
-                            isActive: currentLocation == AppRoutes.library,
+                            isActive: isLibrary,
                             onTap: () => _closeAndNavigate(() => context.push(AppRoutes.library)),
                           ),
                           _buildMenuItem(
                             icon: Icons.school_outlined,
                             title: 'Courses',
-                            isActive: currentLocation == AppRoutes.courses,
+                            isActive: isCourses,
                             onTap: () => _closeAndNavigate(() => context.go(AppRoutes.courses)),
                           ),
                           _buildMenuItem(
                             icon: Icons.headphones_outlined,
                             title: 'Nasheed',
-                            isActive: currentLocation == AppRoutes.nasheed,
+                            isActive: isNasheed,
                             onTap: () => _closeAndNavigate(() => context.push(AppRoutes.nasheed)),
                           ),
                           _buildMenuItem(
                             icon: Icons.child_care_rounded,
                             title: 'Kids Portal',
                             badgeText: 'NEW',
-                            isActive: currentLocation == AppRoutes.kids || currentLocation.startsWith('/kids'),
+                            isActive: isKids,
                             onTap: () => _closeAndNavigate(() => context.push(AppRoutes.kids)),
                           ),
                           _buildMenuItem(
                             icon: Icons.card_giftcard_rounded,
                             title: 'Scholarship',
-                            isActive: currentLocation == AppRoutes.scholarship,
+                            isActive: isScholarship,
                             onTap: () => _closeAndNavigate(() => context.push(AppRoutes.scholarship)),
                           ),
                           const SizedBox(height: 10),
@@ -347,7 +376,7 @@ class _AppDrawerState extends State<AppDrawer> {
   }
 
   // ── 2. User Profile Card (Authenticated) ───────────────────────────────────
-  Widget _buildUserProfileCard(BuildContext context, dynamic user) {
+  Widget _buildUserProfileCard(BuildContext context, dynamic user, {bool isProfile = false}) {
     final displayName = (user?.displayName?.isNotEmpty == true) ? user!.displayName : 'Qaanit Khan';
     final email = (user?.email?.isNotEmpty == true) ? user!.email : 'qaanitumar77@gmail.com';
     final initials = displayName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
@@ -358,9 +387,12 @@ class _AppDrawerState extends State<AppDrawer> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: isProfile ? const Color(0xFFC9A84C).withValues(alpha: 0.10) : const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(
+            color: isProfile ? const Color(0xFFC9A84C) : const Color(0xFFE2E8F0),
+            width: isProfile ? 1.5 : 1.0,
+          ),
         ),
         child: Row(
           children: [

@@ -104,14 +104,25 @@ class WishlistController extends ChangeNotifier {
   String _genKey(int id, String type) => '${type}_$id';
 
   bool isWishlisted(int id, {String type = 'course'}) {
-    return _items.containsKey(_genKey(id, type)) || _items.containsKey(id.toString());
+    return _items.containsKey(_genKey(id, type)) ||
+        _items.containsKey(id.toString()) ||
+        _items.values.any((item) => item.id == id && (type.isEmpty || item.type == type));
   }
 
   static const String _storageKey = 'zabira_wishlist_items_v2';
+  static const String _deletedKey = 'zabira_wishlist_deleted_ids_v1';
+  final Set<String> _deletedIds = {};
+
+  bool isExplicitlyDeleted(int id, String type) => _deletedIds.contains('${type}_$id');
 
   Future<void> _loadFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final delList = prefs.getStringList(_deletedKey);
+      if (delList != null) {
+        _deletedIds.addAll(delList);
+      }
+
       final raw = prefs.getString(_storageKey) ?? prefs.getString('zabira_wishlist_items');
       if (raw != null && raw.isNotEmpty) {
         final decoded = jsonDecode(raw);
@@ -120,7 +131,9 @@ class WishlistController extends ChangeNotifier {
           for (final item in decoded) {
             if (item is Map<String, dynamic>) {
               final w = WishlistItem.fromJson(item);
-              _items[_genKey(w.id, w.type)] = w;
+              if (!_deletedIds.contains('${w.type}_${w.id}')) {
+                _items[_genKey(w.id, w.type)] = w;
+              }
             }
           }
           notifyListeners();
@@ -134,17 +147,17 @@ class WishlistController extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final list = _items.values.map((e) => e.toJson()).toList();
       await prefs.setString(_storageKey, jsonEncode(list));
+      await prefs.setStringList(_deletedKey, _deletedIds.toList());
     } catch (_) {}
   }
 
   bool toggleCourse(CourseApiModel course) {
     final key = _genKey(course.id, 'course');
-    if (_items.containsKey(key)) {
-      _items.remove(key);
-      _saveToPrefs();
-      notifyListeners();
+    if (_items.containsKey(key) || isWishlisted(course.id, type: 'course')) {
+      removeItem(course.id, type: 'course');
       return false;
     } else {
+      _deletedIds.remove(key);
       _items[key] = WishlistItem.fromCourse(course);
       _saveToPrefs();
       notifyListeners();
@@ -154,12 +167,11 @@ class WishlistController extends ChangeNotifier {
 
   bool toggleStoreProduct(StoreProductModel product) {
     final key = _genKey(product.id, 'store');
-    if (_items.containsKey(key)) {
-      _items.remove(key);
-      _saveToPrefs();
-      notifyListeners();
+    if (_items.containsKey(key) || isWishlisted(product.id, type: 'store')) {
+      removeItem(product.id, type: 'store');
       return false;
     } else {
+      _deletedIds.remove(key);
       _items[key] = WishlistItem.fromStoreProduct(product);
       _saveToPrefs();
       notifyListeners();
@@ -173,12 +185,11 @@ class WishlistController extends ChangeNotifier {
 
   bool toggleBook(LibraryItemModel book) {
     final key = _genKey(book.id, 'book');
-    if (_items.containsKey(key)) {
-      _items.remove(key);
-      _saveToPrefs();
-      notifyListeners();
+    if (_items.containsKey(key) || isWishlisted(book.id, type: 'book')) {
+      removeItem(book.id, type: 'book');
       return false;
     } else {
+      _deletedIds.remove(key);
       _items[key] = WishlistItem.fromBook(book);
       _saveToPrefs();
       notifyListeners();
@@ -188,12 +199,11 @@ class WishlistController extends ChangeNotifier {
 
   bool toggleItem(WishlistItem item) {
     final key = _genKey(item.id, item.type);
-    if (_items.containsKey(key)) {
-      _items.remove(key);
-      _saveToPrefs();
-      notifyListeners();
+    if (_items.containsKey(key) || isWishlisted(item.id, type: item.type)) {
+      removeItem(item.id, type: item.type);
       return false;
     } else {
+      _deletedIds.remove(key);
       _items[key] = item;
       _saveToPrefs();
       notifyListeners();
@@ -203,14 +213,17 @@ class WishlistController extends ChangeNotifier {
 
   void removeItem(int id, {String type = 'course'}) {
     final key = _genKey(id, type);
+    _deletedIds.add(key);
     _items.remove(key);
     _items.remove(id.toString());
+    _items.removeWhere((k, v) => v.id == id && (type.isEmpty || v.type == type));
     _saveToPrefs();
     notifyListeners();
   }
 
   void clear() {
     _items.clear();
+    _deletedIds.clear();
     _saveToPrefs();
     notifyListeners();
   }

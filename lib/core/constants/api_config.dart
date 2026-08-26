@@ -162,7 +162,7 @@ abstract final class ApiConfig {
   static String? resolveImageUrl(String? url) {
     if (url == null || url.trim().isEmpty) return null;
     final trimmed = url.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    if (trimmed.startsWith('data:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return trimmed;
     }
     if (trimmed.startsWith('/')) {

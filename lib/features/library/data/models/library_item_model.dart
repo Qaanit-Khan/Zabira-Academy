@@ -96,6 +96,21 @@ class LibraryItemModel {
   /// Resolved PDF Preview URL
   String? get resolvedPreviewUrl => ApiConfig.resolveImageUrl(previewUrl);
 
+  /// All resolved images for interactive slider
+  List<String> get allImages {
+    final list = <String>[];
+    if (resolvedCoverImage != null && resolvedCoverImage!.isNotEmpty) {
+      list.add(resolvedCoverImage!);
+    }
+    for (final img in images) {
+      final res = ApiConfig.resolveImageUrl(img);
+      if (res != null && res.isNotEmpty && !list.contains(res)) {
+        list.add(res);
+      }
+    }
+    return list;
+  }
+
   /// Display price in INR (₹)
   String get formattedPrice {
     final effectivePrice = salePrice ?? price;
@@ -160,10 +175,16 @@ class LibraryItemModel {
     }
 
     final imgList = <String>[];
-    if (json['images'] is List) {
-      for (final img in json['images'] as List) {
-        if (img is Map<String, dynamic> && img['image_path'] != null) {
-          imgList.add(img['image_path'].toString());
+    final rawImages = json['images'] ?? json['gallery'] ?? json['book_images'];
+    if (rawImages is List) {
+      for (final img in rawImages) {
+        if (img is Map<String, dynamic>) {
+          final path = img['image_path'] ?? img['image'] ?? img['url'] ?? img['file_path'];
+          if (path != null && path.toString().isNotEmpty) {
+            imgList.add(path.toString());
+          }
+        } else if (img is String && img.isNotEmpty) {
+          imgList.add(img);
         }
       }
     }

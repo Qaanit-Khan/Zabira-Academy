@@ -269,8 +269,15 @@ class CartApiService {
   }
 
   /// `POST /cart/checkout`
-  Future<Map<String, dynamic>> checkout({String? token}) async {
-    return _postWithFallback(ApiConfig.cartCheckout, body: {}, token: token);
+  Future<Map<String, dynamic>> checkout({
+    String? token,
+    Map<String, dynamic>? body,
+  }) async {
+    return _postWithFallback(
+      ApiConfig.cartCheckout,
+      body: body ?? {},
+      token: token,
+    );
   }
 
   Map<String, dynamic> _parseSuccess(String body) {
