@@ -72,12 +72,21 @@ class _LibraryPageState extends State<LibraryPage> {
     }
 
     final format = item.formats.isNotEmpty ? item.formats.first.format : 'pdf';
+    final price = (item.formats.isNotEmpty && item.formats.first.salePrice != null)
+        ? item.formats.first.salePrice!
+        : (item.salePrice ?? item.price);
     final success = await cart.addItem(
       itemData: {
         'book_id': item.id,
+        'title': item.title,
+        'name': item.title,
+        'image': item.coverImage,
+        'thumbnail': item.coverImage,
         'format': format,
         'book_format': format,
         'product_type': 'library',
+        'price': price,
+        'discount_price': price,
         'quantity': '1',
       },
       token: auth.currentToken,

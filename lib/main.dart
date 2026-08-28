@@ -1,4 +1,3 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -12,21 +11,11 @@ import 'features/kids/presentation/controllers/kids_controller.dart';
 import 'features/payment/presentation/controllers/payment_controller.dart';
 import 'features/store/presentation/controllers/cart_controller.dart';
 import 'features/student/presentation/controllers/student_controller.dart';
-import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── Firebase Init ──────────────────────────────────────────────────────────
-  try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  } catch (e) {
-    debugPrint('Firebase init error: $e');
-    // On unsupported platforms or misconfiguration — surface a visible error
-    runApp(_FirebaseErrorApp(error: e.toString()));
-    return;
-  }
-
+  // ── Optional Firebase Init ────────────────────────────────────────────────
   // ── System UI ─────────────────────────────────────────────────────────────
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -48,70 +37,18 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         // Global audio — must be first so all others can access it
-        ChangeNotifierProvider(
-          create: (_) => GlobalAudioController(),
-        ),
+        ChangeNotifierProvider(create: (_) => GlobalAudioController()),
         ChangeNotifierProvider(
           create: (_) => AuthController(authRepository: authRepository),
         ),
-        ChangeNotifierProvider(
-          create: (_) => CartController(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => EnrollmentController(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => PaymentController(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => StudentController(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => KidsController(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => WishlistController(),
-        ),
+        ChangeNotifierProvider(create: (_) => CartController()),
+        ChangeNotifierProvider(create: (_) => EnrollmentController()),
+        ChangeNotifierProvider(create: (_) => PaymentController()),
+        ChangeNotifierProvider(create: (_) => StudentController()),
+        ChangeNotifierProvider(create: (_) => KidsController()),
+        ChangeNotifierProvider(create: (_) => WishlistController()),
       ],
       child: const ZabiraApp(),
     ),
   );
-}
-
-/// Shown only if Firebase fails to initialize (e.g. missing web config)
-class _FirebaseErrorApp extends StatelessWidget {
-  const _FirebaseErrorApp({required this.error});
-  final String error;
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        backgroundColor: const Color(0xFF0A1628),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline, color: Color(0xFFD4AF37), size: 48),
-                const SizedBox(height: 16),
-                const Text(
-                  'Firebase Configuration Error',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  error,
-                  style: const TextStyle(color: Color(0x99FFFFFF), fontSize: 13),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

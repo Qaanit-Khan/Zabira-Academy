@@ -48,6 +48,10 @@ class CartItemModel {
         json['product_name']?.toString() ??
         json['book_title']?.toString() ??
         json['course_title']?.toString() ??
+        json['item_name']?.toString() ??
+        json['course_name']?.toString() ??
+        json['product_title']?.toString() ??
+        json['label']?.toString() ??
         'Item';
 
     final price = double.tryParse(json['price']?.toString() ?? json['unit_price']?.toString() ?? json['amount']?.toString() ?? '0') ?? 0.0;
@@ -66,7 +70,12 @@ class CartItemModel {
         json['image_url']?.toString() ??
         json['cover_image']?.toString() ??
         json['thumbnail']?.toString() ??
-        json['photo_path']?.toString();
+        json['thumbnail_url']?.toString() ??
+        json['photo_path']?.toString() ??
+        json['cover']?.toString() ??
+        json['poster']?.toString() ??
+        json['hero_image']?.toString() ??
+        json['photo']?.toString();
 
     final productId = int.tryParse(json['product_id']?.toString() ?? '');
     final storeProductId = int.tryParse(json['store_product_id']?.toString() ?? '');

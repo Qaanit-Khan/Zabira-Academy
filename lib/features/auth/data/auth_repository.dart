@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/constants/api_config.dart';
 import '../models/user_model.dart';
-import '../models/user_role.dart';
 import 'services/auth_api_service.dart';
-import 'services/google_oauth_service.dart';
 
 /// Zabira Academy — Auth Repository
 ///
@@ -103,7 +103,11 @@ class AuthRepository {
       token = response['token']?.toString();
     }
 
-    final effectiveToken = token ?? 'session_active';
+    if (token == null || token.isEmpty) {
+      throw const AuthApiException(
+        message: 'Login succeeded but the Zabira session token was missing.',
+      );
+    }
 
     // Construct User Model from API data
     Map<String, dynamic> userMap = {};
@@ -123,13 +127,13 @@ class AuthRepository {
     final user = UserModel.fromJson(userMap);
 
     // Commit only after successful parsing
-    _cachedToken = effectiveToken;
+    _cachedToken = token;
     _cachedUser = user;
 
     // Persist session securely
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, effectiveToken);
+      await prefs.setString(_tokenKey, token);
       await prefs.setString(_userKey, jsonEncode(user.toJson()));
     } catch (_) {}
 
@@ -240,75 +244,133 @@ class AuthRepository {
     );
   }
 
-  /// Official REST API Google Sign-In (web-based OAuth, no SHA-1 needed)
+  /// Native On-Device Google Sign-In
   ///
-  /// [googleClientId] — a Web-type OAuth 2.0 client ID from Google Cloud Console.
-  /// Register your redirect URI: zabiraauth://callback
-  Future<UserModel> signInWithGoogle({
-    String portal = 'student',
-    String googleClientId = _googleWebClientId,
-  }) async {
-    final oauthService = GoogleOAuthService();
+  /// Uses official GoogleSignIn with serverClientId (Web Client ID)
+  /// so Google Play Services / iOS can issue an OpenID Connect ID Token (JWT).
+  /// Sends the token to backend POST /auth/google_auth.php for signature verification
+  /// and canonical user resolution.
+  Future<UserModel> signInWithGoogle({String portal = 'student'}) async {
+    String? idToken;
 
-    final GoogleOAuthResult result;
+    debugPrint(
+      '[GOOGLE AUTH DIAGNOSTIC] 1. Initializing GoogleSignIn with serverClientId: ${ApiConfig.googleServerClientId.isNotEmpty ? "(configured)" : "(none)"}',
+    );
     try {
-      result = await oauthService.signIn(clientId: googleClientId);
-    } on GoogleOAuthException catch (e) {
-      throw AuthApiException(message: e.message);
+      final googleSignIn = GoogleSignIn(
+        serverClientId: ApiConfig.googleServerClientId.isNotEmpty
+            ? ApiConfig.googleServerClientId
+            : null,
+        clientId: ApiConfig.googleIosClientId,
+        scopes: const ['email', 'profile', 'openid'],
+      );
+
+      // Sign out from any local Google session to always allow account selection
+      try {
+        await googleSignIn.signOut();
+      } catch (_) {}
+
+      debugPrint(
+        '[GOOGLE AUTH DIAGNOSTIC] 2. Launching native Google Account Picker...',
+      );
+      final account = await googleSignIn.signIn();
+      if (account == null) {
+        debugPrint(
+          '[GOOGLE AUTH DIAGNOSTIC] 3. User closed account picker without selecting an account.',
+        );
+        throw const GoogleSignInCancelledException();
+      }
+
+      debugPrint(
+        '[GOOGLE AUTH DIAGNOSTIC] 3. Account selected successfully. Fetching authentication tokens...',
+      );
+      final auth = await account.authentication;
+      idToken = auth.idToken;
+      debugPrint(
+        '[GOOGLE AUTH DIAGNOSTIC] 4. ID token status: ${idToken != null && idToken.isNotEmpty ? "Available (len=${idToken.length})" : "NOT available"}',
+      );
+    } on AuthApiException {
+      rethrow;
     } catch (e) {
+      debugPrint('[GOOGLE AUTH DIAGNOSTIC ERROR] Native sign-in error: $e');
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('cancel') ||
+          errStr.contains('canceled') ||
+          errStr.contains('dismiss') ||
+          errStr.contains('interrupted')) {
+        throw const GoogleSignInCancelledException();
+      }
+      if (errStr.contains('network') || errStr.contains('socket')) {
+        throw const AuthApiException(
+          message:
+              'Unable to connect to Google. Please check your internet connection.',
+        );
+      }
+      if (errStr.contains('10:') || errStr.contains('apiexception: 10')) {
+        throw const AuthApiException(
+          message:
+              'Google Sign-In configuration error (Developer Error 10). The Android OAuth client must match com.example.zabira_academy and this APK signing SHA-1.',
+        );
+      }
+      if (errStr.contains('12500:') || errStr.contains('apiexception: 12500')) {
+        throw const AuthApiException(
+          message:
+              'Google Sign-In failed (Error 12500). Please check your Google Play Services.',
+        );
+      }
       throw AuthApiException(message: 'Google sign-in failed: $e');
     }
 
-    final credential = result.credential;
-    if (credential == null || credential.isEmpty) {
+    if (idToken == null || idToken.isEmpty) {
       throw const AuthApiException(
-        message: 'Google did not return a usable sign-in token.',
+        message: 'Google did not return a valid authentication token.',
       );
     }
 
-    debugPrint('[GOOGLE AUTH] Sending token to Zabira backend...');
-    final response = await _apiService.googleAuth(
-      idToken: credential,
-      portal: portal,
-      email: result.email,
-      name: result.name,
-      googleId: result.googleId,
-      avatar: result.photoUrl,
+    debugPrint(
+      '[GOOGLE AUTH DIAGNOSTIC] 5. Sending verified ID token to Zabira backend POST /auth/google_auth.php...',
     );
+    final response = await _apiService.googleAuth(idToken: idToken);
+    debugPrint(
+      '[GOOGLE AUTH DIAGNOSTIC] 6. Zabira backend response: success=${response['success']}',
+    );
+
+    if (response['success'] == false) {
+      final msg =
+          response['message']?.toString() ??
+          'Google authentication failed on server.';
+      throw AuthApiException(message: msg, statusCode: 401);
+    }
 
     final token = _extractAuthToken(response);
     if (token == null || token.isEmpty) {
-      debugPrint('[GOOGLE AUTH API] No backend token in response: $response');
       throw const AuthApiException(
-        message: 'Google Sign-In could not create a Zabira session.',
+        message:
+            'Google authentication succeeded but the Zabira session token was missing.',
       );
     }
 
+    // Construct User Model from API data identically to email/password login
+    final userMap = _extractUserMap(response);
+    if (userMap == null ||
+        userMap.isEmpty ||
+        (userMap['id'] == null &&
+            userMap['user_id'] == null &&
+            userMap['uid'] == null)) {
+      throw const AuthApiException(
+        message:
+            'Google authentication succeeded but the Zabira user data was missing.',
+      );
+    }
+    if (!userMap.containsKey('role')) userMap['role'] = portal.trim();
+
+    final user = UserModel.fromJson(userMap);
+
+    // Commit only after successful parsing
     _cachedToken = token;
-
-    final userData = _extractUserMap(response);
-    final user = UserModel(
-      uid: userData?['id']?.toString() ??
-          userData?['uid']?.toString() ??
-          result.googleId ??
-          '',
-      email: (userData?['email']?.toString().isNotEmpty == true)
-          ? userData!['email'].toString()
-          : (result.email ?? ''),
-      displayName: userData?['name']?.toString() ??
-          userData?['display_name']?.toString() ??
-          result.name ??
-          result.email?.split('@').first ??
-          'Student',
-      photoUrl: userData?['photo_url']?.toString() ??
-          userData?['avatar']?.toString() ??
-          result.photoUrl,
-      role: UserRole.fromString(userData?['role']?.toString() ?? portal),
-      createdAt: DateTime.now(),
-    );
-
     _cachedUser = user;
 
+    // Persist session securely using the EXACT SAME keys as email/password login
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_tokenKey, token);
@@ -317,15 +379,6 @@ class AuthRepository {
 
     return user;
   }
-
-  // ── Google Web Client ID ───────────────────────────────────────────────────
-  // Replace this with your real Web-type OAuth 2.0 Client ID from:
-  //   https://console.cloud.google.com/apis/credentials
-  //   → Create → OAuth client ID → Application type: Web application
-  //   → Authorized redirect URIs: zabiraauth://callback
-  // The client type must be "Web application", NOT Android or iOS.
-  static const String _googleWebClientId =
-      'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
 
   String? _extractAuthToken(Map<String, dynamic> response) {
     final data = response['data'];

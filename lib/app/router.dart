@@ -159,7 +159,10 @@ GoRouter buildRouter(BuildContext context) {
         if (returnTo != null && returnTo.isNotEmpty) {
           return returnTo;
         }
-        return _dashboardForRole(auth.user?.role);
+        if (auth.user?.role == UserRole.teacher) {
+          return AppRoutes.teacherDash;
+        }
+        return AppRoutes.home;
       }
 
       return null;
@@ -355,12 +358,4 @@ GoRouter buildRouter(BuildContext context) {
       ),
     ],
   );
-}
-
-String _dashboardForRole(UserRole? role) {
-  return switch (role) {
-    UserRole.parent => AppRoutes.parentDash,
-    UserRole.teacher => AppRoutes.teacherDash,
-    _ => AppRoutes.studentDash,
-  };
 }

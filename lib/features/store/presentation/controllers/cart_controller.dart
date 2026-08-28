@@ -130,7 +130,54 @@ class CartController extends ChangeNotifier {
       }).toList();
 
       if (serverItems.isNotEmpty) {
-        _items = serverItems;
+        _items = serverItems.map((sItem) {
+          final localMatch = _items.cast<CartItemModel?>().firstWhere(
+            (lItem) =>
+                lItem != null &&
+                ((sItem.id > 0 && lItem.id == sItem.id) ||
+                    (sItem.courseId != null &&
+                        sItem.courseId! > 0 &&
+                        lItem.courseId == sItem.courseId) ||
+                    (sItem.bookId != null &&
+                        sItem.bookId! > 0 &&
+                        lItem.bookId == sItem.bookId &&
+                        lItem.bookFormat == sItem.bookFormat) ||
+                    (sItem.productId != null &&
+                        sItem.productId! > 0 &&
+                        lItem.productId == sItem.productId &&
+                        lItem.variantId == sItem.variantId)),
+            orElse: () => null,
+          );
+
+          if (localMatch != null) {
+            final title = (sItem.title.isNotEmpty && sItem.title != 'Item')
+                ? sItem.title
+                : localMatch.title;
+            final image = (sItem.imageUrl != null && sItem.imageUrl!.isNotEmpty)
+                ? sItem.imageUrl
+                : localMatch.imageUrl;
+            final variantName = sItem.variantName ?? localMatch.variantName;
+            final bookFormat = sItem.bookFormat ?? localMatch.bookFormat;
+
+            return CartItemModel(
+              id: sItem.id > 0 ? sItem.id : localMatch.id,
+              title: title,
+              price: sItem.price > 0 ? sItem.price : localMatch.price,
+              salePrice: sItem.salePrice ?? localMatch.salePrice,
+              quantity: sItem.quantity > 0 ? sItem.quantity : localMatch.quantity,
+              imageUrl: image,
+              productId: sItem.productId ?? localMatch.productId,
+              storeProductId: sItem.storeProductId ?? localMatch.storeProductId,
+              variantId: sItem.variantId ?? localMatch.variantId,
+              variantName: variantName,
+              bookId: sItem.bookId ?? localMatch.bookId,
+              bookFormat: bookFormat,
+              courseId: sItem.courseId ?? localMatch.courseId,
+              productType: sItem.productType ?? localMatch.productType,
+            );
+          }
+          return sItem;
+        }).toList();
         _discount = summary.discount;
         _tax = summary.tax;
       } else {

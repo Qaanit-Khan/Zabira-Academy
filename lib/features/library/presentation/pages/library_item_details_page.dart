@@ -166,12 +166,19 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
 
     final format = _selectedFormat(_item!);
 
+    final price = _selectedPrice(_item!);
     final success = await cart.addItem(
       itemData: {
         'book_id': _item!.id,
+        'title': _item!.title,
+        'name': _item!.title,
+        'image': _item!.coverImage,
+        'thumbnail': _item!.coverImage,
         'format': format,
         'book_format': format,
         'product_type': 'library',
+        'price': price,
+        'discount_price': price,
         'quantity': '1',
       },
       token: auth.currentToken,
@@ -1063,12 +1070,21 @@ class _LibraryItemDetailsPageState extends State<LibraryItemDetailsPage> {
                 final format = book.formats.isNotEmpty
                     ? book.formats.first.format
                     : 'pdf';
+                final price = (book.formats.isNotEmpty && book.formats.first.salePrice != null)
+                    ? book.formats.first.salePrice!
+                    : (book.salePrice ?? book.price);
                 await cart.addItem(
                   itemData: {
                     'book_id': book.id,
+                    'title': book.title,
+                    'name': book.title,
+                    'image': book.coverImage,
+                    'thumbnail': book.coverImage,
                     'format': format,
                     'book_format': format,
                     'product_type': 'library',
+                    'price': price,
+                    'discount_price': price,
                     'quantity': '1',
                   },
                   token: auth.currentToken,

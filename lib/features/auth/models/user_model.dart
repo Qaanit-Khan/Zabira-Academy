@@ -1,11 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/api_config.dart';
 import 'user_role.dart';
 
 /// Zabira Academy — User Model
 ///
 /// Represents an authenticated user profile.
-/// Supports REST API responses (`/auth/profile`, `/student/profile`) as well as Firestore documents.
+/// Supports REST API responses (`/auth/profile`, `/student/profile`).
 class UserModel {
   const UserModel({
     required this.uid,
@@ -65,42 +64,62 @@ class UserModel {
   String get formattedPhone => phone ?? mobile ?? '';
 
   String get formattedLocation {
-    final parts = [city, state, country].where((e) => e != null && e.trim().isNotEmpty).toList();
+    final parts = [
+      city,
+      state,
+      country,
+    ].where((e) => e != null && e.trim().isNotEmpty).toList();
     return parts.join(', ');
   }
 
   // ─── API JSON Serialization ───────────────────────────────────────────────
   factory UserModel.fromJson(Map<String, dynamic> json) {
     final roleStr = json['role']?.toString() ?? 'student';
-    final name = json['full_name']?.toString() ??
+    final name =
+        json['full_name']?.toString() ??
         json['name']?.toString() ??
         json['displayName']?.toString() ??
         json['username']?.toString() ??
         json['email']?.toString().split('@').first ??
         'Student';
 
-    final photo = json['photo_url']?.toString() ??
+    final photo =
+        json['photo_url']?.toString() ??
         json['photo_path']?.toString() ??
         json['avatar']?.toString() ??
         json['photoUrl']?.toString();
 
     return UserModel(
-      uid: json['id']?.toString() ?? json['uid']?.toString() ?? json['user_id']?.toString() ?? '1',
+      uid:
+          json['id']?.toString() ??
+          json['uid']?.toString() ??
+          json['user_id']?.toString() ??
+          '1',
       email: json['email']?.toString() ?? '',
       displayName: name,
       role: UserRole.fromString(roleStr),
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? json['registration_date']?.toString() ?? '') ?? DateTime.now(),
+      createdAt:
+          DateTime.tryParse(
+            json['created_at']?.toString() ??
+                json['registration_date']?.toString() ??
+                '',
+          ) ??
+          DateTime.now(),
       photoUrl: photo,
       phone: json['phone']?.toString() ?? json['contact_number']?.toString(),
       mobile: json['mobile']?.toString() ?? json['whatsapp']?.toString(),
       gender: json['gender']?.toString(),
-      dateOfBirth: json['date_of_birth']?.toString() ?? json['dateOfBirth']?.toString(),
+      dateOfBirth:
+          json['date_of_birth']?.toString() ?? json['dateOfBirth']?.toString(),
       country: json['country']?.toString(),
       state: json['state']?.toString(),
       city: json['city']?.toString(),
-      studentId: json['student_id'] != null ? int.tryParse(json['student_id'].toString()) : null,
+      studentId: json['student_id'] != null
+          ? int.tryParse(json['student_id'].toString())
+          : null,
       registrationDate: json['registration_date']?.toString(),
-      isEmailVerified: json['is_email_verified'] == true || json['email_verified'] == 1,
+      isEmailVerified:
+          json['is_email_verified'] == true || json['email_verified'] == 1,
     );
   }
 
@@ -124,37 +143,6 @@ class UserModel {
     'student_id': studentId,
     'registration_date': registrationDate,
     'isEmailVerified': isEmailVerified,
-  };
-
-  // ─── Firestore Serialization (Backward Compatibility) ─────────────────────
-  factory UserModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
-    return UserModel(
-      uid: doc.id,
-      email: data['email'] as String? ?? '',
-      displayName: data['displayName'] as String? ?? '',
-      role: UserRole.fromString(data['role'] as String? ?? 'student'),
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      photoUrl: data['photoUrl'] as String?,
-      isEmailVerified: data['isEmailVerified'] as bool? ?? false,
-      childIds: List<String>.from(data['childIds'] as List? ?? []),
-      parentId: data['parentId'] as String?,
-      ageOrGrade: data['ageOrGrade'] as int?,
-      isTeacherVerified: data['isTeacherVerified'] as bool? ?? false,
-    );
-  }
-
-  Map<String, dynamic> toFirestore() => {
-    'email': email,
-    'displayName': displayName,
-    'role': role.value,
-    'createdAt': Timestamp.fromDate(createdAt),
-    'photoUrl': photoUrl,
-    'isEmailVerified': isEmailVerified,
-    'childIds': childIds,
-    'parentId': parentId,
-    'ageOrGrade': ageOrGrade,
-    'isTeacherVerified': isTeacherVerified,
   };
 
   UserModel copyWith({
@@ -201,5 +189,6 @@ class UserModel {
   }
 
   @override
-  String toString() => 'UserModel(uid: $uid, email: $email, role: ${role.value})';
+  String toString() =>
+      'UserModel(uid: $uid, email: $email, role: ${role.value})';
 }

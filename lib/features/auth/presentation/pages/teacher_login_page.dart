@@ -15,7 +15,7 @@ import '../../../../app/router.dart';
 /// Zabira Academy — Teacher Login Page
 ///
 /// Mirrors the Student login design but with teacher-specific branding.
-/// Uses the same Firebase Auth but validates the teacher role via Firestore.
+/// Uses the Zabira API session and routes only verified teacher roles.
 class TeacherLoginPage extends StatefulWidget {
   const TeacherLoginPage({super.key});
 
