@@ -78,7 +78,7 @@ class _NasheedPageState extends State<NasheedPage> {
     return Scaffold(
       extendBody: true,
       key: _scaffoldKey,
-      drawer: const AppDrawer(),
+      drawer: const AppDrawer(currentRoute: AppRoutes.nasheed),
       backgroundColor: AppColors.surfaceLight,
       bottomNavigationBar: const ZabiraBottomNav(selectedIndex: -1),
       body: Column(
@@ -90,7 +90,7 @@ class _NasheedPageState extends State<NasheedPage> {
               isAuthenticated: auth.isAuthenticated,
               notificationCount: 2,
               cartCount: cart.itemCount,
-              onMenuTap: () => AppDrawer.open(context),
+              onMenuTap: () => AppDrawer.open(context, AppRoutes.nasheed),
               onCartTap: () => context.push(AppRoutes.cart),
               onSignIn: () => showAuthBottomSheet(context),
               onProfileTap: () {
@@ -129,7 +129,7 @@ class _NasheedPageState extends State<NasheedPage> {
                   onRefresh: _loadData,
                   color: AppColors.gold,
                   child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

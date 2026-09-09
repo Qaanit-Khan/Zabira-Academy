@@ -174,12 +174,12 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
         extendBody: true,
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF8FAFC),
-      drawer: const AppDrawer(),
+      drawer: const AppDrawer(currentRoute: AppRoutes.kids),
       body: RefreshIndicator(
         color: AppColors.gold,
         onRefresh: () => kidsCtrl.loadKidsPortal(forceRefresh: true),
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -321,7 +321,7 @@ class _KidsPortalPageState extends State<KidsPortalPage> {
               IconButton(
                 icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 26),
                 tooltip: 'Menu',
-                onPressed: () => AppDrawer.open(context),
+                onPressed: () => AppDrawer.open(context, AppRoutes.kids),
               ),
             ],
           ),

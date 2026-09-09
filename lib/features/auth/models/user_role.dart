@@ -8,10 +8,10 @@ enum UserRole {
 
   const UserRole(this.value);
 
-  /// The string value stored in Firestore
+  /// The string value returned by the Zabira API.
   final String value;
 
-  /// Create from Firestore string value
+  /// Create from an API role string.
   static UserRole fromString(String value) {
     return UserRole.values.firstWhere((r) => r.value == value, orElse: () => UserRole.student);
   }

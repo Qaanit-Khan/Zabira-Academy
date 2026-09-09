@@ -57,7 +57,7 @@ class _LoginPageState extends State<LoginPage> {
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
       } else {
-        context.go(AppRoutes.studentDash);
+        context.go(AppRoutes.home);
       }
     } else if (auth.errorMessage != null) {
       context.showErrorSnackBar(auth.errorMessage!);
@@ -77,8 +77,9 @@ class _LoginPageState extends State<LoginPage> {
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
       } else {
-        context.go(AppRoutes.studentDash);
+        context.go(AppRoutes.home);
       }
+      context.showSuccessSnackBar('Welcome back, ${auth.user?.displayName ?? "Student"}!');
     } else if (auth.errorMessage != null) {
       final msg = auth.errorMessage!;
       if (!msg.toLowerCase().contains('cancelled')) {

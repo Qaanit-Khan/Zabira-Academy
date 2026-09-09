@@ -124,10 +124,10 @@ class EventItemModel {
 
   /// Formatted location
   String get formattedLocation {
-    if (eventType.toLowerCase() == 'online') return 'Online';
+    if (eventType.toLowerCase() == 'online') return 'Online Event';
     if (venue.isNotEmpty) return venue;
     if (address.isNotEmpty) return address;
-    return 'Hyderabad';
+    return 'Zabira Academy Campus';
   }
 
   factory EventItemModel.fromJson(Map<String, dynamic> json) {
@@ -165,7 +165,7 @@ class EventItemModel {
       featuredImage: json['featured_image']?.toString(),
       bannerImage: json['banner_image']?.toString(),
       eventType: json['event_type']?.toString() ?? 'offline',
-      category: json['category']?.toString() ?? 'General',
+      category: json['category']?.toString() ?? (catList.isNotEmpty ? catList.first : 'Competition'),
       categories: catList,
       venue: json['venue']?.toString() ?? '',
       address: json['address']?.toString() ?? '',
@@ -189,6 +189,98 @@ class EventItemModel {
       isUpcoming: parseBool(json['is_upcoming'] ?? true),
       registrationOpen: parseBool(json['registration_open'] ?? true),
       allowsPublicRegistration: parseBool(json['allows_public_registration'] ?? true),
+    );
+  }
+}
+
+/// Roadmap phase item from event details API
+class EventRoadmapPhase {
+  const EventRoadmapPhase({
+    required this.phaseNumber,
+    required this.title,
+    required this.dateRange,
+    required this.description,
+  });
+
+  final int phaseNumber;
+  final String title;
+  final String dateRange;
+  final String description;
+
+  factory EventRoadmapPhase.fromJson(Map<String, dynamic> json) {
+    return EventRoadmapPhase(
+      phaseNumber: int.tryParse(json['phase_number']?.toString() ?? '1') ?? 1,
+      title: json['title']?.toString() ?? '',
+      dateRange: json['date_range']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+    );
+  }
+}
+
+/// FAQ Item from event details API
+class EventFaqItem {
+  const EventFaqItem({
+    required this.question,
+    required this.answer,
+  });
+
+  final String question;
+  final String answer;
+
+  factory EventFaqItem.fromJson(Map<String, dynamic> json) {
+    return EventFaqItem(
+      question: json['question']?.toString() ?? '',
+      answer: json['answer']?.toString() ?? '',
+    );
+  }
+}
+
+/// Full details bundle returned from `/events/public_details.php`
+class EventFullDetailsModel {
+  const EventFullDetailsModel({
+    required this.event,
+    this.roadmap = const [],
+    this.faqs = const [],
+    this.description = '',
+  });
+
+  final EventItemModel event;
+  final List<EventRoadmapPhase> roadmap;
+  final List<EventFaqItem> faqs;
+  final String description;
+
+  factory EventFullDetailsModel.fromJson(Map<String, dynamic> json) {
+    final eventMap = (json['event'] is Map<String, dynamic>)
+        ? json['event'] as Map<String, dynamic>
+        : json;
+
+    final roadmapList = <EventRoadmapPhase>[];
+    if (json['roadmap'] is List) {
+      for (final r in json['roadmap'] as List) {
+        if (r is Map<String, dynamic>) {
+          roadmapList.add(EventRoadmapPhase.fromJson(r));
+        }
+      }
+    }
+
+    final faqList = <EventFaqItem>[];
+    if (json['faqs'] is List) {
+      for (final f in json['faqs'] as List) {
+        if (f is Map<String, dynamic>) {
+          faqList.add(EventFaqItem.fromJson(f));
+        }
+      }
+    }
+
+    final content = json['event_content'] is Map<String, dynamic>
+        ? (json['event_content']['full_description']?.toString() ?? '')
+        : (eventMap['short_description']?.toString() ?? '');
+
+    return EventFullDetailsModel(
+      event: EventItemModel.fromJson(eventMap),
+      roadmap: roadmapList,
+      faqs: faqList,
+      description: content,
     );
   }
 }

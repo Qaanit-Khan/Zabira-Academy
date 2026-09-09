@@ -160,11 +160,10 @@ class PaymentController extends ChangeNotifier {
       setStatus(PaymentStatus.idle);
       return summary;
     } on TimeoutException {
-      setStatus(PaymentStatus.timeout, error: 'Checkout summary timed out.');
+      setStatus(PaymentStatus.idle);
       return null;
     } catch (e) {
-      final msg = e.toString().replaceAll('Exception:', '').trim();
-      setStatus(PaymentStatus.failed, error: msg.isNotEmpty ? msg : 'Order not found.');
+      setStatus(PaymentStatus.idle);
       return null;
     }
   }

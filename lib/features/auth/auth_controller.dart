@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'data/auth_repository.dart';
+import 'data/services/auth_api_service.dart';
 import 'models/user_model.dart';
 
 /// Zabira Academy — Auth State
@@ -20,11 +21,7 @@ enum AuthStatus {
   error,
 }
 
-enum GoogleAuthStatus {
-  idle,
-  authenticating,
-  error,
-}
+enum GoogleAuthStatus { idle, authenticating, error }
 
 /// Zabira Academy — Auth Controller
 ///
@@ -32,7 +29,7 @@ enum GoogleAuthStatus {
 /// Connects AuthRepository (Zabira API & secure token persistence).
 class AuthController extends ChangeNotifier {
   AuthController({required AuthRepository authRepository})
-      : _auth = authRepository {
+    : _auth = authRepository {
     _init();
   }
 
@@ -54,8 +51,10 @@ class AuthController extends ChangeNotifier {
   UserModel? get user => _user;
   String? get errorMessage => _errorMessage;
   String? get currentToken => _auth.currentToken;
-  bool get isAuthenticated => _status == AuthStatus.authenticated && _user != null;
-  bool get isLoading => _status == AuthStatus.loading || _isEmailLoading || _isGoogleLoading;
+  bool get isAuthenticated =>
+      _status == AuthStatus.authenticated && _user != null;
+  bool get isLoading =>
+      _status == AuthStatus.loading || _isEmailLoading || _isGoogleLoading;
   String? get pendingReturnTo => _pendingReturnTo;
 
   void setPendingReturnTo(String? route) {
@@ -110,10 +109,23 @@ class AuthController extends ChangeNotifier {
       _isEmailLoading = false;
       notifyListeners();
       return true;
+    } on GoogleSignInCancelledException {
+      _isGoogleLoading = false;
+      _googleStatus = GoogleAuthStatus.idle;
+      _errorMessage = null;
+      _status = _auth.isSignedIn
+          ? AuthStatus.authenticated
+          : AuthStatus.unauthenticated;
+      notifyListeners();
+      return false;
     } catch (e) {
       _user = null;
       _status = AuthStatus.error;
-      _errorMessage = e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim();
+      _errorMessage = e
+          .toString()
+          .replaceAll('AuthApiException:', '')
+          .replaceAll('ApiException:', '')
+          .trim();
       _isEmailLoading = false;
       notifyListeners();
       return false;
@@ -121,7 +133,10 @@ class AuthController extends ChangeNotifier {
   }
 
   // ─── Teacher Sign In (Official Zabira API) ────────────────────────────────
-  Future<bool> signInAsTeacher({required String email, required String password}) async {
+  Future<bool> signInAsTeacher({
+    required String email,
+    required String password,
+  }) async {
     return signIn(email: email, password: password, portal: 'teacher');
   }
 
@@ -145,17 +160,19 @@ class AuthController extends ChangeNotifier {
     } catch (e) {
       _isGoogleLoading = false;
       _googleStatus = GoogleAuthStatus.error;
-      final rawMsg = e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim();
-      
-      if (rawMsg.contains('10') || rawMsg.contains('DEVELOPER_ERROR') || rawMsg.contains('sign_in_failed')) {
-        _errorMessage = 'Google Sign-In is currently unavailable. Please sign in with email and password.';
-      } else if (rawMsg.toLowerCase().contains('cancelled')) {
-        _errorMessage = 'Google sign-in was cancelled.';
-      } else {
-        _errorMessage = rawMsg;
-      }
-      
-      _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+      final rawMsg = e
+          .toString()
+          .replaceAll('AuthApiException:', '')
+          .replaceAll('ApiException:', '')
+          .trim();
+
+      _errorMessage = rawMsg.isNotEmpty
+          ? rawMsg
+          : 'Google sign-in failed. Please try again.';
+
+      _status = _auth.isSignedIn
+          ? AuthStatus.authenticated
+          : AuthStatus.unauthenticated;
       notifyListeners();
       return false;
     }
@@ -204,7 +221,13 @@ class AuthController extends ChangeNotifier {
       return true;
     } catch (e) {
       _user = null;
-      _setError(e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim());
+      _setError(
+        e
+            .toString()
+            .replaceAll('AuthApiException:', '')
+            .replaceAll('ApiException:', '')
+            .trim(),
+      );
       return false;
     }
   }
@@ -220,7 +243,13 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _setError(e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim());
+      _setError(
+        e
+            .toString()
+            .replaceAll('AuthApiException:', '')
+            .replaceAll('ApiException:', '')
+            .trim(),
+      );
       return false;
     }
   }
@@ -236,7 +265,13 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return isValid;
     } catch (e) {
-      _setError(e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim());
+      _setError(
+        e
+            .toString()
+            .replaceAll('AuthApiException:', '')
+            .replaceAll('ApiException:', '')
+            .trim(),
+      );
       return false;
     }
   }
@@ -260,7 +295,13 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _setError(e.toString().replaceAll('AuthApiException:', '').replaceAll('ApiException:', '').trim());
+      _setError(
+        e
+            .toString()
+            .replaceAll('AuthApiException:', '')
+            .replaceAll('ApiException:', '')
+            .trim(),
+      );
       return false;
     }
   }
@@ -273,6 +314,23 @@ class AuthController extends ChangeNotifier {
       _user = user;
       notifyListeners();
     } catch (_) {}
+  }
+
+  // ─── Update User Profile ──────────────────────────────────────────────────
+  Future<void> updateUserProfile({
+    String? displayName,
+    String? photoUrl,
+    String? email,
+  }) async {
+    if (_user == null) return;
+    final updated = _user!.copyWith(
+      displayName: displayName ?? _user!.displayName,
+      photoUrl: photoUrl ?? _user!.photoUrl,
+      email: email ?? _user!.email,
+    );
+    _user = updated;
+    await _auth.updateCachedUser(updated);
+    notifyListeners();
   }
 
   // ─── Sign Out ─────────────────────────────────────────────────────────────
@@ -303,7 +361,9 @@ class AuthController extends ChangeNotifier {
 
   void clearError() {
     if (_status == AuthStatus.error) {
-      _status = _auth.isSignedIn ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+      _status = _auth.isSignedIn
+          ? AuthStatus.authenticated
+          : AuthStatus.unauthenticated;
       _errorMessage = null;
       notifyListeners();
     }

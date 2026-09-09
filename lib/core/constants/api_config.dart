@@ -16,6 +16,16 @@ abstract final class ApiConfig {
   static const String authProfile = '/auth/profile.php';
   static const String authRefresh = '/auth/refresh.php';
 
+  // ── Google OAuth Configuration ──────────────────────────────────────────────
+  /// OAuth 2.0 Web Client ID from Google Cloud Console / Firebase.
+  /// Required by Android Google Play Services to issue an OpenID Connect ID Token (JWT)
+  /// that can be verified securely by the Zabira backend (audience check).
+  static const String googleServerClientId =
+      '805940957579-a7vh2r2qub57a151b8s3bcfn2j9sq4b6.apps.googleusercontent.com';
+
+  /// Optional iOS Client ID if needed for iOS native sign-in
+  static const String? googleIosClientId = null;
+
   // ── Student & Dashboard Endpoints ──────────────────────────────────────────
   static const String studentDashboard = '/student/dashboard.php';
   static const String studentProfile = '/student/profile.php';
@@ -162,7 +172,7 @@ abstract final class ApiConfig {
   static String? resolveImageUrl(String? url) {
     if (url == null || url.trim().isEmpty) return null;
     final trimmed = url.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    if (trimmed.startsWith('data:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return trimmed;
     }
     if (trimmed.startsWith('/')) {

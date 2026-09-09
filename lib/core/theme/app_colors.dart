@@ -7,17 +7,17 @@ import 'package:flutter/material.dart';
 abstract final class AppColors {
   // ─── Brand Primary ────────────────────────────────────────────────────────
   /// Deep navy — primary dark background, Teacher button fill
-  static const Color navyDark = Color(0xFF0A1628);
+  static const Color navyDark = Color(0xFF112039);
 
   /// Navy text — headings and dark text on light backgrounds
-  static const Color navyText = Color(0xFF0B1628);
+  static const Color navyText = Color(0xFF112039);
 
   // ─── Gold / Amber Accent ──────────────────────────────────────────────────
   /// Primary gold — CTA buttons, stat numbers, Forgot Password link, Create account link
   static const Color gold = Color(0xFFC9A84C);
 
   /// Gold variant — hover / lighter contexts
-  static const Color goldLight = Color(0xFFCAA74D);
+  static const Color goldLight = Color(0xFFC9A84C);
 
   // ─── Surfaces ─────────────────────────────────────────────────────────────
   /// Light gray — right panel / form area background

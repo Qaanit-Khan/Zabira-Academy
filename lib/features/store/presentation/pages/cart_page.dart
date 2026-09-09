@@ -101,7 +101,50 @@ class _CartPageState extends State<CartPage> {
             IconButton(
               icon: const Icon(Icons.delete_sweep_outlined, color: AppColors.error),
               tooltip: 'Clear Cart',
-              onPressed: () => cart.clearCart(auth.currentToken),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: Text(
+                      'Clear Cart?',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: AppColors.navyDark),
+                    ),
+                    content: Text(
+                      'Are you sure you want to remove all items from your shopping cart?',
+                      style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF64748B)),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF64748B))),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.error,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text('Clear All', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true && context.mounted) {
+                  await cart.clearCart(auth.currentToken);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).clearSnackBars();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Cart cleared successfully', style: GoogleFonts.outfit(color: Colors.white)),
+                        backgroundColor: AppColors.navyDark,
+                        duration: const Duration(milliseconds: 2000),
+                      ),
+                    );
+                  }
+                }
+              },
             ),
           IconButton(
             icon: const Icon(Icons.menu_rounded, color: AppColors.navyDark, size: 24),

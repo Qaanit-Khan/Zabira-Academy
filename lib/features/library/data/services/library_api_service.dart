@@ -104,6 +104,20 @@ class LibraryApiService {
     }
   }
 
+  /// `GET /library/public_stats`
+  Future<LibraryStatsModel> getStats() async {
+    try {
+      final json = await _getWithFallback('/library/public_stats.php');
+      final data = json['data'];
+      if (data != null && data is Map<String, dynamic>) {
+        return LibraryStatsModel.fromJson(data);
+      }
+    } catch (e) {
+      debugPrint('[LIBRARY API] getStats error: $e');
+    }
+    return const LibraryStatsModel();
+  }
+
   /// `GET /library/public_categories`
   Future<List<LibraryCategoryModel>> getCategories() async {
     final json = await _getWithFallback(ApiConfig.libraryCategories);

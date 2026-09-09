@@ -17,6 +17,8 @@ class HomeMockRepository {
     void Function()? onKidsPortalTap,
     void Function()? onStoreTap,
     void Function()? onCoursesTap,
+    void Function()? onLibraryTap,
+    void Function()? onEventsTap,
     void Function()? onHero4Tap,
   }) => [
         HeroBannerModel(
@@ -37,7 +39,12 @@ class HomeMockRepository {
         HeroBannerModel(
           id: 'hero_4',
           imagePath: 'assets/images/home/hero/hero_4.png',
-          onTap: onHero4Tap,
+          onTap: onLibraryTap ?? onHero4Tap ?? onCoursesTap,
+        ),
+        HeroBannerModel(
+          id: 'hero_5',
+          imagePath: 'assets/images/home/hero/hero_1.png',
+          onTap: onEventsTap ?? onCoursesTap,
         ),
       ];
 

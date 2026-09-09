@@ -85,7 +85,7 @@ class _MediaPageState extends State<MediaPage> {
       child: Scaffold(
         extendBody: true,
         key: _scaffoldKey,
-        drawer: const AppDrawer(),
+        drawer: const AppDrawer(currentRoute: AppRoutes.media),
         backgroundColor: AppColors.surfaceLight,
         bottomNavigationBar: const ZabiraBottomNav(selectedIndex: -1),
         body: Column(
@@ -97,7 +97,7 @@ class _MediaPageState extends State<MediaPage> {
                 isAuthenticated: auth.isAuthenticated,
                 notificationCount: 2,
                 cartCount: cart.itemCount,
-                onMenuTap: () => AppDrawer.open(context),
+                onMenuTap: () => AppDrawer.open(context, AppRoutes.media),
                 onCartTap: () => context.push(AppRoutes.cart),
                 onSignIn: () => showAuthBottomSheet(context),
                 onProfileTap: () {
@@ -131,7 +131,7 @@ class _MediaPageState extends State<MediaPage> {
                   onRefresh: _controller.loadInitialData,
                   color: AppColors.gold,
                   child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

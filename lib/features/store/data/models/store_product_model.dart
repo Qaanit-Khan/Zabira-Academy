@@ -8,12 +8,15 @@ class StoreProductModel {
     required this.name,
     required this.slug,
     this.description,
+    this.shortDescription,
+    this.brand,
     required this.price,
     this.salePrice,
     this.stock = 0,
     this.lowStockThreshold = 5,
     this.sku,
     this.thumbnail,
+    this.videoUrl,
     this.type = 'physical',
     this.fulfillmentType,
     this.publishStatus = 'published',
@@ -24,6 +27,8 @@ class StoreProductModel {
     this.categoryName,
     this.categorySlug,
     this.galleryUrls = const [],
+    this.optionGroups = const [],
+    this.variants = const [],
     this.localAssetFallback,
   });
 
@@ -31,12 +36,15 @@ class StoreProductModel {
   final String name;
   final String slug;
   final String? description;
+  final String? shortDescription;
+  final String? brand;
   final double price;
   final double? salePrice;
   final int stock;
   final int lowStockThreshold;
   final String? sku;
   final String? thumbnail;
+  final String? videoUrl;
   final String type;
   final String? fulfillmentType;
   final String publishStatus;
@@ -47,6 +55,8 @@ class StoreProductModel {
   final String? categoryName;
   final String? categorySlug;
   final List<String> galleryUrls;
+  final List<StoreOptionGroupModel> optionGroups;
+  final List<StoreVariantModel> variants;
   final String? localAssetFallback;
 
   /// Compatibility getters for home screen & existing widgets
@@ -55,6 +65,10 @@ class StoreProductModel {
 
   /// Resolved full thumbnail URL from API
   String? get fullThumbnailUrl => ApiConfig.resolveImageUrl(thumbnail);
+
+  /// Resolved full video URL from API
+  String? get fullVideoUrl => ApiConfig.resolveImageUrl(videoUrl);
+  bool get hasVideo => fullVideoUrl != null && fullVideoUrl!.isNotEmpty;
 
   /// Resolved list of full gallery URLs
   List<String> get allImageUrls {
@@ -136,11 +150,33 @@ class StoreProductModel {
       }
     }
 
+    // Parse Option Groups
+    final groups = <StoreOptionGroupModel>[];
+    if (json['option_groups'] is List) {
+      for (final g in json['option_groups'] as List) {
+        if (g is Map<String, dynamic>) {
+          groups.add(StoreOptionGroupModel.fromJson(g));
+        }
+      }
+    }
+
+    // Parse Variants
+    final variantsList = <StoreVariantModel>[];
+    if (json['variants'] is List) {
+      for (final v in json['variants'] as List) {
+        if (v is Map<String, dynamic>) {
+          variantsList.add(StoreVariantModel.fromJson(v));
+        }
+      }
+    }
+
     return StoreProductModel(
       id: json['id'] is int ? json['id'] as int : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       name: json['name']?.toString() ?? '',
       slug: json['slug']?.toString() ?? '',
       description: json['description']?.toString(),
+      shortDescription: json['short_description']?.toString(),
+      brand: json['brand']?.toString(),
       price: parsePrice(json['price']),
       salePrice: parseSalePrice(json['sale_price']),
       stock: json['stock'] is int ? json['stock'] as int : int.tryParse(json['stock']?.toString() ?? '0') ?? 0,
@@ -149,6 +185,7 @@ class StoreProductModel {
           : int.tryParse(json['low_stock_threshold']?.toString() ?? '5') ?? 5,
       sku: json['sku']?.toString(),
       thumbnail: json['thumbnail']?.toString(),
+      videoUrl: json['video_url']?.toString() ?? json['video']?.toString(),
       type: json['type']?.toString() ?? 'physical',
       fulfillmentType: json['fulfillment_type']?.toString(),
       publishStatus: json['publish_status']?.toString() ?? 'published',
@@ -161,6 +198,119 @@ class StoreProductModel {
       categoryName: json['category_name']?.toString(),
       categorySlug: json['category_slug']?.toString(),
       galleryUrls: gallery,
+      optionGroups: groups,
+      variants: variantsList,
+    );
+  }
+}
+
+/// Store Option Group Model (e.g. Size, Color, Volume)
+class StoreOptionGroupModel {
+  const StoreOptionGroupModel({
+    required this.id,
+    required this.name,
+    required this.type,
+    this.values = const [],
+  });
+
+  final int id;
+  final String name;
+  final String type;
+  final List<StoreOptionValueModel> values;
+
+  factory StoreOptionGroupModel.fromJson(Map<String, dynamic> json) {
+    final valuesList = <StoreOptionValueModel>[];
+    if (json['values'] is List) {
+      for (final val in json['values'] as List) {
+        if (val is Map<String, dynamic>) {
+          valuesList.add(StoreOptionValueModel.fromJson(val));
+        }
+      }
+    }
+    return StoreOptionGroupModel(
+      id: json['id'] is int ? json['id'] as int : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      name: json['name']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'size',
+      values: valuesList,
+    );
+  }
+}
+
+/// Store Option Value Model (e.g. "30 ml", "50 ml")
+class StoreOptionValueModel {
+  const StoreOptionValueModel({
+    required this.id,
+    required this.label,
+    required this.value,
+    this.hex,
+    this.imageUrl,
+  });
+
+  final int id;
+  final String label;
+  final String value;
+  final String? hex;
+  final String? imageUrl;
+
+  factory StoreOptionValueModel.fromJson(Map<String, dynamic> json) {
+    return StoreOptionValueModel(
+      id: json['id'] is int ? json['id'] as int : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      label: json['label']?.toString() ?? json['value']?.toString() ?? '',
+      value: json['value']?.toString() ?? '',
+      hex: json['hex']?.toString(),
+      imageUrl: json['image_url']?.toString(),
+    );
+  }
+}
+
+/// Store Product Variant Model
+class StoreVariantModel {
+  const StoreVariantModel({
+    required this.id,
+    required this.name,
+    required this.price,
+    this.salePrice,
+    this.stock = 0,
+    this.sku,
+    this.imageUrl,
+    this.optionValueIds = const [],
+  });
+
+  final int id;
+  final String name;
+  final double price;
+  final double? salePrice;
+  final int stock;
+  final String? sku;
+  final String? imageUrl;
+  final List<int> optionValueIds;
+
+  double get effectivePrice => (salePrice != null && salePrice! > 0) ? salePrice! : price;
+
+  factory StoreVariantModel.fromJson(Map<String, dynamic> json) {
+    double parsePrice(dynamic val) {
+      if (val == null) return 0.0;
+      if (val is num) return val.toDouble();
+      return double.tryParse(val.toString().replaceAll('₹', '').replaceAll(',', '').trim()) ?? 0.0;
+    }
+
+    final valIds = <int>[];
+    if (json['option_value_ids'] is List) {
+      for (final i in json['option_value_ids'] as List) {
+        final parsed = int.tryParse(i.toString());
+        if (parsed != null) valIds.add(parsed);
+      }
+    }
+
+    return StoreVariantModel(
+      id: json['id'] is int ? json['id'] as int : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      name: json['name']?.toString() ?? '',
+      price: parsePrice(json['price']),
+      salePrice: parsePrice(json['sale_price']) > 0 ? parsePrice(json['sale_price']) : null,
+      stock: json['stock'] is int ? json['stock'] as int : int.tryParse(json['stock']?.toString() ?? '0') ?? 0,
+      sku: json['sku']?.toString(),
+      imageUrl: json['image_url']?.toString(),
+      optionValueIds: valIds,
     );
   }
 }

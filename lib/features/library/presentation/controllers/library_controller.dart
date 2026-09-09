@@ -15,6 +15,9 @@ class LibraryController extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
+  LibraryStatsModel _stats = const LibraryStatsModel();
+  LibraryStatsModel get stats => _stats;
+
   List<LibraryCategoryModel> _categories = [];
   List<LibraryCategoryModel> get categories => _categories;
 
@@ -30,11 +33,10 @@ class LibraryController extends ChangeNotifier {
   Timer? _debounceTimer;
 
   // Filtered lists
+  List<LibraryItemModel> get allBooks => _filterByQuery(_items);
+
   List<LibraryItemModel> get featuredBooks {
     final filtered = _filterByQuery(_items);
-    if (filtered.length > 4) {
-      return filtered.take(4).toList();
-    }
     return filtered;
   }
 
@@ -68,11 +70,16 @@ class LibraryController extends ChangeNotifier {
           debugPrint('[LIBRARY CONTROLLER] Categories error: $e');
           return <LibraryCategoryModel>[];
         }),
-        _service.getLibraryList(categoryId: _selectedCategoryId, search: _searchQuery),
+        _service.getLibraryList(limit: 50, categoryId: _selectedCategoryId, search: _searchQuery),
+        _service.getStats().catchError((e) {
+          debugPrint('[LIBRARY CONTROLLER] Stats error: $e');
+          return const LibraryStatsModel();
+        }),
       ]);
 
       _categories = results[0] as List<LibraryCategoryModel>;
       _items = results[1] as List<LibraryItemModel>;
+      _stats = results[2] as LibraryStatsModel;
       _isLoading = false;
       notifyListeners();
     } catch (e) {

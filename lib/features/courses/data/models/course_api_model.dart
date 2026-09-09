@@ -130,9 +130,15 @@ class CourseApiModel {
   const CourseApiModel({
     required this.id,
     required this.title,
+    this.titleRe,
+    this.titleUr,
     required this.slug,
     this.shortDescription,
+    this.shortDescriptionRe,
+    this.shortDescriptionUr,
     this.description,
+    this.descriptionRe,
+    this.descriptionUr,
     this.thumbnail,
     this.heroBanner,
     this.previewVideoUrl,
@@ -141,6 +147,7 @@ class CourseApiModel {
     this.duration = 'Self-Paced',
     this.courseType = 'Online Course',
     this.language = 'English',
+    this.languages = const [],
     required this.price,
     this.discountPrice,
     this.offerLabel,
@@ -167,9 +174,15 @@ class CourseApiModel {
 
   final int id;
   final String title;
+  final String? titleRe;
+  final String? titleUr;
   final String slug;
   final String? shortDescription;
+  final String? shortDescriptionRe;
+  final String? shortDescriptionUr;
   final String? description;
+  final String? descriptionRe;
+  final String? descriptionUr;
   final String? thumbnail;
   final String? heroBanner;
   final String? previewVideoUrl;
@@ -178,6 +191,7 @@ class CourseApiModel {
   final String duration;
   final String courseType;
   final String language;
+  final List<String> languages;
   final double price;
   final double? discountPrice;
   final String? offerLabel;
@@ -207,6 +221,39 @@ class CourseApiModel {
   /// Resolved full hero banner URL
   String? get fullHeroBannerUrl => ApiConfig.resolveImageUrl(heroBanner);
 
+  /// Returns title based on selected language ('en', 're', 'ur')
+  String getTitle(String langCode) {
+    if (langCode == 're' && titleRe != null && titleRe!.trim().isNotEmpty) {
+      return titleRe!;
+    }
+    if (langCode == 'ur' && titleUr != null && titleUr!.trim().isNotEmpty) {
+      return titleUr!;
+    }
+    return title;
+  }
+
+  /// Returns short description based on selected language ('en', 're', 'ur')
+  String? getShortDescription(String langCode) {
+    if (langCode == 're' && shortDescriptionRe != null && shortDescriptionRe!.trim().isNotEmpty) {
+      return shortDescriptionRe;
+    }
+    if (langCode == 'ur' && shortDescriptionUr != null && shortDescriptionUr!.trim().isNotEmpty) {
+      return shortDescriptionUr;
+    }
+    return shortDescription;
+  }
+
+  /// Returns full description based on selected language ('en', 're', 'ur')
+  String? getDescription(String langCode) {
+    if (langCode == 're' && descriptionRe != null && descriptionRe!.trim().isNotEmpty) {
+      return descriptionRe;
+    }
+    if (langCode == 'ur' && descriptionUr != null && descriptionUr!.trim().isNotEmpty) {
+      return descriptionUr;
+    }
+    return description ?? shortDescription;
+  }
+
   /// Effective price considering discount
   double get effectivePrice => (discountPrice != null && discountPrice! > 0) ? discountPrice! : price;
 
@@ -227,23 +274,39 @@ class CourseApiModel {
     return null;
   }
 
-  /// Monthly installment price display (e.g. "or ₹249 / month")
+  /// Discount percentage if on sale (e.g. 33, 40)
+  int? get discountPercent {
+    if (discountPrice != null && discountPrice! > 0 && price > discountPrice!) {
+      return (((price - discountPrice!) / price) * 100).round();
+    }
+    return null;
+  }
+
+  /// Combined languages display string (e.g. "English, Urdu" or "Urdu" or "Arabic")
+  String get languagesDisplay {
+    if (languages.isNotEmpty) {
+      return languages.join(', ');
+    }
+    return language.isNotEmpty ? language : 'English';
+  }
+
+  /// Monthly installment price display (e.g. "Starting from ₹250/month EMI")
   String get monthlyInstallmentText {
     for (final opt in paymentOptions) {
       if (opt.planType == 'monthly' && opt.installmentAmount != null && opt.installmentAmount! > 0) {
-        return 'or ₹${opt.installmentAmount!.toInt()} / month';
+        return 'Starting from ₹${opt.installmentAmount!.toInt()}/month EMI';
       }
     }
-    // Fallback: estimate 4 installments if effective price > 500
-    final effective = discountPrice != null && discountPrice! > 0 ? discountPrice! : price;
+    // Fallback estimate for paid courses >= 500
+    final effective = effectivePrice;
     if (effective >= 500) {
       final est = (effective / 4).round();
-      return 'or ₹$est / month';
+      return 'Starting from ₹$est/month EMI';
     }
     return '';
   }
 
-  /// Badge text if applicable (e.g. "Bestseller", "New", "Popular")
+  /// Badge text if applicable (e.g. "Bestseller", "New", "Popular", "Featured")
   String? get badgeLabel {
     if (courseBadge != null && courseBadge!.isNotEmpty) return courseBadge;
     if (isBestseller) return 'Bestseller';
@@ -253,13 +316,14 @@ class CourseApiModel {
     return null;
   }
 
-  /// Clean lessons count string e.g. "132 Lessons"
+  /// Clean lessons count string e.g. "98 Lessons" or "1 Lesson"
   String get lessonsDisplay {
-    if (totalLessons > 0) return '$totalLessons Lessons';
-    return 'Comprehensive Lessons';
+    if (totalLessons == 1) return '1 Lesson';
+    if (totalLessons > 1) return '$totalLessons Lessons';
+    return '1 Lesson';
   }
 
-  /// Clean rating & reviews display e.g. "4.8 (320)"
+  /// Clean rating & reviews display e.g. "4.9" or "4.9 (0 students)"
   String get ratingDisplay {
     final rStr = rating.toStringAsFixed(1);
     if (reviewCount > 0) {
@@ -325,20 +389,36 @@ class CourseApiModel {
       }
     }
 
+    final languagesList = <String>[];
+    if (json['languages'] is List) {
+      for (final l in json['languages'] as List) {
+        if (l != null && l.toString().trim().isNotEmpty) {
+          languagesList.add(l.toString().trim());
+        }
+      }
+    }
+
     return CourseApiModel(
       id: parseInt(json['id'], 0),
       title: json['title']?.toString() ?? '',
+      titleRe: json['title_re']?.toString(),
+      titleUr: json['title_ur']?.toString(),
       slug: json['slug']?.toString() ?? '',
       shortDescription: json['short_description']?.toString(),
+      shortDescriptionRe: json['short_description_re']?.toString(),
+      shortDescriptionUr: json['short_description_ur']?.toString(),
       description: json['description']?.toString(),
+      descriptionRe: json['description_re']?.toString(),
+      descriptionUr: json['description_ur']?.toString(),
       thumbnail: json['thumbnail']?.toString(),
       heroBanner: json['hero_banner']?.toString(),
       previewVideoUrl: json['preview_video_url']?.toString(),
       courseBadge: json['course_badge']?.toString(),
-      level: json['level']?.toString() ?? 'All Levels',
-      duration: json['duration']?.toString() ?? 'Self-Paced',
+      level: json['level']?.toString() ?? 'Beginner',
+      duration: json['duration']?.toString() ?? '6 months',
       courseType: json['course_type_label']?.toString() ?? json['course_type']?.toString() ?? 'Online Course',
       language: json['language']?.toString() ?? 'English',
+      languages: languagesList,
       price: parseNum(json['price'], 0.0),
       discountPrice: json['discount_price'] != null ? parseNum(json['discount_price'], 0.0) : null,
       offerLabel: json['offer_label']?.toString(),

@@ -2,15 +2,16 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/constants/api_config.dart';
 import '../models/user_model.dart';
-import '../models/user_role.dart';
 import 'services/auth_api_service.dart';
 
 /// Zabira Academy — Auth Repository
 ///
 /// Handles official API authentication, session state, and secure token persistence.
 class AuthRepository {
-  AuthRepository({AuthApiService? apiService}) : _apiService = apiService ?? AuthApiService();
+  AuthRepository({AuthApiService? apiService})
+    : _apiService = apiService ?? AuthApiService();
 
   final AuthApiService _apiService;
 
@@ -31,7 +32,10 @@ class AuthRepository {
       final token = prefs.getString(_tokenKey);
       final userJson = prefs.getString(_userKey);
 
-      if (token != null && token.isNotEmpty && userJson != null && userJson.isNotEmpty) {
+      if (token != null &&
+          token.isNotEmpty &&
+          userJson != null &&
+          userJson.isNotEmpty) {
         final data = jsonDecode(userJson) as Map<String, dynamic>;
         final user = UserModel.fromJson(data);
         _cachedToken = token;
@@ -82,7 +86,8 @@ class AuthRepository {
     );
 
     if (response['success'] == false) {
-      final msg = response['message']?.toString() ?? 'Invalid email or password.';
+      final msg =
+          response['message']?.toString() ?? 'Invalid email or password.';
       throw AuthApiException(message: msg, statusCode: 401);
     }
 
@@ -90,14 +95,19 @@ class AuthRepository {
     String? token;
     final data = response['data'];
     if (data is Map<String, dynamic>) {
-      token = data['token']?.toString() ??
+      token =
+          data['token']?.toString() ??
           data['access_token']?.toString() ??
           data['jwt']?.toString();
     } else if (response['token'] != null) {
       token = response['token']?.toString();
     }
 
-    final effectiveToken = token ?? 'session_active';
+    if (token == null || token.isEmpty) {
+      throw const AuthApiException(
+        message: 'Login succeeded but the Zabira session token was missing.',
+      );
+    }
 
     // Construct User Model from API data
     Map<String, dynamic> userMap = {};
@@ -117,13 +127,13 @@ class AuthRepository {
     final user = UserModel.fromJson(userMap);
 
     // Commit only after successful parsing
-    _cachedToken = effectiveToken;
+    _cachedToken = token;
     _cachedUser = user;
 
     // Persist session securely
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, effectiveToken);
+      await prefs.setString(_tokenKey, token);
       await prefs.setString(_userKey, jsonEncode(user.toJson()));
     } catch (_) {}
 
@@ -205,6 +215,15 @@ class AuthRepository {
     );
   }
 
+  /// Update cached user profile locally and persist to storage
+  Future<void> updateCachedUser(UserModel updatedUser) async {
+    _cachedUser = updatedUser;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userKey, jsonEncode(updatedUser.toJson()));
+    } catch (_) {}
+  }
+
   /// Fetch latest user profile from API
   Future<UserModel> refreshProfile() async {
     if (_cachedToken == null || _cachedToken!.isEmpty) {
@@ -220,91 +239,182 @@ class AuthRepository {
       await prefs.setString(_userKey, jsonEncode(user.toJson()));
       return user;
     }
-    throw const AuthApiException(message: 'Invalid profile response from server.');
+    throw const AuthApiException(
+      message: 'Invalid profile response from server.',
+    );
   }
 
-  /// Official REST API Google Sign-In
-  Future<UserModel> signInWithGoogle({
-    String portal = 'student',
-    GoogleSignIn? googleSignInClient,
-  }) async {
-    final googleSignIn = googleSignInClient ??
-        GoogleSignIn(
-          scopes: ['email', 'profile', 'openid'],
+  /// Native On-Device Google Sign-In
+  ///
+  /// Uses official GoogleSignIn with serverClientId (Web Client ID)
+  /// so Google Play Services / iOS can issue an OpenID Connect ID Token (JWT).
+  /// Sends the token to backend POST /auth/google_auth.php for signature verification
+  /// and canonical user resolution.
+  Future<UserModel> signInWithGoogle({String portal = 'student'}) async {
+    String? idToken;
+
+    debugPrint(
+      '[GOOGLE AUTH DIAGNOSTIC] 1. Initializing GoogleSignIn with serverClientId: ${ApiConfig.googleServerClientId.isNotEmpty ? "(configured)" : "(none)"}',
+    );
+    try {
+      final googleSignIn = GoogleSignIn(
+        serverClientId: ApiConfig.googleServerClientId.isNotEmpty
+            ? ApiConfig.googleServerClientId
+            : null,
+        clientId: ApiConfig.googleIosClientId,
+        scopes: const ['email', 'profile', 'openid'],
+      );
+
+      // Sign out from any local Google session to always allow account selection
+      try {
+        await googleSignIn.signOut();
+      } catch (_) {}
+
+      debugPrint(
+        '[GOOGLE AUTH DIAGNOSTIC] 2. Launching native Google Account Picker...',
+      );
+      final account = await googleSignIn.signIn();
+      if (account == null) {
+        debugPrint(
+          '[GOOGLE AUTH DIAGNOSTIC] 3. User closed account picker without selecting an account.',
         );
+        throw const GoogleSignInCancelledException();
+      }
 
-    final GoogleSignInAccount? account;
-    try {
-      account = await googleSignIn.signIn();
+      debugPrint(
+        '[GOOGLE AUTH DIAGNOSTIC] 3. Account selected successfully. Fetching authentication tokens...',
+      );
+      final auth = await account.authentication;
+      idToken = auth.idToken;
+      debugPrint(
+        '[GOOGLE AUTH DIAGNOSTIC] 4. ID token status: ${idToken != null && idToken.isNotEmpty ? "Available (len=${idToken.length})" : "NOT available"}',
+      );
+    } on AuthApiException {
+      rethrow;
     } catch (e) {
-      throw AuthApiException(message: 'Google Sign-In failed to initialize: $e');
-    }
-
-    if (account == null) {
-      throw const AuthApiException(message: 'Google sign-in was cancelled.');
-    }
-
-    GoogleSignInAuthentication? auth;
-    try {
-      auth = await account.authentication;
-    } catch (e) {
-      debugPrint('[GOOGLE AUTH] Failed to retrieve Google credentials: $e');
-    }
-
-    final idToken = auth?.idToken ?? auth?.accessToken;
-    Map<String, dynamic>? response;
-    try {
-      if (idToken != null && idToken.isNotEmpty) {
-        response = await _apiService.googleAuth(
-          idToken: idToken,
-          portal: portal,
-          email: account.email,
-          name: account.displayName,
-          googleId: account.id,
-          avatar: account.photoUrl,
+      debugPrint('[GOOGLE AUTH DIAGNOSTIC ERROR] Native sign-in error: $e');
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('cancel') ||
+          errStr.contains('canceled') ||
+          errStr.contains('dismiss') ||
+          errStr.contains('interrupted')) {
+        throw const GoogleSignInCancelledException();
+      }
+      if (errStr.contains('network') || errStr.contains('socket')) {
+        throw const AuthApiException(
+          message:
+              'Unable to connect to Google. Please check your internet connection.',
         );
       }
-    } catch (e) {
-      debugPrint('[GOOGLE AUTH API] Server verification: $e');
+      if (errStr.contains('10:') || errStr.contains('apiexception: 10')) {
+        throw const AuthApiException(
+          message:
+              'Google Sign-In configuration error (Developer Error 10). The Android OAuth client must match com.example.zabira_academy and this APK signing SHA-1.',
+        );
+      }
+      if (errStr.contains('12500:') || errStr.contains('apiexception: 12500')) {
+        throw const AuthApiException(
+          message:
+              'Google Sign-In failed (Error 12500). Please check your Google Play Services.',
+        );
+      }
+      throw AuthApiException(message: 'Google sign-in failed: $e');
     }
 
-    String? token;
-    final data = response?['data'];
-    if (data is Map<String, dynamic>) {
-      token = data['token']?.toString() ??
-          data['access_token']?.toString() ??
-          data['jwt']?.toString();
-    } else if (response?['token'] != null) {
-      token = response!['token']?.toString();
+    if (idToken == null || idToken.isEmpty) {
+      throw const AuthApiException(
+        message: 'Google did not return a valid authentication token.',
+      );
     }
 
-    final effectiveToken = token ?? 'google_session_${account.id}';
-    _cachedToken = effectiveToken;
-
-    final userData = (data is Map<String, dynamic> ? data['user'] : null) as Map<String, dynamic>?;
-    final user = UserModel(
-      uid: userData?['id']?.toString() ?? userData?['uid']?.toString() ?? account.id,
-      email: userData?['email']?.toString() ?? account.email,
-      displayName: userData?['name']?.toString() ??
-          userData?['display_name']?.toString() ??
-          account.displayName ??
-          account.email.split('@').first,
-      photoUrl: userData?['photo_url']?.toString() ??
-          userData?['avatar']?.toString() ??
-          account.photoUrl,
-      role: UserRole.fromString(userData?['role']?.toString() ?? portal),
-      createdAt: DateTime.now(),
+    debugPrint(
+      '[GOOGLE AUTH DIAGNOSTIC] 5. Sending verified ID token to Zabira backend POST /auth/google_auth.php...',
+    );
+    final response = await _apiService.googleAuth(idToken: idToken);
+    debugPrint(
+      '[GOOGLE AUTH DIAGNOSTIC] 6. Zabira backend response: success=${response['success']}',
     );
 
+    if (response['success'] == false) {
+      final msg =
+          response['message']?.toString() ??
+          'Google authentication failed on server.';
+      throw AuthApiException(message: msg, statusCode: 401);
+    }
+
+    final token = _extractAuthToken(response);
+    if (token == null || token.isEmpty) {
+      throw const AuthApiException(
+        message:
+            'Google authentication succeeded but the Zabira session token was missing.',
+      );
+    }
+
+    // Construct User Model from API data identically to email/password login
+    final userMap = _extractUserMap(response);
+    if (userMap == null ||
+        userMap.isEmpty ||
+        (userMap['id'] == null &&
+            userMap['user_id'] == null &&
+            userMap['uid'] == null)) {
+      throw const AuthApiException(
+        message:
+            'Google authentication succeeded but the Zabira user data was missing.',
+      );
+    }
+    if (!userMap.containsKey('role')) userMap['role'] = portal.trim();
+
+    final user = UserModel.fromJson(userMap);
+
+    // Commit only after successful parsing
+    _cachedToken = token;
     _cachedUser = user;
 
+    // Persist session securely using the EXACT SAME keys as email/password login
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, effectiveToken);
+      await prefs.setString(_tokenKey, token);
       await prefs.setString(_userKey, jsonEncode(user.toJson()));
     } catch (_) {}
 
     return user;
+  }
+
+  String? _extractAuthToken(Map<String, dynamic> response) {
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      final token =
+          data['token'] ??
+          data['access_token'] ??
+          data['jwt'] ??
+          data['auth_token'];
+      if (token != null && token.toString().isNotEmpty) return token.toString();
+      final user = data['user'];
+      if (user is Map<String, dynamic>) {
+        final userToken = user['token'] ?? user['access_token'] ?? user['jwt'];
+        if (userToken != null && userToken.toString().isNotEmpty) {
+          return userToken.toString();
+        }
+      }
+    }
+    final token =
+        response['token'] ??
+        response['access_token'] ??
+        response['jwt'] ??
+        response['auth_token'];
+    return token?.toString();
+  }
+
+  Map<String, dynamic>? _extractUserMap(Map<String, dynamic> response) {
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      final user = data['user'];
+      if (user is Map<String, dynamic>) return user;
+      return data;
+    }
+    final user = response['user'];
+    if (user is Map<String, dynamic>) return user;
+    return null;
   }
 
   /// Clear stored credentials on Sign Out
@@ -323,7 +433,10 @@ class AuthRepository {
 class TeacherAuthRepository extends AuthRepository {
   TeacherAuthRepository({super.apiService});
 
-  Future<UserModel> signInAsTeacher({required String email, required String password}) async {
+  Future<UserModel> signInAsTeacher({
+    required String email,
+    required String password,
+  }) async {
     return signInWithApi(email: email, password: password, portal: 'teacher');
   }
 }
