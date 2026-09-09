@@ -359,7 +359,7 @@ class _SignInFormState extends State<_SignInForm> {
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
       } else {
-        context.go(AppRoutes.studentDash);
+        context.go(AppRoutes.home);
       }
     } else if (widget.auth.errorMessage != null) {
       context.showErrorSnackBar(widget.auth.errorMessage!);
@@ -375,7 +375,7 @@ class _SignInFormState extends State<_SignInForm> {
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
       } else {
-        context.go(AppRoutes.studentDash);
+        context.go(AppRoutes.home);
       }
       context.showSuccessSnackBar(
         'Welcome back, ${widget.auth.user?.displayName ?? "Student"}!',
@@ -633,7 +633,7 @@ class _RegisterFormState extends State<_RegisterForm> {
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
       } else {
-        context.go(AppRoutes.studentDash);
+        context.go(AppRoutes.home);
       }
       context.showSuccessSnackBar(
         'Welcome to Zabira Academy, ${widget.auth.user?.displayName ?? "Student"}!',
@@ -678,7 +678,7 @@ class _RegisterFormState extends State<_RegisterForm> {
         if (returnTo != null && returnTo.isNotEmpty) {
           context.go(returnTo);
         } else {
-          context.go(AppRoutes.studentDash);
+          context.go(AppRoutes.home);
         }
       } else {
         context.showSuccessSnackBar(

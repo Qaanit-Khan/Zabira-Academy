@@ -133,7 +133,7 @@ class _RegisterPageState extends State<RegisterPage> {
         if (returnTo != null && returnTo.isNotEmpty) {
           context.go(returnTo);
         } else {
-          context.go(AppRoutes.studentDash);
+          context.go(AppRoutes.home);
         }
       } else {
         context.showSuccessSnackBar(
@@ -160,7 +160,7 @@ class _RegisterPageState extends State<RegisterPage> {
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
       } else {
-        context.go(AppRoutes.studentDash);
+        context.go(AppRoutes.home);
       }
       context.showSuccessSnackBar(
         'Welcome to Zabira Academy, ${auth.user?.displayName ?? "Student"}!',

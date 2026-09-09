@@ -13,6 +13,7 @@ import '../../../courses/presentation/controllers/enrollment_controller.dart';
 import '../../../store/presentation/controllers/cart_controller.dart';
 import '../../../student/presentation/controllers/student_controller.dart';
 import '../../../store/data/services/store_service.dart';
+import '../../../library/data/services/library_api_service.dart';
 import '../../data/services/payment_gateway_launcher.dart';
 import '../../data/utils/order_response_utils.dart';
 import '../controllers/payment_controller.dart';
@@ -242,6 +243,27 @@ class _CheckoutPageState extends State<CheckoutPage> {
           );
           return;
         }
+      } else if (widget.productType == 'library') {
+        if (effectiveOrderId <= 0) {
+          try {
+            final libSvc = LibraryApiService();
+            final format = widget.planLabel?.toLowerCase() ?? 'pdf';
+            final purchaseRes = await libSvc.purchaseLibraryItem(
+              bookId: widget.orderId,
+              format: format,
+              token: auth.currentToken,
+            );
+            final realId = extractOrderId(purchaseRes) ?? 0;
+            if (realId > 0) effectiveOrderId = realId;
+          } catch (e) {
+            DebugLogger.logPaymentStage(
+              stage: 'library_order_creation_failed',
+              productType: 'library',
+              productId: widget.orderId,
+              data: {'error': _sanitizeError(e)},
+            );
+          }
+        }
       } else if (widget.productType == 'course' &&
           (effectiveOrderId <= 0 || effectiveOrderId == widget.courseId)) {
         // Create real backend enrollment order
@@ -290,15 +312,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
         orderId: effectiveOrderId,
       );
 
-      // 2. Fetch checkout summary using the real order ID
+      // 2. Fetch checkout summary using the real order ID (optional / non-blocking)
       payment.setStatus(PaymentStatus.loadingSummary);
-      final summary = await payment.loadCheckoutSummary(
-        orderId: effectiveOrderId,
-        productType: widget.productType,
-        token: auth.currentToken,
-      );
-      if (summary == null) {
-        return;
+      try {
+        await payment.loadCheckoutSummary(
+          orderId: effectiveOrderId,
+          productType: widget.productType,
+          token: auth.currentToken,
+        );
+      } catch (e) {
+        DebugLogger.logPaymentStage(
+          stage: 'checkout_summary_skipped',
+          productType: widget.productType,
+          orderId: effectiveOrderId,
+          data: {'note': _sanitizeError(e)},
+        );
       }
 
       // 3. Create Payment Session

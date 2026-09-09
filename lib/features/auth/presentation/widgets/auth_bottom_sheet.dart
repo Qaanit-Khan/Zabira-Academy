@@ -230,8 +230,6 @@ class _SheetSignInFormState extends State<_SheetSignInForm> {
       final returnTo = widget.auth.consumePendingReturnTo();
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
-      } else {
-        context.go(AppRoutes.studentDash);
       }
       context.showSuccessSnackBar(
         'Welcome back, ${widget.auth.user?.displayName ?? "Student"}!',
@@ -509,8 +507,6 @@ class _SheetRegisterFormState extends State<_SheetRegisterForm> {
       final returnTo = widget.auth.consumePendingReturnTo();
       if (returnTo != null && returnTo.isNotEmpty) {
         context.go(returnTo);
-      } else {
-        context.go(AppRoutes.studentDash);
       }
       context.showSuccessSnackBar(
         'Welcome to Zabira Academy, ${widget.auth.user?.displayName ?? "Student"}!',

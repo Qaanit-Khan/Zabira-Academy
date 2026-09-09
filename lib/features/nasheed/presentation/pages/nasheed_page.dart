@@ -21,7 +21,6 @@ import '../../../auth/presentation/widgets/auth_bottom_sheet.dart';
 import '../controllers/nasheed_audio_player_controller.dart';
 import '../controllers/nasheed_controller.dart';
 import '../widgets/nasheed_category_chips.dart';
-import '../widgets/nasheed_hero_card.dart';
 import '../widgets/nasheed_now_playing_card.dart';
 import '../widgets/nasheed_track_tile.dart';
 
@@ -147,17 +146,6 @@ class _NasheedPageState extends State<NasheedPage> {
                         ),
 
                         const SizedBox(height: 12),
-
-                        // 2. Nasheed Hero Card
-                        NasheedHeroCard(
-                          onListenTap: () {
-                            if (nasheeds.isNotEmpty && player != null) {
-                              player.playTrack(nasheeds.first);
-                            }
-                          },
-                        ),
-
-                        const SizedBox(height: 10),
 
                         // 2. Category Section Header & Chips
                         Padding(

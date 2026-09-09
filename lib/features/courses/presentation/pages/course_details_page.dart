@@ -291,11 +291,16 @@ class _CourseDetailsPageState extends State<CourseDetailsPage> {
     final success = await cart.addItem(
       itemData: {
         'course_id': c.id,
+        'title': c.title,
+        'name': c.title,
+        'image': c.fullThumbnailUrl ?? c.fullHeroBannerUrl ?? c.thumbnail,
+        'thumbnail': c.fullThumbnailUrl ?? c.thumbnail,
         'product_type': 'course',
         'quantity': '1',
         'price': planPrice,
         'discount_price': planPrice,
         'plan_type': isMonthly ? 'monthly' : 'full',
+        'payment_plan': isMonthly ? 'monthly' : 'full',
       },
       token: auth.currentToken,
     );

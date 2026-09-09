@@ -23,6 +23,13 @@ class AuthApiException implements Exception {
   String toString() => message;
 }
 
+/// Normal account-picker dismissal. This is deliberately distinct from a
+/// failed sign-in so the UI can return to the login form without an error.
+class GoogleSignInCancelledException extends AuthApiException {
+  const GoogleSignInCancelledException()
+    : super(message: 'Google sign-in was cancelled.');
+}
+
 /// Official Zabira Academy Auth API Network Service.
 class AuthApiService {
   AuthApiService({http.Client? client}) : _client = client ?? http.Client();
@@ -58,13 +65,22 @@ class AuthApiService {
           .post(uri, headers: headers, body: jsonBody)
           .timeout(Duration(seconds: timeoutSeconds));
 
-      if (kDebugMode) debugPrint('[AUTH API RESPONSE] HTTP ${response.statusCode} | URL: $uri');
+      if (kDebugMode)
+        debugPrint(
+          '[AUTH API RESPONSE] HTTP ${response.statusCode} | URL: $uri',
+        );
 
       return _handleResponse(response, uri);
     } on SocketException {
-      throw const AuthApiException(message: 'Unable to reach server. Please check your internet connection.');
+      throw const AuthApiException(
+        message:
+            'Unable to reach server. Please check your internet connection.',
+      );
     } on TimeoutException {
-      throw const AuthApiException(message: 'Request timed out. Please try again.', statusCode: 408);
+      throw const AuthApiException(
+        message: 'Request timed out. Please try again.',
+        statusCode: 408,
+      );
     } catch (e) {
       if (e is AuthApiException) rethrow;
       throw AuthApiException(message: e.toString());
@@ -84,7 +100,9 @@ class AuthApiService {
     }
 
     final path = ApiConfig.normalizePath(endpoint);
-    final uri = Uri.parse('${ApiConfig.baseUrl}$path').replace(queryParameters: queryParams);
+    final uri = Uri.parse(
+      '${ApiConfig.baseUrl}$path',
+    ).replace(queryParameters: queryParams);
 
     if (kDebugMode) debugPrint('[AUTH API GET] $uri');
 
@@ -93,13 +111,22 @@ class AuthApiService {
           .get(uri, headers: headers)
           .timeout(Duration(seconds: timeoutSeconds));
 
-      if (kDebugMode) debugPrint('[AUTH API RESPONSE] HTTP ${response.statusCode} | URL: $uri');
+      if (kDebugMode)
+        debugPrint(
+          '[AUTH API RESPONSE] HTTP ${response.statusCode} | URL: $uri',
+        );
 
       return _handleResponse(response, uri);
     } on SocketException {
-      throw const AuthApiException(message: 'Unable to reach server. Please check your internet connection.');
+      throw const AuthApiException(
+        message:
+            'Unable to reach server. Please check your internet connection.',
+      );
     } on TimeoutException {
-      throw const AuthApiException(message: 'Request timed out. Please try again.', statusCode: 408);
+      throw const AuthApiException(
+        message: 'Request timed out. Please try again.',
+        statusCode: 408,
+      );
     } catch (e) {
       if (e is AuthApiException) rethrow;
       throw AuthApiException(message: e.toString());
@@ -134,16 +161,27 @@ class AuthApiService {
     }
 
     if (response.statusCode == 401) {
-      final msg = decoded is Map ? (decoded['message'] ?? 'Invalid credentials or session expired.') : 'Unauthorized';
+      final msg = decoded is Map
+          ? (decoded['message'] ?? 'Invalid credentials or session expired.')
+          : 'Unauthorized';
       throw AuthApiException(message: msg.toString(), statusCode: 401);
     }
 
     if (decoded is Map<String, dynamic>) {
-      final msg = decoded['message'] ?? decoded['error'] ?? 'Request failed (${response.statusCode})';
-      throw AuthApiException(message: msg.toString(), statusCode: response.statusCode);
+      final msg =
+          decoded['message'] ??
+          decoded['error'] ??
+          'Request failed (${response.statusCode})';
+      throw AuthApiException(
+        message: msg.toString(),
+        statusCode: response.statusCode,
+      );
     }
 
-    throw AuthApiException(message: 'Request failed (${response.statusCode})', statusCode: response.statusCode);
+    throw AuthApiException(
+      message: 'Request failed (${response.statusCode})',
+      statusCode: response.statusCode,
+    );
   }
 
   /// `POST /auth/login.php`
@@ -154,11 +192,7 @@ class AuthApiService {
   }) async {
     return _post(
       ApiConfig.authLogin,
-      body: {
-        'email': email.trim(),
-        'password': password,
-        'portal': portal,
-      },
+      body: {'email': email.trim(), 'password': password, 'portal': portal},
     );
   }
 
@@ -222,8 +256,13 @@ class AuthApiService {
   }
 
   /// `POST /auth/validate_reset_token.php`
-  Future<Map<String, dynamic>> validateResetToken({required String token}) async {
-    return _post(ApiConfig.authValidateResetToken, body: {'token': token.trim()});
+  Future<Map<String, dynamic>> validateResetToken({
+    required String token,
+  }) async {
+    return _post(
+      ApiConfig.authValidateResetToken,
+      body: {'token': token.trim()},
+    );
   }
 
   /// `POST /auth/reset_password.php`
@@ -253,39 +292,21 @@ class AuthApiService {
   }
 
   /// `POST /auth/google_auth.php`
-  Future<Map<String, dynamic>> googleAuth({
-    required String idToken,
-    String portal = 'student',
-    String? email,
-    String? name,
-    String? googleId,
-    String? avatar,
-  }) async {
-    final body = <String, dynamic>{
-      'id_token': idToken,
-      'credential': idToken,
-      'token': idToken,
-      'portal': portal,
-    };
-    if (email != null && email.isNotEmpty) body['email'] = email;
-    if (name != null && name.isNotEmpty) {
-      body['name'] = name;
-      body['full_name'] = name;
-    }
-    if (googleId != null && googleId.isNotEmpty) {
-      body['google_id'] = googleId;
-      body['sub'] = googleId;
-    }
-    if (avatar != null && avatar.isNotEmpty) {
-      body['avatar'] = avatar;
-      body['photo_url'] = avatar;
-    }
-
-    return _post(ApiConfig.authGoogleAuth, body: body);
+  ///
+  /// Sends the Google ID Token (JWT) directly to the backend for server-side
+  /// verification against Google's public keys. The backend verifies audience,
+  /// issuer, expiry, and signature, and extracts verified claims (sub, email, name, avatar).
+  Future<Map<String, dynamic>> googleAuth({required String idToken}) async {
+    // This public endpoint accepts Google's OIDC ID token, not an existing
+    // Zabira session and not a Google access token. Keep the body precisely
+    // aligned with the documented contract.
+    return _post(ApiConfig.authGoogleAuth, body: {'id_token': idToken.trim()});
   }
 
   /// `GET /student/dashboard.php`
-  Future<Map<String, dynamic>> getStudentDashboard({required String token}) async {
+  Future<Map<String, dynamic>> getStudentDashboard({
+    required String token,
+  }) async {
     return _get(ApiConfig.studentDashboard, token: token);
   }
 }
