@@ -460,10 +460,10 @@ class _CenterHomeButtonState extends State<_CenterHomeButton>
   @override
   void initState() {
     super.initState();
-    // Exactly 3-second hold for AI activation
+    // Exactly 2-second hold for AI activation
     _holdAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 2),
     );
 
     _holdAnimController.addStatusListener((status) {
@@ -582,7 +582,7 @@ class _CenterHomeButtonState extends State<_CenterHomeButton>
                   ),
                 ),
 
-              // ── 2. 3-Second Hold Golden Progress Ring (Non-shifting overlay) ──
+              // ── 2. 2-Second Hold Golden Progress Ring (Non-shifting overlay) ──
               Positioned.fill(
                 child: AnimatedBuilder(
                   animation: _holdAnimController,
